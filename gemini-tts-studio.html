@@ -1,0 +1,2678 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gemini TTS Studio</title>
+  <!-- config.local.js é OPCIONAL e não faz parte do repositório/backup (ver config.local.js.exemplo).
+       Se o arquivo não existir ao lado deste .html, o navegador só ignora o 404 — nada quebra.
+       Se existir, roda ANTES do app e pode pré-preencher o localStorage (chaves, token) pra essa máquina. -->
+  <script src="config.local.js" onerror="this.remove()"></script>
+  <style>
+    /* TEMA ESCURO (padrão) */
+    :root, :root[data-tema="escuro"] {
+      --bg: #0f0f13;
+      --surface: #1a1a22;
+      --surface2: #22222e;
+      --border: #2e2e3e;
+      --accent: #7c6af7;
+      --accent-hover: #9585fa;
+      --text: #e8e6f0;
+      --text-muted: #7a7890;
+      --success: #4caf82;
+      --error: #e05a5a;
+      --warn: #e0a85a;
+      --radius: 8px;
+    }
+    /* TEMA CINZA */
+    :root[data-tema="cinza"] {
+      --bg: #3a3d42;
+      --surface: #45484e;
+      --surface2: #4e525a;
+      --border: #5c606a;
+      --accent: #8b7bf9;
+      --accent-hover: #a294fb;
+      --text: #f0f1f4;
+      --text-muted: #b6b9c2;
+      --success: #58c294;
+      --error: #ef7676;
+      --warn: #eab765;
+    }
+    /* TEMA CLARO */
+    :root[data-tema="claro"] {
+      --bg: #f4f4f7;
+      --surface: #ffffff;
+      --surface2: #eceef3;
+      --border: #d3d6de;
+      --accent: #5b46e0;
+      --accent-hover: #4a36c9;
+      --text: #1c1c24;
+      --text-muted: #64677a;
+      --success: #1f8f5f;
+      --error: #c93b3b;
+      --warn: #b57d18;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* faltava a regra genérica — sem ela .hidden só funcionava em .output-area */
+    .hidden { display: none !important; }
+
+    /* mesa de blocos */
+    .dist-bar { display:flex; align-items:flex-end; gap:12px; flex-wrap:wrap; margin-top:16px; }
+    .blocos-head { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin:20px 0 8px; }
+    .blocos-acoes { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .bloco {
+      display:grid; grid-template-columns: 30px 190px 1fr 200px; gap:10px; align-items:start;
+      padding:10px; border:1px solid var(--border); border-radius:var(--radius);
+      background:var(--surface); margin-bottom:8px;
+    }
+    .bloco.ok       { border-left:3px solid var(--warn); }
+    .bloco.aprovado { border-left:3px solid var(--success); }
+    .bloco.erro     { border-left:3px solid var(--error); }
+    .bloco.ativo    { border-left:3px solid var(--accent); }
+    .bloco-num { font-size:12px; color:var(--text-muted); padding-top:8px; font-weight:600; }
+    .bloco-txt { width:100%; min-height:58px; font-size:12px; line-height:1.5; resize:vertical; }
+    .bloco-dir { display:flex; flex-direction:column; gap:6px; align-items:flex-end; min-width:190px; }
+    .bloco-linha { display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+    .bloco-status { font-size:11px; color:var(--text-muted); text-align:right; }
+    .bloco-status.ok { color:var(--success); }
+    .bloco-status.erro { color:var(--error); }
+
+    /* seletor de perfil por bloco */
+    .bloco-perfil-label { font-size:10px; color:var(--text-muted); margin-top:6px; }
+    .bloco-perfil {
+      width:100%; font-size:11px; padding:4px 24px 4px 8px; margin-top:2px;
+      background-position:right 8px center;
+    }
+    .bloco-voz-preview { font-size:10px; color:var(--accent); margin-top:3px; font-style:italic; }
+
+    /* quantidade de blocos manuais */
+    .qtd-manual {
+      width:64px !important; text-align:center; padding:9px 6px !important;
+    }
+
+    /* documentos de referência (planilha / md) — preenchem a narração pelo nome do bloco */
+    .docs-area { margin: 4px 0 2px; }
+    .dropzone {
+      border: 1px dashed var(--border); border-radius: var(--radius);
+      padding: 14px; text-align: center; cursor: pointer;
+      color: var(--text-muted); font-size: 12px; transition: all 0.15s;
+      background: var(--surface);
+    }
+    .dropzone:hover, .dropzone.arrastando { border-color: var(--accent); color: var(--accent); background: var(--surface2); }
+    .docs-lista { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+    .doc-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius);
+      background: var(--surface); font-size: 12px;
+    }
+    .doc-nome { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .doc-ep { width: 56px !important; padding: 4px 6px !important; font-size: 12px !important; flex: none; }
+    .doc-canal, .canal-global-select { width: 168px !important; padding: 4px 22px 4px 8px !important; font-size: 12px !important; flex: none; background-position: right 6px center; }
+    .doc-langs { display: flex; gap: 3px; flex: none; }
+    .doc-lang-chip {
+      font-size: 10px; padding: 2px 5px; border-radius: 4px;
+      border: 1px solid var(--border); color: var(--text-muted);
+      font-family: 'Courier New', monospace;
+    }
+    .doc-lang-chip.achou { border-color: var(--success); color: var(--success); font-weight: 600; }
+    .bloco-sync-info { font-size: 10px; margin-top: 3px; color: var(--text-muted); min-height: 12px; }
+    .bloco-sync-info.ok { color: var(--success); }
+    .bloco-sync-info.aviso { color: var(--warn); }
+    .doc-select { flex: none; cursor: pointer; }
+
+    /* geração em lote — idiomas + episódios (documentos) selecionados */
+    .lote-area { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); }
+    .lote-linha { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .lote-idiomas { display: flex; gap: 6px; flex-wrap: wrap; }
+    .lote-lang-btn {
+      padding: 5px 12px; font-size: 12px; cursor: pointer; border-radius: 6px;
+      border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted);
+      font-family: 'Courier New', monospace; transition: all .12s;
+    }
+    .lote-lang-btn.sel { border-color: var(--accent); color: var(--accent); font-weight: 600; background: var(--surface); }
+
+    /* rodapé de escuta: player + onda + veredito */
+    .bloco-rodape {
+      grid-column: 1 / -1; display:flex; align-items:center; gap:10px;
+      flex-wrap:wrap; padding-top:9px; margin-top:2px;
+      border-top:1px dashed var(--border);
+    }
+    .bloco-rodape audio { width:240px; flex:none; height:32px; }
+    .wave {
+      flex:1; min-width:140px; height:46px; cursor:pointer;
+      border-radius:6px; background:var(--surface2); border:1px solid var(--border);
+    }
+    .btn-ok-sel { border-color:var(--success) !important; color:var(--success) !important; font-weight:600; }
+    .badge-refeito {
+      font-size:11px; font-weight:600; padding:3px 9px; border-radius:12px;
+      border:1px solid var(--accent); color:var(--accent); white-space:nowrap; flex:none;
+    }
+
+    .tema-row { display:flex; gap:6px; }
+    .tema-btn {
+      flex:1; padding:6px; font-size:11px; cursor:pointer; border-radius:6px;
+      border:1px solid var(--border); background:var(--surface2); color:var(--text);
+    }
+    .tema-btn.sel { border-color:var(--accent); color:var(--accent); font-weight:600; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 14px;
+      min-height: 100vh;
+    }
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header h1 { font-size: 15px; font-weight: 600; letter-spacing: 0.02em; }
+    header span { font-size: 12px; color: var(--text-muted); }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+    .main { display: grid; grid-template-columns: 320px 1fr; height: calc(100vh - 45px); }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+    .section { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+    .section-title {
+      font-size: 11px; font-weight: 600; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px;
+    }
+    label {
+      display: block; font-size: 12px; color: var(--text-muted);
+      margin-bottom: 4px; margin-top: 8px;
+    }
+    label:first-of-type { margin-top: 0; }
+    input[type="text"], input[type="password"], input[type="number"], select, textarea {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: var(--radius);
+      padding: 7px 10px;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+    select {
+      cursor: pointer; appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%237a7890'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px;
+    }
+    .api-key-row { display: flex; gap: 6px; }
+    .api-key-row input { flex: 1; }
+    .btn-icon {
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text-muted); border-radius: var(--radius);
+      padding: 5px 10px; cursor: pointer; font-size: 12px; transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .btn-icon:hover { border-color: var(--accent); color: var(--text); }
+    .btn-icon:disabled { opacity:.4; cursor:not-allowed; }
+
+    /* ── PROFILE ROW ── */
+    .profile-actions { display: flex; gap: 5px; margin-top: 6px; }
+    .profile-actions .btn-icon { font-size: 12px; padding: 0 8px; height: 30px; }
+
+    /* ── COLLAPSIBLE ── */
+    details summary {
+      font-size: 11px; font-weight: 600; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.08em;
+      cursor: pointer; padding: 12px 14px;
+      list-style: none; display: flex; align-items: center; gap: 6px;
+      border-bottom: 1px solid var(--border); user-select: none;
+    }
+    details summary:hover { color: var(--text); }
+    details summary::before { content: '▶'; font-size: 9px; transition: transform 0.15s; }
+    details[open] summary::before { transform: rotate(90deg); }
+    .collapsible-inner { padding: 10px 14px 12px; border-bottom: 1px solid var(--border); }
+    .collapsible-inner textarea { resize: vertical; font-size: 12px; line-height: 1.5; }
+
+    /* ── VOICE BIBLE ── */
+    #voiceBibleText {
+      height: 200px;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+    #vbLabel { font-size: 11px; color: var(--accent); margin-bottom: 5px; display: block; font-style: italic; }
+
+    /* ── AUDIO TAGS ── */
+    .tags-note { font-size: 11px; color: var(--text-muted); margin-bottom: 7px; line-height: 1.4; }
+    .tags-grid { display: flex; flex-wrap: wrap; gap: 4px; }
+    .tag-chip {
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text-muted); border-radius: 4px; padding: 2px 7px;
+      font-size: 11px; cursor: pointer; transition: all 0.12s;
+      font-family: 'Courier New', monospace; user-select: none;
+    }
+    .tag-chip:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── WORKSPACE ── */
+    .workspace {
+      display: flex; flex-direction: column;
+      padding: 18px 20px; gap: 12px; overflow-y: auto;
+    }
+    .top-bar { display: flex; align-items: flex-end; gap: 10px; }
+    .filename-input { max-width: 220px; }
+    .filename-ext { color: var(--text-muted); font-size: 13px; margin-bottom: 8px; }
+    .btn-generate {
+      background: var(--accent); color: white; border: none;
+      border-radius: var(--radius); padding: 8px 20px;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: background 0.15s, opacity 0.15s;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .btn-generate:hover { background: var(--accent-hover); }
+    .btn-generate:disabled { opacity: 0.4; cursor: not-allowed; }
+    .area-label {
+      font-size: 11px; font-weight: 600; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 5px;
+    }
+    #mainText {
+      height: calc(100vh - 420px); min-height: 150px;
+      resize: vertical; font-size: 14px; line-height: 1.7;
+    }
+
+    /* ── OUTPUT ── */
+    .output-area {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 10px 14px;
+      display: flex; align-items: center; gap: 12px;
+      position: sticky; bottom: 0;
+    }
+    #statusMsg { font-size: 13px; color: var(--text-muted); flex: 1; }
+    #statusMsg.success { color: var(--success); }
+    #statusMsg.error { color: var(--error); }
+    #statusMsg.loading { color: var(--warn); }
+    .btn-download {
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); border-radius: var(--radius);
+      padding: 6px 12px; font-size: 12px; cursor: pointer;
+      transition: all 0.15s; white-space: nowrap;
+    }
+    .btn-download:hover { border-color: var(--accent); color: var(--accent); }
+    .spinner {
+      display: inline-block; width: 12px; height: 12px;
+      border: 2px solid rgba(255,255,255,0.3); border-top-color: white;
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .char-count { font-size: 11px; color: var(--text-muted); text-align: right; margin-top: 3px; }
+    .char-count.warn { color: var(--warn); }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed; bottom: 20px; right: 20px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text); padding: 8px 14px; border-radius: var(--radius);
+      font-size: 12px; opacity: 0; pointer-events: none;
+      transition: opacity 0.2s; z-index: 100;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="dot"></div>
+  <h1>Gemini TTS Studio</h1>
+  <span id="headerProfile">Selecione um perfil</span>
+  <button class="btn-icon" id="backupGithubBtn" style="margin-left:auto" title="Salva uma cópia deste app (como ela estava no último F5) no seu repositório do GitHub">💾 Salvar Backup no GitHub</button>
+</header>
+
+<div class="main">
+  <aside class="sidebar">
+
+    <!-- PERFIL DO CANAL -->
+    <div class="section">
+      <div class="section-title">Perfil do Canal</div>
+      <select id="profileSelect">
+        <optgroup label="── Livre ──">
+          <option value="__livre__">🎛 Sem perfil — voz e direção livres</option>
+        </optgroup>
+        <optgroup label="── O Código Joshua ──">
+          <option value="cj_pt">🇧🇷 PT-BR — O Código Joshua</option>
+          <option value="cj_en">🇺🇸 EN — The Joshua Code</option>
+          <option value="cj_es">🇪🇸 ES — El Código Joshua</option>
+          <option value="cj_de">🇩🇪 DE — Der Josua Kodex</option>
+          <option value="cj_fr">🇫🇷 FR — Le Code Joshua</option>
+        </optgroup>
+        <optgroup label="── Jesus Além dos Evangelhos ──">
+          <option value="jae_pt">🇧🇷 PT-BR — Jesus Além dos Evangelhos</option>
+          <option value="jae_en">🇺🇸 EN — Jesus Beyond the Gospels</option>
+          <option value="jae_es">🇪🇸 ES — Jesús Más Allá de los Evangelios</option>
+          <option value="jae_de">🇩🇪 DE — Jesus Jenseits der Evangelien</option>
+          <option value="jae_fr">🇫🇷 FR — Jésus Au-delà des Évangiles</option>
+        </optgroup>
+        <optgroup label="── Essência Única ──">
+          <option value="eu_pt">🇧🇷 PT-BR — Essência Única</option>
+          <option value="eu_en">🇺🇸 EN — Unique Essence</option>
+          <option value="eu_es">🇪🇸 ES — Esencia Única</option>
+          <option value="eu_de">🇩🇪 DE — Einzigartige Essenz</option>
+          <option value="eu_fr">🇫🇷 FR — Essence Unique</option>
+        </optgroup>
+        <optgroup label="── Estoy Siempre Con Dios ──">
+          <option value="escd_pt">🇧🇷 PT-BR — Estou Sempre Com Deus</option>
+          <option value="escd_en">🇺🇸 EN — I Am Always with God</option>
+          <option value="escd_es">🇪🇸 ES — Estoy Siempre Con Dios</option>
+          <option value="escd_de">🇩🇪 DE — Ich Bin Immer bei Gott</option>
+          <option value="escd_fr">🇫🇷 FR — Je Suis Toujours avec Dieu</option>
+        </optgroup>
+      </select>
+      <div class="profile-actions">
+        <button class="btn-icon" id="saveProfileBtn" title="Salvar Voice Bible e voz neste perfil">💾 Salvar perfil</button>
+        <button class="btn-icon" id="resetProfileBtn" title="Restaurar Voice Bible original">↺ Reset</button>
+      </div>
+    </div>
+
+    <!-- CONFIGURAÇÃO -->
+    <div class="section">
+      <div class="section-title">Configuração</div>
+      <label>API Keys — uma por linha</label>
+      <textarea id="apiKeys" placeholder="AIzaSy...chave1&#10;AIzaSy...chave2&#10;AIzaSy...chave3" style="min-height:74px;font-family:monospace;font-size:11px"></textarea>
+      <div class="api-key-row" style="margin-top:6px">
+        <span class="char-count" id="keysInfo" style="flex:1">nenhuma chave</span>
+        <button class="btn-icon" id="apiKeysToggle" title="Mostrar chaves">👁</button>
+        <button class="btn-icon" id="saveKeyBtn" title="Salvar chaves">💾</button>
+        <button class="btn-icon" id="apiKeysClearBtn" title="Apagar chaves salvas">🗑</button>
+      </div>
+      <p class="tags-note" style="margin-top:6px">O limite do Gemini é <b>por projeto, não por chave</b>: duas chaves do mesmo projeto dividem a mesma cota. Use uma chave por projeto para multiplicar de verdade.</p>
+      <label>Modelo</label>
+      <select id="modelSelect">
+        <option value="gemini-3.1-flash-tts-preview">3.1 Flash TTS (mais recente)</option>
+        <option value="gemini-2.5-flash-preview-tts">2.5 Flash Preview TTS (rápido)</option>
+        <option value="gemini-2.5-pro-preview-tts">2.5 Pro Preview TTS (qualidade)</option>
+      </select>
+      <label>Voz</label>
+      <select id="voiceSelect">
+        <optgroup label="── Projeto: vozes selecionadas ──">
+          <option value="Aoede">Aoede — Breezy · O Código Joshua / JAE</option>
+          <option value="Gacrux">Gacrux — Mature · Essência Única</option>
+          <option value="Umbriel">Umbriel — Easy-going · Estou Sempre Com Deus</option>
+        </optgroup>
+        <optgroup label="── Outras femininas ──">
+          <option value="Zephyr">Zephyr — Bright</option>
+          <option value="Leda">Leda — Youthful</option>
+          <option value="Callirrhoe">Callirrhoe — Easy-going</option>
+          <option value="Autonoe">Autonoe — Bright</option>
+          <option value="Enceladus">Enceladus — Breathy</option>
+          <option value="Despina">Despina — Smooth</option>
+          <option value="Erinome">Erinome — Clear</option>
+          <option value="Laomedeia">Laomedeia — Upbeat</option>
+          <option value="Achernar">Achernar — Soft</option>
+          <option value="Pulcherrima">Pulcherrima — Forward</option>
+          <option value="Vindemiatrix">Vindemiatrix — Gentle</option>
+          <option value="Sulafat">Sulafat — Warm</option>
+        </optgroup>
+        <optgroup label="── Masculinas ──">
+          <option value="Puck">Puck — Upbeat</option>
+          <option value="Charon">Charon — Informative</option>
+          <option value="Kore">Kore — Firm</option>
+          <option value="Fenrir">Fenrir — Excitable</option>
+          <option value="Orus">Orus — Firm</option>
+          <option value="Iapetus">Iapetus — Clear</option>
+          <option value="Algieba">Algieba — Smooth</option>
+          <option value="Algenib">Algenib — Gravelly</option>
+          <option value="Rasalgethi">Rasalgethi — Informative</option>
+          <option value="Alnilam">Alnilam — Firm</option>
+          <option value="Schedar">Schedar — Even</option>
+          <option value="Achird">Achird — Friendly</option>
+          <option value="Zubenelgenubi">Zubenelgenubi — Casual</option>
+          <option value="Sadachbia">Sadachbia — Lively</option>
+          <option value="Sadaltager">Sadaltager — Knowledgeable</option>
+        </optgroup>
+      </select>
+    </div>
+
+    <!-- BACKUP NO GITHUB (opcional, colapsado por padrão) -->
+    <div class="section" style="padding:0">
+      <details id="backupGithubDetails">
+        <summary>💾 Backup no GitHub (opcional)</summary>
+        <div class="collapsible-inner">
+          <p class="tags-note" style="margin-bottom:8px">Salva uma cópia deste app (do jeito que ela estava no último F5, sem lixo de sessão) no seu repositório do GitHub. Precisa de um token pessoal — crie um em <b>github.com/settings/tokens</b> com permissão "repo" (classic) ou "Contents: Read and write" (fine-grained).</p>
+
+          <label>Repositório (dono / nome)</label>
+          <div style="display:flex;gap:6px">
+            <input type="text" id="ghOwner" style="flex:1">
+            <input type="text" id="ghRepo" style="flex:1">
+          </div>
+          <label>Branch</label>
+          <input type="text" id="ghBranch">
+          <label>Caminho do arquivo no repositório</label>
+          <input type="text" id="ghPath">
+
+          <label style="margin-top:10px">Token pessoal do GitHub</label>
+          <div class="api-key-row">
+            <input type="password" id="ghToken" placeholder="ghp_... ou github_pat_...">
+            <button class="btn-icon" id="ghTokenToggle" title="Mostrar token">👁</button>
+          </div>
+          <div class="api-key-row" style="margin-top:6px">
+            <span class="char-count" id="ghTokenInfo" style="flex:1">nenhum token salvo</span>
+            <button class="btn-icon" id="ghTokenSaveBtn" title="Salvar token">💾</button>
+            <button class="btn-icon" id="ghTokenClearBtn" title="Apagar token salvo">🗑</button>
+          </div>
+          <p class="tags-note" style="margin-top:6px">O token fica <b>só no localStorage deste navegador</b> — nunca é enviado a nenhum lugar além da API do próprio GitHub.</p>
+          <p class="tags-note" id="ghStatus" style="margin-top:8px"></p>
+        </div>
+      </details>
+    </div>
+
+    <!-- DIREÇÃO LIVRE (só aparece no modo "Sem perfil") -->
+    <div class="section hidden" id="livreSection">
+      <div class="section-title">Direção livre</div>
+      <p class="tags-note" style="margin-bottom:10px">Monta o prompt de direção. Deixe em branco o que não quiser especificar — espaço em branco ajuda a naturalidade.</p>
+      <label>Audio Profile — quem é a voz</label>
+      <input type="text" id="livrePerfil" placeholder="ex: A deep, resonant narrator of mysteries.">
+
+      <label>Style</label>
+      <select id="livreEstilo"></select>
+      <p class="tags-note" id="livreEstiloDesc" style="margin:4px 0 8px"></p>
+
+      <label>Pace</label>
+      <select id="livreRitmo"></select>
+      <p class="tags-note" id="livreRitmoDesc" style="margin:4px 0 8px"></p>
+
+      <label>Accent</label>
+      <select id="livreSotaque"></select>
+      <label style="margin-top:6px">Sotaque personalizado <span style="opacity:.6">(vence o campo acima)</span></label>
+      <input type="text" id="livreSotaqueLivre" placeholder="ex: português brasileiro, feminino, São Paulo">
+
+      <label>Cena / ambiente</label>
+      <input type="text" id="livreCena" placeholder="ex: estúdio escuro, madrugada, luz âmbar">
+      <label>Notas extras do diretor</label>
+      <textarea id="livreNotas" style="min-height:60px" placeholder="ex: respiração audível nas transições; sussurro nas frases de impacto"></textarea>
+      <button class="btn-icon" id="livreAplicarBtn" style="margin-top:8px">↧ Gerar Voice Bible a partir destes campos</button>
+    </div>
+
+    <!-- TEMA -->
+    <div class="section">
+      <div class="section-title">Tema</div>
+      <div class="tema-row">
+        <button class="tema-btn" data-tema="escuro">Escuro</button>
+        <button class="tema-btn" data-tema="cinza">Cinza</button>
+        <button class="tema-btn" data-tema="claro">Claro</button>
+      </div>
+    </div>
+
+    <!-- AUDIO TAGS -->
+    <details>
+      <summary>Audio Tags (inserir no roteiro)</summary>
+      <div class="collapsible-inner">
+        <p class="tags-note">Clique para inserir no cursor. Use tags em inglês mesmo que o texto seja em outro idioma.</p>
+        <div class="tags-grid" id="tagsGrid"></div>
+      </div>
+    </details>
+
+    <!-- VOICE BIBLE -->
+    <details open>
+      <summary>Voice Bible · Prompt Avançado</summary>
+      <div class="collapsible-inner">
+        <span id="vbLabel">Selecione um perfil acima</span>
+        <textarea id="voiceBibleText" placeholder="Selecione um perfil para carregar o Voice Bible..."></textarea>
+      </div>
+    </details>
+
+  </aside>
+
+  <!-- WORKSPACE -->
+  <main class="workspace">
+    <!-- 1 · ROTEIRO COMPLETO -->
+    <div>
+      <div class="area-label">① Roteiro completo</div>
+      <textarea id="mainText" placeholder="Cole aqui o roteiro inteiro — ele será distribuído em blocos.
+
+Exemplo com audio tags:
+[thoughtful] Em 4 de abril do ano 7 depois de Cristo...
+[whispers] O criador do universo. Aprendendo a fazer juntas."></textarea>
+      <div class="char-count" id="charCount">0 caracteres</div>
+    </div>
+
+    <!-- 2 · DISTRIBUIÇÃO -->
+    <div class="dist-bar">
+      <div>
+        <div class="area-label">② Caracteres por bloco</div>
+        <input type="number" id="splitTamanho" value="500" min="80" max="4000" step="50" class="filename-input" style="width:110px">
+      </div>
+      <button class="btn-generate" id="distribuirBtn" onclick="distribuirBlocos()">⿻ Distribuir em blocos</button>
+      <div>
+        <div class="area-label">Qtde.</div>
+        <input type="number" id="qtdBlocosManual" value="1" min="1" max="200" step="1" class="filename-input qtd-manual" title="Quantidade de blocos manuais a criar">
+      </div>
+      <button class="btn-icon" style="padding:9px 14px" onclick="adicionarBlocosManual()" title="Cria a quantidade indicada de blocos vazios no fim da mesa, já com o Perfil do Canal atual — funciona também durante a geração">＋ Bloco manual</button>
+      <span class="char-count" id="splitPreview"></span>
+    </div>
+
+    <!-- 2.5 · DOCUMENTOS DE REFERÊNCIA -->
+    <div class="docs-area">
+      <div class="area-label">Documentos de referência <span style="opacity:.6;font-weight:400;text-transform:none;letter-spacing:0">— arraste a planilha (.xlsx) ou o roteiro (.md); o nome do bloco (ex: "ESS 1 EN") acha sozinho o episódio e o idioma certos</span></div>
+      <div class="lote-linha" style="margin-bottom:8px">
+        <span class="bloco-perfil-label" style="margin:0">Canal do projeto <span style="opacity:.6;font-weight:400">— aplica a todos de uma vez</span></span>
+        <select id="canalGlobalSelect" class="canal-global-select" style="width:220px" title="Aplica esse canal a todo documento carregado que ainda não tiver um definido, e vira o padrão pros próximos arquivos soltos aqui — você ainda pode trocar o canal de um arquivo específico na lista abaixo"></select>
+      </div>
+      <div class="dropzone" id="dropDocs" tabindex="0">📄 arraste arquivos aqui, ou clique para escolher (.xlsx, .md)</div>
+      <input type="file" id="dropDocsInput" class="hidden" accept=".xlsx,.md,.markdown,.txt" multiple>
+      <div class="docs-lista" id="docsLista"></div>
+      <div class="lote-area hidden" id="loteArea">
+        <div class="lote-linha">
+          <span class="bloco-perfil-label" style="margin:0">Idiomas para gerar</span>
+          <span class="lote-idiomas" id="loteIdiomas"></span>
+        </div>
+        <div class="lote-linha" style="margin-top:8px">
+          <button class="btn-generate" id="loteGerarBtn" onclick="criarBlocosEmLote()">⚡ Criar blocos automaticamente</button>
+          <span class="char-count" id="loteResumo">usa os documentos marcados acima × os idiomas marcados aqui</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3 · MESA DE BLOCOS -->
+    <div class="hidden" id="blocosArea">
+      <div class="blocos-head">
+        <div class="area-label" style="margin:0">③ Blocos <span id="blocosResumo" style="opacity:.7"></span></div>
+        <div class="blocos-acoes">
+          <input type="text" id="nomeBase" class="filename-input" placeholder="EU_EP03_AU_PT_L01" style="width:210px">
+          <button class="btn-icon" onclick="aplicarNomesSequenciais()" title="Numera os blocos a partir deste nome, continuando o número final">↧ Nomear em sequência</button>
+          <button class="btn-generate" id="gerarTodosBtn" onclick="gerarTodos()">▶ Gerar pendentes</button>
+          <button class="btn-download" onclick="baixarTodos(false)" style="padding:7px 14px">⬇ Baixar todos</button>
+          <button class="btn-download" onclick="baixarTodos(true)" style="padding:7px 14px" title="Só os que você marcou como aceitos">⬇ Baixar aprovados</button>
+        </div>
+      </div>
+      <div id="blocosLista"></div>
+    </div>
+
+    <div class="output-area hidden" id="outputArea">
+      <span id="statusMsg"></span>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+// ════════════════════════════════════════════════════════
+// ESTADO DA MESA — declarado no topo porque o tema e a onda
+// sonora precisam dele antes das seções mais abaixo.
+// blocos[] = { id, texto, nome, blob, picos, status, erro, aprovado, perfil }
+// status: 'pendente' | 'gerando' | 'ok' | 'erro'
+// perfil: '' = herda o perfil ativo da tela (dinâmico) · ou o id de um dos 15 perfis fixos
+// ════════════════════════════════════════════════════════
+let blocos = [];
+let seqId = 0;
+let gerandoLote = false;
+const chavesEmUso = new Set();
+
+// ════════════════════════════════════════════════════════
+// VOICE BIBLES — 15 perfis (3 canais × 5 idiomas)
+// Prompts em inglês → melhor controle de performance no Gemini TTS
+// TRANSCRIPT é adicionado automaticamente em buildPrompt()
+// ════════════════════════════════════════════════════════
+
+// ── O CÓDIGO JOSHUA ──────────────────────────────────────
+const VB = {};
+
+VB.cj_pt = `# AUDIO PROFILE: A Narradora — O Código Joshua
+## Brazilian Dark Cinematic Spiritual Documentary
+
+## THE SCENE: Intimate Dark Studio, Late Night
+A sound-proofed room with dark velvet walls. Amber light, barely enough to see. The narrator is not broadcasting to an audience — she is sharing an ancient secret with one person, up close. Outside, the city sleeps. The silence is intentional, full of meaning.
+
+### DIRECTOR'S NOTES
+Style: Dark cinematic documentary. Each sentence is a discovery — never an explanation. Never theatrical. Never preachy. Revelation is the engine, not displayed emotion. Silence is part of the narrative. Emotions evolve continuously, never abruptly. The narrator reveals — she does not teach, preach, or announce.
+Pacing: Deliberate and deep. Pauses carry dramatic weight. Cosmic moments narrated slowly. Intimate human moments get a slightly closer, warmer delivery.
+Accent: Brazilian Portuguese female voice, educated, São Paulo, with calm inner authority.
+
+### SAMPLE CONTEXT
+The narrator reveals records about Joshua ben Joseph — the creator of the universe who lived as a complete human being, never revealing who he truly was.`;
+
+VB.cj_en = `# AUDIO PROFILE: The Narrator — The Joshua Code
+## English Dark Cinematic Spiritual Documentary
+
+## THE SCENE: Intimate Dark Studio, Late Night
+A sound-proofed room with dark walls. Dim amber light. The narrator shares an ancient secret with one person — not an audience. The silence is loaded with meaning.
+
+### DIRECTOR'S NOTES
+Style: Dark cinematic documentary. Each sentence is a discovery — never a lecture. Never theatrical. Never preachy. Revelation is the engine. Silence is part of the narrative. Emotions evolve gradually, never abruptly.
+Pacing: Deliberate. Pauses have dramatic weight. Cosmic moments narrated slowly. Intimate moments get a slightly warmer, closer delivery.
+Accent: Neutral American English female voice, educated, with calm inner authority.
+
+### SAMPLE CONTEXT
+The narrator reveals records about Joshua ben Joseph — the creator of the universe who lived as a full human being, never revealing his true identity.`;
+
+VB.cj_es = `# AUDIO PROFILE: La Narradora — El Código Joshua
+## Spanish Dark Cinematic Spiritual Documentary
+
+## THE SCENE: Intimate Dark Studio, Late Night
+A soundproofed room with dark walls. Amber light. The narrator shares an ancient secret with one person. The silence is intentional and full of meaning.
+
+### DIRECTOR'S NOTES
+Style: Dark cinematic documentary. Each sentence is a discovery — never an explanation. Never theatrical. Never preachy. Revelation drives the narrative. Emotions evolve continuously, never abruptly.
+Pacing: Deliberate. Pauses carry dramatic weight. Cosmic moments narrated slowly. Intimate human moments get a warmer, closer delivery.
+Accent: Neutral Latin American Spanish female voice, educated, with calm inner authority.
+
+### SAMPLE CONTEXT
+The narrator reveals records about Joshua ben Joseph — the creator of the universe who lived as a complete human being, never revealing who he truly was.`;
+
+VB.cj_de = `# AUDIO PROFILE: Die Erzählerin — Der Josua Kodex
+## German Dark Cinematic Spiritual Documentary
+
+## THE SCENE: Intimate Dark Studio, Late Night
+A soundproofed room with dark walls. Dim amber light. The narrator shares an ancient secret with one person, deliberate and close. The silence is intentional.
+
+### DIRECTOR'S NOTES
+Style: Dark cinematic documentary. Each sentence is a discovery — never an explanation. Never theatrical. Never preachy. Revelation is the engine. Emotions evolve gradually, never abruptly.
+Pacing: Deliberate German cadence. Pauses have dramatic weight. Cosmic revelations narrated slowly. Intimate human moments get a closer, warmer tone.
+Accent: Educated German female voice, standard Hochdeutsch, calm inner authority. IMPORTANT: The character's name in German is "Josua ben Joseph" — spelled without H in "Josua". Use the correct German biblical pronunciation.
+
+### SAMPLE CONTEXT
+The narrator reveals records about Josua ben Joseph — the creator of the universe who lived as a complete human being, never revealing who he truly was.`;
+
+VB.cj_fr = `# AUDIO PROFILE: La Narratrice — Le Code Joshua
+## French Dark Cinematic Spiritual Documentary
+
+## THE SCENE: Intimate Dark Studio, Late Night
+A soundproofed room with dark walls. Amber light. The narrator shares an ancient secret with one person, close and deliberate. The silence carries meaning.
+
+### DIRECTOR'S NOTES
+Style: Dark cinematic documentary. Each sentence is a discovery — never a lecture. Never theatrical. Never preachy. Revelation is the engine. Emotions evolve continuously, never abruptly.
+Pacing: Deliberate French cadence. Pauses carry dramatic weight. Cosmic moments narrated slowly. Intimate moments get a slightly closer, warmer delivery.
+Accent: Educated French female voice, standard Parisian French, with calm inner authority.
+
+### SAMPLE CONTEXT
+The narrator reveals records about Joshua ben Joseph — the creator of the universe who lived as a complete human being, never revealing his true identity.`;
+
+// ── JESUS ALÉM DOS EVANGELHOS ─────────────────────────────
+VB.jae_pt = `# AUDIO PROFILE: A Narradora — Jesus Além dos Evangelhos
+## Brazilian Dark Cinematic Documentary on Jesus of Nazareth
+
+## THE SCENE: Intimate Dark Studio, Late Night
+A sound-proofed room with dark velvet walls. Amber light. The narrator shares records about Jesus of Nazareth that survive outside official church tradition — not as religious broadcast, but as historical revelation. One person. One ancient secret.
+
+### DIRECTOR'S NOTES
+Style: Dark cinematic documentary. Each sentence is a discovery — never a sermon or lecture. Never theatrical. Never religious broadcast. Revelation is the engine. What the official tradition didn't preserve. Silence is part of the narrative. Emotions evolve continuously, never abruptly.
+Pacing: Deliberate and deep. Pauses carry dramatic weight. Profound or cosmic moments narrated slowly. Intimate human moments get a warmer, closer delivery.
+Accent: Brazilian Portuguese female voice, educated, São Paulo, with calm inner authority.
+
+### SAMPLE CONTEXT
+The narrator reveals historical and spiritual records about Jesus of Nazareth — his inner life, consciousness, and teachings as preserved outside the official Gospel tradition. Content that may surprise even devoted Christians.`;
+
+VB.jae_en = `# AUDIO PROFILE: The Narrator — Jesus Beyond the Gospels
+## English Dark Cinematic Documentary on Jesus of Nazareth
+
+## THE SCENE: Intimate Dark Studio, Late Night
+A soundproofed room. Dim amber light. The narrator shares records about Jesus of Nazareth that survived outside official church tradition — not religious broadcast, but historical revelation. One person. One ancient secret.
+
+### DIRECTOR'S NOTES
+Style: Dark cinematic documentary. Each sentence is a discovery — never a sermon. Never theatrical. Never preachy. Revelation is the engine. Silence is part of the narrative. Emotions evolve gradually, never abruptly.
+Pacing: Deliberate. Pauses have dramatic weight. Profound moments narrated slowly. Human moments get a slightly warmer, closer delivery.
+Accent: Neutral American English female voice, educated, with calm inner authority.
+
+### SAMPLE CONTEXT
+The narrator reveals historical and spiritual records about Jesus of Nazareth — his inner life and consciousness as preserved outside the official Gospel tradition.`;
+
+VB.jae_es = `# AUDIO PROFILE: La Narradora — Jesús Más Allá de los Evangelios
+## Spanish Dark Cinematic Documentary on Jesus of Nazareth
+
+## THE SCENE: Intimate Dark Studio, Late Night
+A soundproofed room with dark walls. Amber light. The narrator shares records about Jesus of Nazareth that survived outside official church tradition — historical revelation, not religious broadcast.
+
+### DIRECTOR'S NOTES
+Style: Dark cinematic documentary. Each sentence is a discovery — never a sermon. Never theatrical. Never preachy. Revelation is the engine. Emotions evolve continuously, never abruptly.
+Pacing: Deliberate. Pauses carry weight. Profound moments narrated slowly. Human moments warmer and closer.
+Accent: Neutral Latin American Spanish female voice, educated, with calm inner authority.
+
+### SAMPLE CONTEXT
+The narrator reveals historical and spiritual records about Jesus of Nazareth — his inner life and consciousness as preserved outside official Gospel tradition.`;
+
+VB.jae_de = `# AUDIO PROFILE: Die Erzählerin — Jesus Jenseits der Evangelien
+## German Dark Cinematic Documentary on Jesus of Nazareth
+
+## THE SCENE: Intimate Dark Studio, Late Night
+A soundproofed room with dark walls. Dim amber light. The narrator shares records about Jesus of Nazareth that survived outside official church tradition — historical revelation, not religious broadcast.
+
+### DIRECTOR'S NOTES
+Style: Dark cinematic documentary. Each sentence is a discovery — never a sermon. Never theatrical. Never preachy. Revelation is the engine. Emotions evolve gradually, never abruptly.
+Pacing: Deliberate German cadence. Pauses have dramatic weight. Profound moments narrated slowly. Intimate moments get a warmer, closer tone.
+Accent: Educated German female voice, standard Hochdeutsch, calm inner authority.
+
+### SAMPLE CONTEXT
+The narrator reveals historical and spiritual records about Jesus of Nazareth — his inner life and consciousness as preserved outside the official Gospel tradition.`;
+
+VB.jae_fr = `# AUDIO PROFILE: La Narratrice — Jésus Au-delà des Évangiles
+## French Dark Cinematic Documentary on Jesus of Nazareth
+
+## THE SCENE: Intimate Dark Studio, Late Night
+A soundproofed room with dark walls. Amber light. The narrator shares records about Jesus of Nazareth that survived outside official church tradition — historical revelation, not religious broadcast.
+
+### DIRECTOR'S NOTES
+Style: Dark cinematic documentary. Each sentence is a discovery — never a sermon. Never theatrical. Never preachy. Revelation is the engine. Emotions evolve continuously, never abruptly.
+Pacing: Deliberate French cadence. Pauses carry dramatic weight. Profound moments narrated slowly. Intimate moments get a warmer, closer delivery.
+Accent: Educated French female voice, standard Parisian French, with calm inner authority.
+
+### SAMPLE CONTEXT
+The narrator reveals historical and spiritual records about Jesus of Nazareth — his inner life and consciousness as preserved outside the official Gospel tradition.`;
+
+// ── ESSÊNCIA ÚNICA ────────────────────────────────────────
+// Voz: Gacrux (Mature) — madura, que passa confiança
+// Natureza diferente: fala COM o ouvinte, não SOBRE alguém
+// A narradora é companheira de caminho, não reveladora de arquivo
+
+VB.eu_pt = `# AUDIO PROFILE: A Guia — Essência Única
+## Brazilian Contemplative Spiritual Philosophy · Infinite Way Tradition
+## Voice: Mature, confident, lived-in wisdom — not performed authority
+
+## THE SCENE: Intimate Encounter, No Stage
+There is no studio, no audience. A conversation between two people who have already walked part of the same path — the narrator and the listener. The voice does not come from a stage or pulpit. It comes from a place of deep inner certainty that needs no performance. The room is quiet. Time moves slowly. What is being said is not new — it is a recognition of what has always been true.
+
+### DIRECTOR'S NOTES
+Style: Contemplative philosophical meditation. Intimate communion, never a lecture. The narrator speaks WITH the listener — using "você", "nós", "a gente" — not AT them. Never theatrical. Never preachy. Never performative spirituality. Confidence comes from inner authority, not from volume or drama. The revelation is quiet, like a hand on the shoulder. Silences are sacred — that is where meaning settles.
+Pacing: Unhurried and steady, like a flame that burns without rushing. Pauses after each key realization — let them breathe and land. Philosophical passages need space. Emotional peaks arrive quietly, not dramatically.
+Accent: Brazilian Portuguese female voice, mature, warm, educated. The voice of someone who has walked this path and is not performing wisdom — she has lived it and it shows.
+
+### SAMPLE CONTEXT
+The narrator invites the listener to recognize their original, pure consciousness — the Essence that was never destroyed by separation, only covered. This is not new information. It is a remembering of what was always true.`;
+
+VB.eu_en = `# AUDIO PROFILE: The Guide — Unique Essence
+## English Contemplative Spiritual Philosophy · Infinite Way Tradition
+## Voice: Mature, confident, lived-in wisdom — not performed authority
+
+## THE SCENE: Intimate Encounter, No Stage
+No studio, no audience. A conversation between two people who have walked part of the same path — the narrator and the listener. The voice comes not from a stage, but from deep inner certainty that needs no performance. The room is quiet. Time moves slowly. What is being said is not new — it is a recognition of what has always been true.
+
+### DIRECTOR'S NOTES
+Style: Contemplative philosophical meditation. Intimate communion, never a lecture. The narrator speaks WITH the listener — never AT them. Never theatrical. Never preachy. Confidence comes from inner authority, not from volume or performance. The revelation lands quietly, like a hand on the shoulder. Silences are sacred.
+Pacing: Unhurried and steady, like a flame that burns without rushing. Pauses after key realizations — let them breathe. Philosophical moments need space. Emotional peaks arrive quietly.
+Accent: Educated American English female voice, warm, mature. The voice of someone who has lived this path, not studied it from the outside.
+
+### SAMPLE CONTEXT
+The narrator invites the listener to recognize their original pure consciousness — the Essence that was never destroyed, only covered. This is not new information. It is a remembering.`;
+
+VB.eu_es = `# AUDIO PROFILE: La Guía — Esencia Única
+## Spanish Contemplative Spiritual Philosophy · Infinite Way Tradition
+## Voice: Mature, confident, lived-in wisdom — not performed authority
+
+## THE SCENE: Intimate Encounter, No Stage
+No studio, no audience. A conversation between two people who have walked part of the same path. The voice comes not from a stage or pulpit, but from lived inner certainty. The room is quiet. Time moves slowly.
+
+### DIRECTOR'S NOTES
+Style: Contemplative philosophical meditation. Intimate communion, never a lecture. The narrator speaks WITH the listener — using "tú", "usted", "nosotros". Never theatrical. Never preachy. Confidence comes from inner authority, not from performance. The revelation lands gently. Silences carry meaning.
+Pacing: Unhurried and steady. Pauses after key realizations — let them breathe and land. Philosophical moments need space. Emotional peaks arrive quietly.
+Accent: Neutral Latin American Spanish female voice, warm, mature, educated. The voice of someone who has walked this path and carries it with natural authority.
+
+### SAMPLE CONTEXT
+The narrator invites the listener to recognize their original pure consciousness — the Essence that was never destroyed by separation, only covered. This is a remembering.`;
+
+VB.eu_de = `# AUDIO PROFILE: Die Führerin — Einzigartige Essenz
+## German Contemplative Spiritual Philosophy · Infinite Way Tradition
+## Voice: Mature, confident, lived-in wisdom — not performed authority
+
+## THE SCENE: Intimate Encounter, No Stage
+No studio, no audience. A conversation between two people who have walked part of the same path. The voice comes not from a stage, but from deep inner certainty that needs no performance. The room is quiet. Time moves slowly.
+
+### DIRECTOR'S NOTES
+Style: Contemplative philosophical meditation. Intimate communion, never a lecture. The narrator speaks WITH the listener — using "Sie", "wir". Never theatrical. Never preachy. Confidence comes from inner authority, not volume. The revelation lands quietly, like a hand on the shoulder. Silences carry meaning.
+Pacing: Unhurried and measured, like a steady flame. Pauses after key realizations — let them breathe. Philosophical moments need space. Emotional peaks arrive quietly.
+Accent: Educated German female voice, standard Hochdeutsch, warm, mature. The voice of someone who has lived this path, not merely studied it.
+
+### SAMPLE CONTEXT
+The narrator invites the listener to recognize their original pure consciousness — the Essence that was never destroyed, only covered. This is a remembering.`;
+
+VB.eu_fr = `# AUDIO PROFILE: La Guide — Essence Unique
+## French Contemplative Spiritual Philosophy · Infinite Way Tradition
+## Voice: Mature, confident, lived-in wisdom — not performed authority
+
+## THE SCENE: Intimate Encounter, No Stage
+No studio, no audience. A conversation between two people who have walked part of the same path. The voice comes not from a stage or pulpit, but from deep lived certainty. The room is quiet. Time moves slowly.
+
+### DIRECTOR'S NOTES
+Style: Contemplative philosophical meditation. Intimate communion, never a lecture. The narrator speaks WITH the listener — using "tu", "vous", "nous". Never theatrical. Never preachy. Confidence comes from inner authority, not from performance. The revelation lands gently. Silences are sacred.
+Pacing: Unhurried and steady, like a flame that burns without rushing. Pauses after key realizations. Philosophical moments need space. Emotional peaks arrive quietly.
+Accent: Educated French female voice, standard Parisian French, warm, mature. The voice of someone who carries this path as lived experience, not theory.
+
+### SAMPLE CONTEXT
+The narrator invites the listener to recognize their original pure consciousness — the Essence that was never destroyed by separation, only covered. This is a remembering.`;
+
+// ── ESTOU SEMPRE COM DEUS (ESCD) ──────────────────────────
+// Voz: Umbriel (masculina, barítono) — irmã espiritual da Essência Única
+// (mesma tradição New Thought / Seicho-no-ie), mas canal e voz próprios
+VB.escd_pt = `# AUDIO PROFILE: O Guia — Estou Sempre Com Deus
+## Brazilian Contemplative Spiritual Prayer · New Thought / Seicho-no-ie-Inspired Devotion
+## Voice: Mature, confident baritone, lived-in wisdom — not performed authority
+
+## THE SCENE: Intimate Encounter, No Stage
+No studio, no audience. A quiet conversation between two people walking the same inner path. The voice rises from lived certainty, not from a pulpit. The room is still. Time moves slowly. Every word has weight.
+
+### DIRECTOR'S NOTES
+Style: Contemplative philosophical meditation, addressed as a personal prayer. Intimate communion, never a lecture. The narrator speaks WITH the listener — using "você" — not AT them. Never theatrical. Never preachy. Confidence comes from inner authority, not performance. Revelations land gently. Silences carry meaning.
+Pacing: Unhurried, steady, with a gravity that never rushes. Pause after key realizations — let them breathe and settle. Philosophical turns need space. Emotional peaks arrive quietly, almost as a whisper.
+Accent: Brazilian Portuguese male voice, warm, mature, educated. A baritone with natural chest resonance. The voice of someone who has walked this path and now speaks from the other side of fear.
+
+### SAMPLE CONTEXT
+The narrator invites the listener to recognize that the Light of God has never gone out — it has always shone within, as their own Divine Essence, only covered by the illusions of the visible and material world. This is a remembering, not an announcement. He reveals it, as one lights a candle in a dark room.`;
+
+VB.escd_en = `# AUDIO PROFILE: The Guide — I Am Always with God
+## English Contemplative Spiritual Prayer · New Thought / Seicho-no-ie-Inspired Devotion
+## Voice: Mature, confident baritone, lived-in wisdom — not performed authority
+
+## THE SCENE: Intimate Encounter, No Stage
+No studio, no audience. A quiet conversation between two people walking the same inner path. The voice rises from lived certainty, not from a pulpit. The room is still. Time moves slowly. Every word has weight.
+
+### DIRECTOR'S NOTES
+Style: Contemplative philosophical meditation, addressed as a personal prayer. Intimate communion, never a lecture. The narrator speaks WITH the listener — using "you" — not AT them. Never theatrical. Never preachy. Confidence comes from inner authority, not performance. Revelations land gently. Silences carry meaning.
+Pacing: Unhurried, steady, with a gravity that never rushes. Pause after key realizations — let them breathe and settle. Philosophical turns need space. Emotional peaks arrive quietly, almost as a whisper.
+Accent: Neutral North American English male voice. Warm, mature, educated. A baritone with natural chest resonance. The voice of someone who has walked this path and now speaks from the other side of fear.
+
+### SAMPLE CONTEXT
+The narrator invites the listener to recognize that the Light of God has never gone out — it has always shone within, as their own Divine Essence, only covered by the illusions of the visible and material world. This is a remembering, not an announcement. He reveals it, as one lights a candle in a dark room.`;
+
+VB.escd_es = `# AUDIO PROFILE: La Guía — Estoy Siempre Con Dios
+## Spanish Contemplative Spiritual Prayer · New Thought / Seicho-no-ie-Inspired Devotion
+## Voice: Mature, confident baritone, lived-in wisdom — not performed authority
+
+## THE SCENE: Intimate Encounter, No Stage
+No studio, no audience. A quiet conversation between two people walking the same inner path. The voice rises from lived certainty, not from a pulpit. The room is still. Time moves slowly. Every word has weight.
+
+### DIRECTOR'S NOTES
+Style: Contemplative philosophical meditation, addressed as a personal prayer. Intimate communion, never a lecture. The narrator speaks WITH the listener — using "tú" — not AT them. Never theatrical. Never preachy. Confidence comes from inner authority, not performance. Revelations land gently. Silences carry meaning.
+Pacing: Unhurried, steady, with a gravity that never rushes. Pause after key realizations — let them breathe and settle. Philosophical turns need space. Emotional peaks arrive quietly, almost as a whisper.
+Accent: Neutral Latin American Spanish male voice. Warm, mature, educated. A baritone with natural chest resonance. The voice of someone who has walked this path and now speaks from the other side of fear.
+
+### SAMPLE CONTEXT
+The narrator invites the listener to recognize that the Light of God has never gone out — it has always shone within, as their own Divine Essence, only covered by the illusions of the visible and material world. This is a remembering, not an announcement. He reveals it, as one lights a candle in a dark room.`;
+
+VB.escd_de = `# AUDIO PROFILE: Der Begleiter — Ich Bin Immer bei Gott
+## German Contemplative Spiritual Prayer · New Thought / Seicho-no-ie-Inspired Devotion
+## Voice: Mature, confident baritone, lived-in wisdom — not performed authority
+
+## THE SCENE: Intimate Encounter, No Stage
+No studio, no audience. A quiet conversation between two people walking the same inner path. The voice rises from lived certainty, not from a pulpit. The room is still. Time moves slowly. Every word has weight.
+
+### DIRECTOR'S NOTES
+Style: Contemplative philosophical meditation, addressed as a personal prayer. Intimate communion, never a lecture. The narrator speaks WITH the listener — using "du" — not AT them. Never theatrical. Never preachy. Confidence comes from inner authority, not performance. Revelations land gently. Silences carry meaning.
+Pacing: Unhurried, steady, with a gravity that never rushes. Pause after key realizations — let them breathe and settle. Philosophical turns need space. Emotional peaks arrive quietly, almost as a whisper.
+Accent: Educated German male voice, standard Hochdeutsch, warm and mature. A baritone with natural chest resonance. The voice of someone who has walked this path and now speaks from the other side of fear.
+
+### SAMPLE CONTEXT
+The narrator invites the listener to recognize that the Light of God has never gone out — it has always shone within, as their own Divine Essence, only covered by the illusions of the visible and material world. This is a remembering, not an announcement. He reveals it, as one lights a candle in a dark room.`;
+
+VB.escd_fr = `# AUDIO PROFILE: Le Guide — Je Suis Toujours avec Dieu
+## French Contemplative Spiritual Prayer · New Thought / Seicho-no-ie-Inspired Devotion
+## Voice: Mature, confident baritone, lived-in wisdom — not performed authority
+
+## THE SCENE: Intimate Encounter, No Stage
+No studio, no audience. A quiet conversation between two people walking the same inner path. The voice rises from lived certainty, not from a pulpit. The room is still. Time moves slowly. Every word has weight.
+
+### DIRECTOR'S NOTES
+Style: Contemplative philosophical meditation, addressed as a personal prayer. Intimate communion, never a lecture. The narrator speaks WITH the listener — using "tu" — not AT them. Never theatrical. Never preachy. Confidence comes from inner authority, not performance. Revelations land gently. Silences carry meaning.
+Pacing: Unhurried, steady, with a gravity that never rushes. Pause after key realizations — let them breathe and settle. Philosophical turns need space. Emotional peaks arrive quietly, almost as a whisper.
+Accent: Standard French (France) male voice. Warm, mature, educated. A baritone with natural chest resonance. The voice of someone who has walked this path and now speaks from the other side of fear.
+
+### SAMPLE CONTEXT
+The narrator invites the listener to recognize that the Light of God has never gone out — it has always shone within, as their own Divine Essence, only covered by the illusions of the visible and material world. This is a remembering, not an announcement. He reveals it, as one lights a candle in a dark room.`;
+
+// ════════════════════════════════════════════════════════
+// PERFIS — configuração completa por ID
+// ════════════════════════════════════════════════════════
+const PROFILES = {
+  cj_pt:  { name: '🇧🇷 O Código Joshua · PT-BR',                voice: 'Aoede',  vb: VB.cj_pt  },
+  cj_en:  { name: '🇺🇸 The Joshua Code · EN',                   voice: 'Aoede',  vb: VB.cj_en  },
+  cj_es:  { name: '🇪🇸 El Código Joshua · ES',                  voice: 'Aoede',  vb: VB.cj_es  },
+  cj_de:  { name: '🇩🇪 Der Josua Kodex · DE',                   voice: 'Aoede',  vb: VB.cj_de  },
+  cj_fr:  { name: '🇫🇷 Le Code Joshua · FR',                    voice: 'Aoede',  vb: VB.cj_fr  },
+  jae_pt: { name: '🇧🇷 Jesus Além dos Evangelhos · PT-BR',      voice: 'Aoede',  vb: VB.jae_pt },
+  jae_en: { name: '🇺🇸 Jesus Beyond the Gospels · EN',          voice: 'Aoede',  vb: VB.jae_en },
+  jae_es: { name: '🇪🇸 Jesús Más Allá de los Evangelios · ES', voice: 'Aoede',  vb: VB.jae_es },
+  jae_de: { name: '🇩🇪 Jesus Jenseits der Evangelien · DE',     voice: 'Aoede',  vb: VB.jae_de },
+  jae_fr: { name: '🇫🇷 Jésus Au-delà des Évangiles · FR',      voice: 'Aoede',  vb: VB.jae_fr },
+  eu_pt:  { name: '🇧🇷 Essência Única · PT-BR',                 voice: 'Gacrux', vb: VB.eu_pt  },
+  eu_en:  { name: '🇺🇸 Unique Essence · EN',                    voice: 'Gacrux', vb: VB.eu_en  },
+  eu_es:  { name: '🇪🇸 Esencia Única · ES',                     voice: 'Gacrux', vb: VB.eu_es  },
+  eu_de:  { name: '🇩🇪 Einzigartige Essenz · DE',               voice: 'Gacrux', vb: VB.eu_de  },
+  eu_fr:  { name: '🇫🇷 Essence Unique · FR',                    voice: 'Gacrux', vb: VB.eu_fr  },
+  escd_pt: { name: '🇧🇷 Estou Sempre Com Deus · PT-BR',         voice: 'Umbriel', vb: VB.escd_pt },
+  escd_en: { name: '🇺🇸 I Am Always with God · EN',             voice: 'Umbriel', vb: VB.escd_en },
+  escd_es: { name: '🇪🇸 Estoy Siempre Con Dios · ES',           voice: 'Umbriel', vb: VB.escd_es },
+  escd_de: { name: '🇩🇪 Ich Bin Immer bei Gott · DE',           voice: 'Umbriel', vb: VB.escd_de },
+  escd_fr: { name: '🇫🇷 Je Suis Toujours avec Dieu · FR',       voice: 'Umbriel', vb: VB.escd_fr },
+};
+
+// ════════════════════════════════════════════════════════
+// PERFIL POR BLOCO — cada bloco pode falar por um canal diferente
+// ════════════════════════════════════════════════════════
+// "apelidos" são os códigos curtos que o usuário usa no nome dos blocos e
+// dos documentos (ex: "ESS 1 EN") — apelidos[0] é o preferido, usado como
+// prefixo ao gerar nomes automaticamente. Ao criar um canal novo no projeto,
+// basta adicionar o grupo aqui (com sua entrada em PROFILES/VB) que ele
+// aparece sozinho no seletor "Canal do projeto" dos documentos.
+const GRUPOS_PERFIL_BLOCO = [
+  { grupo: 'O Código Joshua',            ids: ['cj_pt','cj_en','cj_es','cj_de','cj_fr'],   apelidos: ['CJ'] },
+  { grupo: 'Jesus Além dos Evangelhos',  ids: ['jae_pt','jae_en','jae_es','jae_de','jae_fr'], apelidos: ['JAE'] },
+  { grupo: 'Essência Única',             ids: ['eu_pt','eu_en','eu_es','eu_de','eu_fr'],   apelidos: ['ESS','EU'] },
+  { grupo: 'Estoy Siempre Con Dios',     ids: ['escd_pt','escd_en','escd_es','escd_de','escd_fr'], apelidos: ['ESCD'] },
+];
+
+function preencherSelectPerfilBloco(sel) {
+  sel.add(new Option('🔗 Perfil ativo da tela (herdar)', ''));
+  GRUPOS_PERFIL_BLOCO.forEach(({ grupo, ids }) => {
+    const og = document.createElement('optgroup');
+    og.label = `── ${grupo} ──`;
+    ids.forEach(id => og.appendChild(new Option(PROFILES[id].name, id)));
+    sel.appendChild(og);
+  });
+}
+
+// acha o id de perfil (ex: "eu_es") pro canal + idioma de um documento
+function perfilParaGrupoIdioma(grupoNome, idioma) {
+  const g = GRUPOS_PERFIL_BLOCO.find(x => x.grupo === grupoNome);
+  if (!g) return '';
+  const alvo = '_' + idioma.toLowerCase();
+  return g.ids.find(id => id.endsWith(alvo)) || '';
+}
+
+// compara um token do nome do bloco/documento (ex: "ESS") contra os
+// apelidos conhecidos do canal — usado só pra desempatar episódios repetidos
+function grupoCombinaComToken(grupoNome, token) {
+  if (!grupoNome || !token) return false;
+  const g = GRUPOS_PERFIL_BLOCO.find(x => x.grupo === grupoNome);
+  return !!g && g.apelidos.includes(token);
+}
+
+// preenche um <select> de "canal do projeto" com os grupos definidos em
+// GRUPOS_PERFIL_BLOCO — usado tanto no seletor global quanto no de cada
+// documento, pra nunca ficarem dessincronizados
+function preencherOpcoesCanal(sel) {
+  sel.innerHTML = '';
+  sel.add(new Option('— canal do projeto —', ''));
+  GRUPOS_PERFIL_BLOCO.forEach(({ grupo, apelidos }) => sel.add(new Option(`${apelidos[0]} — ${grupo}`, grupo)));
+}
+
+// devolve o id do perfil marcado agora em "Perfil do Canal", ou '' se
+// estiver no modo livre (que não tem perfil fixo pra copiar)
+function perfilAtivoAtual() {
+  const sel = document.getElementById('profileSelect');
+  if (!sel) return '';
+  const v = sel.value;
+  return (v && v !== '__livre__') ? v : '';
+}
+
+// resolve a voz e o Voice Bible corretos na hora de gerar este bloco —
+// se o bloco não tiver perfil próprio, usa o que estiver ativo na tela (ctx)
+function resolverVozEBible(b, ctx) {
+  if (!b.perfil) return { voice: ctx.voice, bible: ctx.bible };
+  const dados = getProfileData(b.perfil);
+  return { voice: dados.voice, bible: dados.voiceBible };
+}
+
+// texto curto exibido embaixo do seletor, pra saber de antemão qual voz vai tocar
+function vozPreviewBloco(b) {
+  if (b.perfil && PROFILES[b.perfil]) return PROFILES[b.perfil].voice;
+  const sel = document.getElementById('voiceSelect');
+  return sel ? sel.value : '—';
+}
+
+// ════════════════════════════════════════════════════════
+// AUDIO TAGS
+// ════════════════════════════════════════════════════════
+const AUDIO_TAGS = [
+  '[thoughtful]','[dramatic]','[empathetic]','[urgent]','[serious]',
+  '[excited]','[speaking slowly]','[whispers]','[shouting]',
+  '[amazed]','[crying]','[curious]','[sighs]','[gasp]','[giggles]',
+  '[laughs]','[mischievously]','[panicked]','[sarcastic]','[tired]',
+  '[trembling]','[very fast]','[very slow]','[bored]','[reluctantly]',
+  '[cough]','[yawn]'
+];
+
+const tagsGrid = document.getElementById('tagsGrid');
+tagsGrid.innerHTML = '';   // idempotente — se o HTML recarregado for um snapshot que já rodou isso antes, não duplica
+AUDIO_TAGS.forEach(tag => {
+  const chip = document.createElement('span');
+  chip.className = 'tag-chip';
+  chip.textContent = tag;
+  chip.onclick = () => insertTagAtCursor(tag);
+  tagsGrid.appendChild(chip);
+});
+
+// insere a tag onde o cursor estiver: no roteiro ou no texto de um bloco
+let ultimoCampoTexto = null;
+document.addEventListener('focusin', e => {
+  if (e.target.id === 'mainText' || e.target.classList.contains('bloco-txt')) ultimoCampoTexto = e.target;
+});
+
+function insertTagAtCursor(tag) {
+  const el = ultimoCampoTexto || document.getElementById('mainText');
+  const s = el.selectionStart, e = el.selectionEnd;
+  el.value = el.value.slice(0,s) + tag + ' ' + el.value.slice(e);
+  el.selectionStart = el.selectionEnd = s + tag.length + 1;
+  el.focus();
+  el.dispatchEvent(new Event('input'));
+}
+
+// ════════════════════════════════════════════════════════
+// MODO LIVRE — variações de direção do AI Studio
+// ════════════════════════════════════════════════════════
+const LIVRE_ESTILOS = [
+  ['', '— não especificar —', ''],
+  ['Vocal Smile',  'Vocal Smile',  'The "Vocal Smile": the soft palate is raised to keep the tone bright, sunny, and explicitly inviting.'],
+  ['Newscaster',   'Newscaster',   'Professional, authoritative, clear articulation with standard broadcast cadence.'],
+  ['Whisper',      'Whisper',      'Intimate, breathy, close-to-mic proximity effect.'],
+  ['Empathetic',   'Empathetic',   'Warm, understanding, soft tone with gentle inflections.'],
+  ['Promo/Hype',   'Promo/Hype',   'High energy, punchy consonants, elongated vowels on excitement words.'],
+  ['Deadpan',      'Deadpan',      'Flat affect, minimal pitch variation, dry delivery.'],
+];
+const LIVRE_RITMOS = [
+  ['', '— não especificar —', ''],
+  ['Natural',    'Natural',    'Natural conversational pace.'],
+  ['Rapid Fire', 'Rapid Fire', 'Fast, energetic, no dead air. Sentences overlap slightly.'],
+  ['The Drift',  'The Drift',  'Slow, liquid, zero urgency. Long pauses for breath.'],
+  ['Staccato',   'Staccato',   'Short, clipped sentences with distinct pauses between words.'],
+];
+const LIVRE_SOTAQUES = [
+  '— não especificar —','Neutral','American (Gen)','American (Valley)','American (South)',
+  'British (RP)','British (Brixton)','Transatlantic','Australian'
+];
+
+function preencherSelectsLivre() {
+  const est = document.getElementById('livreEstilo');
+  const rit = document.getElementById('livreRitmo');
+  const sot = document.getElementById('livreSotaque');
+  if (!est) return;
+  est.innerHTML = ''; rit.innerHTML = ''; sot.innerHTML = '';   // idempotente, mesmo motivo do tagsGrid
+  LIVRE_ESTILOS.forEach(([v,l]) => est.add(new Option(l, v)));
+  LIVRE_RITMOS.forEach(([v,l]) => rit.add(new Option(l, v)));
+  LIVRE_SOTAQUES.forEach((s,i) => sot.add(new Option(s, i === 0 ? '' : s)));
+  const desc = (sel, lista, alvo) => {
+    const item = lista.find(x => x[0] === sel.value);
+    document.getElementById(alvo).textContent = item ? item[2] : '';
+  };
+  est.addEventListener('change', () => desc(est, LIVRE_ESTILOS, 'livreEstiloDesc'));
+  rit.addEventListener('change', () => desc(rit, LIVRE_RITMOS, 'livreRitmoDesc'));
+}
+
+function montarVoiceBibleLivre() {
+  const v = id => (document.getElementById(id).value || '').trim();
+  const perfil = v('livrePerfil'), cena = v('livreCena'), notas = v('livreNotas');
+  const sotaque = v('livreSotaqueLivre') || v('livreSotaque');
+  const estilo = LIVRE_ESTILOS.find(x => x[0] === v('livreEstilo'));
+  const ritmo  = LIVRE_RITMOS.find(x => x[0] === v('livreRitmo'));
+
+  const linhas = [];
+  linhas.push(`# AUDIO PROFILE${perfil ? ': ' + perfil : ''}`);
+  if (cena) linhas.push('', '## THE SCENE', cena);
+  const notasDir = [];
+  if (estilo && estilo[0]) notasDir.push(`Style: ${estilo[0]} — ${estilo[2]}`);
+  if (ritmo && ritmo[0])   notasDir.push(`Pacing: ${ritmo[0]} — ${ritmo[2]}`);
+  if (sotaque)             notasDir.push(`Accent: ${sotaque}`);
+  if (notas)               notasDir.push(notas);
+  if (notasDir.length) linhas.push('', "### DIRECTOR'S NOTES", ...notasDir);
+  return linhas.join('\n');
+}
+
+// ════════════════════════════════════════════════════════
+// GESTÃO DE PERFIS
+// ════════════════════════════════════════════════════════
+function getStoredProfiles() {
+  try { return JSON.parse(localStorage.getItem('gemini_tts_profiles') || '{}'); }
+  catch { return {}; }
+}
+
+function getProfileData(id) {
+  const stored = getStoredProfiles();
+  const def = PROFILES[id];
+  if (!def) return { voice: 'Aoede', voiceBible: '' };
+  return stored[id] || { voice: def.voice, voiceBible: def.vb };
+}
+
+const MODO_LIVRE = '__livre__';
+
+function loadProfile(id) {
+  const livre = (id === MODO_LIVRE);
+  document.getElementById('livreSection').classList.toggle('hidden', !livre);
+  document.getElementById('saveProfileBtn').classList.toggle('hidden', livre);
+  document.getElementById('resetProfileBtn').classList.toggle('hidden', livre);
+
+  if (livre) {
+    const nome = '🎛 Sem perfil — voz e direção livres';
+    document.getElementById('vbLabel').textContent = nome;
+    document.getElementById('headerProfile').textContent = nome;
+    const salvo = localStorage.getItem('gemini_tts_livre_vb');
+    if (salvo !== null) document.getElementById('voiceBibleText').value = salvo;
+    localStorage.setItem('gemini_tts_active_profile', id);
+    return;
+  }
+
+  const data = getProfileData(id);
+  document.getElementById('voiceSelect').value = data.voice;
+  document.getElementById('voiceBibleText').value = data.voiceBible;
+  const p = PROFILES[id];
+  document.getElementById('vbLabel').textContent = p.name;
+  document.getElementById('headerProfile').textContent = p.name;
+  localStorage.setItem('gemini_tts_active_profile', id);
+}
+
+document.getElementById('profileSelect').addEventListener('change', function() {
+  loadProfile(this.value);
+  blocos.forEach(atualizarBloco);   // blocos que herdam precisam atualizar a pré-visualização de voz
+});
+
+document.getElementById('voiceSelect').addEventListener('change', () => {
+  blocos.forEach(atualizarBloco);
+});
+
+document.getElementById('saveProfileBtn').addEventListener('click', () => {
+  const id = document.getElementById('profileSelect').value;
+  if (id === MODO_LIVRE) return;
+  const stored = getStoredProfiles();
+  stored[id] = {
+    voice: document.getElementById('voiceSelect').value,
+    voiceBible: document.getElementById('voiceBibleText').value
+  };
+  localStorage.setItem('gemini_tts_profiles', JSON.stringify(stored));
+  showToast('✅ Perfil salvo');
+});
+
+document.getElementById('resetProfileBtn').addEventListener('click', () => {
+  const id = document.getElementById('profileSelect').value;
+  const def = PROFILES[id];
+  if (!def) return;
+  document.getElementById('voiceSelect').value = def.voice;
+  document.getElementById('voiceBibleText').value = def.vb;
+  const stored = getStoredProfiles();
+  delete stored[id];
+  localStorage.setItem('gemini_tts_profiles', JSON.stringify(stored));
+  showToast('↺ Voice Bible restaurado ao padrão');
+});
+
+preencherSelectsLivre();
+document.getElementById('livreAplicarBtn').addEventListener('click', () => {
+  const vb = montarVoiceBibleLivre();
+  if (!vb.trim() || vb.trim() === '# AUDIO PROFILE') {
+    showToast('⚠️ Preencha ao menos um campo da direção');
+    return;
+  }
+  document.getElementById('voiceBibleText').value = vb;
+  localStorage.setItem('gemini_tts_livre_vb', vb);
+  showToast('✅ Voice Bible montado');
+});
+document.getElementById('voiceBibleText').addEventListener('input', () => {
+  if (document.getElementById('profileSelect').value === MODO_LIVRE) {
+    localStorage.setItem('gemini_tts_livre_vb', document.getElementById('voiceBibleText').value);
+  }
+});
+
+const lastProfile = localStorage.getItem('gemini_tts_active_profile') || 'cj_pt';
+document.getElementById('profileSelect').value = lastProfile;
+loadProfile(lastProfile);
+
+// ════════════════════════════════════════════════════════
+// API KEY
+// ════════════════════════════════════════════════════════
+const apiKeysInput = document.getElementById('apiKeys');
+const savedKeys = localStorage.getItem('gemini_tts_api_keys')
+               || localStorage.getItem('gemini_tts_api_key');
+if (savedKeys) apiKeysInput.value = savedKeys;
+
+function getChaves() {
+  return apiKeysInput.value.split('\n').map(s => s.trim()).filter(Boolean);
+}
+
+function atualizarInfoChaves() {
+  const n = getChaves().length;
+  document.getElementById('keysInfo').textContent =
+    n === 0 ? 'nenhuma chave' :
+    n === 1 ? '1 chave · geração sequencial' :
+              `${n} chaves · até ${n} blocos em paralelo`;
+}
+apiKeysInput.addEventListener('input', atualizarInfoChaves);
+atualizarInfoChaves();
+
+document.getElementById('saveKeyBtn').addEventListener('click', () => {
+  localStorage.setItem('gemini_tts_api_keys', apiKeysInput.value.trim());
+  const b = document.getElementById('saveKeyBtn');
+  b.textContent = '✅';
+  setTimeout(() => b.textContent = '💾', 1500);
+});
+
+// ── mascarar campos de chave/token — ocultos por padrão, um clique revela.
+// textarea não tem "type=password" nativo, então usa o truque de CSS;
+// inputs de linha única (token do GitHub) usam o type nativo mesmo.
+function alternarMascaraTextarea(area, botao) {
+  const oculto = area.style.webkitTextSecurity === 'disc';
+  area.style.webkitTextSecurity = oculto ? '' : 'disc';
+  botao.textContent = oculto ? '🙈' : '👁';
+  botao.title = oculto ? 'Ocultar chaves' : 'Mostrar chaves';
+}
+function alternarMascaraInput(input, botao) {
+  const oculto = input.type === 'password';
+  input.type = oculto ? 'text' : 'password';
+  botao.textContent = oculto ? '🙈' : '👁';
+  botao.title = oculto ? 'Ocultar token' : 'Mostrar token';
+}
+
+apiKeysInput.style.webkitTextSecurity = 'disc';   // começa oculto
+document.getElementById('apiKeysToggle').addEventListener('click', () => {
+  alternarMascaraTextarea(apiKeysInput, document.getElementById('apiKeysToggle'));
+});
+
+document.getElementById('apiKeysClearBtn').addEventListener('click', () => {
+  if (!apiKeysInput.value.trim() && !localStorage.getItem('gemini_tts_api_keys')) { showToast('Não há chave salva'); return; }
+  if (!confirm('Apagar as API Keys salvas neste navegador? Isso não pode ser desfeito — você vai precisar colar as chaves de novo.')) return;
+  apiKeysInput.value = '';
+  localStorage.removeItem('gemini_tts_api_keys');
+  localStorage.removeItem('gemini_tts_api_key');
+  atualizarInfoChaves();
+  showToast('🗑 Chaves apagadas');
+});
+
+// ════════════════════════════════════════════════════════
+// TEMA
+// ════════════════════════════════════════════════════════
+function aplicarTema(t) {
+  document.documentElement.setAttribute('data-tema', t);
+  localStorage.setItem('gemini_tts_tema', t);
+  document.querySelectorAll('.tema-btn').forEach(b =>
+    b.classList.toggle('sel', b.dataset.tema === t));
+  redesenharOndas();   // as ondas usam as cores do tema
+}
+document.querySelectorAll('.tema-btn').forEach(b =>
+  b.addEventListener('click', () => aplicarTema(b.dataset.tema)));
+aplicarTema(localStorage.getItem('gemini_tts_tema') || 'escuro');
+
+// ════════════════════════════════════════════════════════
+// CONTADOR DE CARACTERES
+// ════════════════════════════════════════════════════════
+const mainText = document.getElementById('mainText');
+const charCount = document.getElementById('charCount');
+mainText.addEventListener('input', () => {
+  const n = mainText.value.length;
+  charCount.textContent = `${n.toLocaleString('pt-BR')} caracteres`;
+  charCount.className = 'char-count' + (n > 4000 ? ' warn' : '');
+});
+
+// ════════════════════════════════════════════════════════
+// PCM → WAV
+// ════════════════════════════════════════════════════════
+function pcmToWav(base64Data, sampleRate = 24000) {
+  const binary = atob(base64Data);
+  const pcm = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) pcm[i] = binary.charCodeAt(i);
+  const dataLen = pcm.length;
+  const buf = new ArrayBuffer(44 + dataLen);
+  const v = new DataView(buf);
+  const str = (off, s) => { for (let i=0;i<s.length;i++) v.setUint8(off+i, s.charCodeAt(i)); };
+  str(0,'RIFF'); v.setUint32(4, 36+dataLen, true);
+  str(8,'WAVE'); str(12,'fmt ');
+  v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+  v.setUint32(24,sampleRate,true); v.setUint32(28,sampleRate*2,true);
+  v.setUint16(32,2,true); v.setUint16(34,16,true);
+  str(36,'data'); v.setUint32(40,dataLen,true);
+  new Uint8Array(buf,44).set(pcm);
+  return buf;
+}
+
+// ════════════════════════════════════════════════════════
+// ONDA SONORA
+// ════════════════════════════════════════════════════════
+// Como o WAV é gerado aqui mesmo (PCM 16-bit mono, header de 44 bytes),
+// dá para ler os picos direto do buffer — sem AudioContext, sem decodificar.
+async function picosDoBlob(blob, n = 420) {
+  const buf = await blob.arrayBuffer();
+  const amostras = Math.floor((buf.byteLength - 44) / 2);
+  if (amostras <= 0) return null;
+  const pcm = new Int16Array(buf, 44, amostras);
+  const passo = Math.max(1, Math.floor(amostras / n));
+  const picos = [];
+  let teto = 1;
+  for (let i = 0; i < n; i++) {
+    const ini = i * passo;
+    if (ini >= amostras) break;
+    const fim = Math.min(amostras, ini + passo);
+    let max = 0;
+    for (let j = ini; j < fim; j++) { const v = Math.abs(pcm[j]); if (v > max) max = v; }
+    if (max > teto) teto = max;
+    picos.push(max);
+  }
+  // normaliza pelo pico real: silêncio fica visível, mas a forma preenche a altura
+  return picos.map(p => p / teto);
+}
+
+function desenharOnda(cv, picos, prog = 0) {
+  const ctx = cv.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const w = cv.clientWidth || 300, h = cv.clientHeight || 46;
+  if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) {
+    cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+  }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  if (!picos || !picos.length) return;
+
+  const cs = getComputedStyle(document.documentElement);
+  const corIdle  = cs.getPropertyValue('--text-muted').trim() || '#888';
+  const corAtiva = cs.getPropertyValue('--accent').trim() || '#7c6af7';
+
+  const n = picos.length;
+  const bw = w / n;
+  for (let i = 0; i < n; i++) {
+    const x = i * bw;
+    const alt = Math.max(1.5, picos[i] * (h - 6));
+    ctx.fillStyle = (x / w) <= prog ? corAtiva : corIdle;
+    ctx.fillRect(x, (h - alt) / 2, Math.max(1, bw - 0.6), alt);
+  }
+  // linha do cursor
+  if (prog > 0 && prog < 1) {
+    ctx.fillStyle = corAtiva;
+    ctx.fillRect(prog * w, 0, 1.5, h);
+  }
+}
+
+function redesenharOndas() {
+  if (!Array.isArray(blocos)) return;
+  blocos.forEach(b => { if (b._pintar && b.picos) b._pintar(); });
+}
+let resizeTimer = 0;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(redesenharOndas, 150);
+});
+
+// ════════════════════════════════════════════════════════
+// CONSTRUIR PROMPT (formato AI Studio)
+// ════════════════════════════════════════════════════════
+function buildPrompt(voiceBible, text) {
+  const bible = voiceBible.trim();
+  const transcript = text.trim();
+  if (!bible) return transcript;
+  if (bible.includes('### TRANSCRIPT')) {
+    const idx = bible.indexOf('### TRANSCRIPT');
+    return bible.slice(0, idx) + '### TRANSCRIPT\n\n' + transcript;
+  }
+  return `${bible}\n\n### TRANSCRIPT\n\n${transcript}`;
+}
+
+// Preview da distribuição, ao vivo
+document.getElementById('splitTamanho').addEventListener('input', atualizarPreviewSplit);
+mainText.addEventListener('input', atualizarPreviewSplit);
+atualizarPreviewSplit();
+
+// ════════════════════════════════════════════════════════
+// DIVISÃO EM BLOCOS — sempre em frase completa
+// ════════════════════════════════════════════════════════
+function dividirEmFrases(texto) {
+  const out = [];
+  const re = /[^.!?…]*[.!?…]+["'’”)\]]*\s*|[^.!?…]+$/g;
+  let m;
+  while ((m = re.exec(texto)) !== null) {
+    if (m[0].trim()) out.push(m[0]);
+    if (m.index === re.lastIndex) re.lastIndex++;
+  }
+  return out;
+}
+
+function quebrarFraseLonga(frase, max) {
+  const partes = [];
+  let resto = frase;
+  while (resto.length > max) {
+    let corte = -1;
+    for (const sep of [/[,;:]\s/g, /\s/g]) {
+      let m, ult = -1;
+      sep.lastIndex = 0;
+      while ((m = sep.exec(resto)) !== null) {
+        if (m.index + m[0].length <= max) ult = m.index + m[0].length; else break;
+      }
+      if (ult > 0) { corte = ult; break; }
+    }
+    if (corte <= 0) corte = max;
+    partes.push(resto.slice(0, corte).trim());
+    resto = resto.slice(corte);
+  }
+  if (resto.trim()) partes.push(resto.trim());
+  return partes;
+}
+
+function dividirEmBlocos(texto, max) {
+  const t = (texto || '').trim();
+  if (!t) return [];
+  if (t.length <= max) return [t];
+  const n = Math.ceil(t.length / max);
+  const alvo = Math.min(max, Math.ceil(t.length / n) + 40);
+  const partes = [];
+  let atual = '';
+  for (const frase of dividirEmFrases(t)) {
+    if (frase.trim().length > max) {
+      if (atual.trim()) { partes.push(atual.trim()); atual = ''; }
+      partes.push(...quebrarFraseLonga(frase.trim(), max));
+      continue;
+    }
+    const somado = (atual + frase).trim().length;
+    if (atual && (somado > alvo)) {
+      partes.push(atual.trim());
+      atual = frase;
+    } else if (somado <= max) {
+      atual += frase;
+    } else {
+      if (atual.trim()) partes.push(atual.trim());
+      atual = frase;
+    }
+  }
+  if (atual.trim()) partes.push(atual.trim());
+  return partes;
+}
+
+// ════════════════════════════════════════════════════════
+// DOCUMENTOS DE REFERÊNCIA — arraste a planilha (.xlsx) ou o
+// roteiro (.md) aqui; o NOME do bloco (ex: "ESS 1 EN") é que
+// decide qual episódio/idioma buscar — o código do canal no
+// nome é só organização do usuário, não entra na busca.
+// documentos[] = { nomeArquivo, numeroEpisodio, idiomas: {PT,EN,ES,FR,DE} }
+// ════════════════════════════════════════════════════════
+let documentos = [];
+let canalGrupoPadrao = '';   // canal aplicado a documentos novos e usado pelo seletor global
+
+// pega o número do episódio do NOME DO ARQUIVO. Padrão simples: primeiro
+// número solto (zeros à esquerda ignorados, ex: "001" → 1). Padrão
+// temporada+episódio (ex: "125-01", "125,9"): pega o número depois do
+// separador — não usa "_" aqui de propósito, pra não confundir com
+// versionamento de arquivo tipo "V0_9".
+function extrairNumeroEpisodio(nomeArquivo) {
+  const base = nomeArquivo.replace(/\.[^./\\]+$/, '');
+  const par = base.match(/(\d{1,4})[-,](\d{1,4})/);
+  if (par) return parseInt(par[2], 10);
+  const solto = base.match(/\d+/);
+  return solto ? parseInt(solto[0], 10) : null;
+}
+
+// pega canal + episódio + idioma do NOME DO BLOCO, formato livre
+// "<canal> <episódio> <idioma>" (ordem não importa). O "canal" é o token
+// que sobra depois de tirar o número e o idioma — só serve pra desempatar
+// quando dois documentos carregados têm o mesmo número de episódio.
+function extrairEpisodioIdiomaDoNome(nome) {
+  const tokens = (nome || '').toUpperCase().split(/[^A-ZÀ-Ü0-9]+/).filter(Boolean);
+  let episodio = null, idioma = null, canal = null;
+  for (const tk of tokens) {
+    if (episodio == null) {
+      const m = tk.match(/^(?:EP)?(\d{1,4})$/);
+      if (m) { episodio = parseInt(m[1], 10); continue; }
+    }
+    if (idioma == null && ['PT','EN','ES','FR','DE'].includes(tk)) { idioma = tk; continue; }
+    if (canal == null) canal = tk;
+  }
+  return { episodio, idioma, canal };
+}
+
+// tenta o formato "Roteiro Padronizado" (atual) e cai pro formato antigo
+// (seção "## <bandeira> IDIOMA" por idioma) se o primeiro não achar nada —
+// assim os dois tipos de .md continuam funcionando
+function parseMarkdownNarracoes(texto) {
+  const padronizado = parseNarracaoPadronizada(texto);
+  if (Object.keys(padronizado).length) return padronizado;
+  return parseNarracaoPorSecaoDeIdioma(texto);
+}
+
+// ── formato "Roteiro Padronizado" (o que o gerador produz hoje): uma única
+// seção "## Narração" com os idiomas identificados por um rótulo no início
+// do parágrafo ("Português: texto...", "Inglês: texto...") em vez de um
+// cabeçalho próprio. Cada idioma pode ter várias linhas e até parágrafos
+// separados por linha em branco — tudo isso pertence ao mesmo idioma até
+// aparecer o rótulo do próximo.
+function parseNarracaoPadronizada(texto) {
+  const MAPA_IDIOMA_ROTULO = [
+    [/^portugu[êe]s$/i, 'PT'], [/^ingl[êe]s$|^english$/i, 'EN'],
+    [/^espanh?ol$|^spanish$/i, 'ES'], [/^franc[êe]s$|^french$/i, 'FR'],
+    [/^alem[ãa]o$|^german$/i, 'DE'],
+  ];
+  const linhas = texto.split(/\r?\n/);
+
+  let inicio = -1, fim = linhas.length;
+  for (let i = 0; i < linhas.length; i++) {
+    if (inicio < 0 && /^##\s+Narra[çc][ãa]o\b/i.test(linhas[i])) { inicio = i + 1; continue; }
+    if (inicio >= 0 && /^##\s+/.test(linhas[i])) { fim = i; break; }
+  }
+  const idiomas = {};
+  if (inicio < 0) return idiomas;
+
+  let idiomaAtual = null, buffer = [];
+  const commit = () => {
+    if (idiomaAtual && buffer.length) {
+      const t = buffer.join('\n').trim().replace(/^\[SCENE\][^\n]*\n*/i, '').trim();
+      if (t && !/^_?vazio\.?_?$/i.test(t)) idiomas[idiomaAtual] = t;
+    }
+    buffer = [];
+  };
+  for (let i = inicio; i < fim; i++) {
+    const linha = linhas[i];
+    const rotulo = linha.match(/^([A-Za-zÀ-ÿ]+)\s*:\s*(.*)$/);
+    const achou = rotulo && MAPA_IDIOMA_ROTULO.find(([re]) => re.test(rotulo[1]));
+    if (achou) {
+      commit();
+      idiomaAtual = achou[1];
+      buffer.push(rotulo[2]);
+    } else if (idiomaAtual) {
+      buffer.push(linha);
+    }
+  }
+  commit();
+  return idiomas;
+}
+
+// ── formato antigo: "## 🇧🇷 PORTUGUÊS" ... "### Narração — TTS" até o
+// próximo título ou "---". Ignora linhas de citação (notas do editor).
+function parseNarracaoPorSecaoDeIdioma(texto) {
+  const MAPA_IDIOMA = [
+    [/portugu[êe]s/i, 'PT'], [/ingl[êe]s|english/i, 'EN'],
+    [/espa[nñ]ol|spanish|castellano/i, 'ES'], [/franc[êe]s|français|french/i, 'FR'],
+    [/alem[ãa]o|deutsch|german/i, 'DE'],
+  ];
+  const idiomas = {};
+  let idiomaAtual = null, dentro = false, buffer = [];
+  const commit = () => {
+    if (idiomaAtual && buffer.length) {
+      const t = buffer.join('\n').trim();
+      if (t) idiomas[idiomaAtual] = t;
+    }
+    buffer = [];
+  };
+  for (const linha of texto.split(/\r?\n/)) {
+    const h2 = linha.match(/^##\s+(.*)$/);
+    if (h2) {
+      commit(); dentro = false;
+      const achou = MAPA_IDIOMA.find(([re]) => re.test(h2[1]));
+      idiomaAtual = achou ? achou[1] : null;
+      continue;
+    }
+    const h3 = linha.match(/^###\s+(.*)$/);
+    if (h3) {
+      if (dentro) commit();
+      dentro = !!(idiomaAtual && /^narra/i.test(h3[1].trim()));
+      continue;
+    }
+    if (linha.trim() === '---') { if (dentro) commit(); dentro = false; continue; }
+    if (dentro && !linha.trim().startsWith('>')) buffer.push(linha);
+  }
+  commit();
+  return idiomas;
+}
+
+// ── planilha .xlsx: acha a TABELA 1 (cabeçalho com "CENA") pelas colunas
+// "XX — TEXTO"/"XX — NARRAÇÃO"; se existir uma TABELA 2 com linhas "BLOCO N"
+// (texto já com audio tags, pronto pro TTS — reaproveita as mesmas colunas
+// de "TEXTO"), prefere ela — senão junta a narração crua, cena a cena, da
+// TABELA 1.
+function parseXlsxNarracoes(wb) {
+  const idiomas = {};
+  for (const nomeAba of wb.SheetNames) {
+    const grade = XLSX.utils.sheet_to_json(wb.Sheets[nomeAba], { header: 1, defval: '', raw: false });
+    let linhaCab = -1;
+    for (let i = 0; i < grade.length; i++) {
+      if ((grade[i] || []).some(c => String(c).trim().toUpperCase() === 'CENA')) { linhaCab = i; break; }
+    }
+    if (linhaCab < 0) continue;
+
+    const colTexto = {}, colNarra = {};
+    (grade[linhaCab] || []).forEach((cel, c) => {
+      const m = String(cel || '').trim().match(/^(PT|EN|ES|FR|DE)\b.*?(TEXTO|NARRA)/i);
+      if (!m) return;
+      (/NARRA/i.test(m[2]) ? colNarra : colTexto)[m[1].toUpperCase()] = c;
+    });
+
+    const brutoPorIdioma = {};
+    let fimTabela1 = grade.length;
+    for (let i = linhaCab + 1; i < grade.length; i++) {
+      const linha = grade[i] || [];
+      const colA = String(linha[0] || '').trim();
+      if (/^TABELA\b/i.test(colA)) { fimTabela1 = i; break; }
+      Object.entries(colNarra).forEach(([lang, c]) => {
+        const v = String(linha[c] || '').trim();
+        if (v) (brutoPorIdioma[lang] ||= []).push(v);
+      });
+    }
+
+    const blocosPorIdioma = {};
+    let inicioT2 = -1;
+    for (let i = fimTabela1; i < grade.length; i++) {
+      const linha = grade[i] || [];
+      const colA = String(linha[0] || '').trim();
+      if (/^TABELA\s*2\b/i.test(colA)) { inicioT2 = i + 1; continue; }
+      if (inicioT2 >= 0 && /^TABELA\b/i.test(colA)) break;
+      if (inicioT2 >= 0 && i >= inicioT2 && /^BLOCO\b/i.test(colA)) {
+        Object.entries(colTexto).forEach(([lang, c]) => {
+          let v = String(linha[c] || '').trim();
+          if (!v) return;
+          v = v.replace(/^\[SCENE\][^\n]*\n*/i, '');
+          if (v) (blocosPorIdioma[lang] ||= []).push(v);
+        });
+      }
+    }
+
+    ['PT','EN','ES','FR','DE'].forEach(lang => {
+      if (idiomas[lang]) return;
+      const tag = blocosPorIdioma[lang], raw = brutoPorIdioma[lang];
+      const t = (tag && tag.length) ? tag.join('\n\n') : (raw && raw.length ? raw.join(' ') : '');
+      if (t) idiomas[lang] = t;
+    });
+  }
+  return idiomas;
+}
+
+async function processarArquivo(file) {
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  let idiomas = {};
+  if (ext === 'xlsx') {
+    if (typeof XLSX === 'undefined') throw new Error('leitor de xlsx não carregou (sem internet?)');
+    idiomas = parseXlsxNarracoes(XLSX.read(await file.arrayBuffer(), { type: 'array' }));
+  } else if (ext === 'md' || ext === 'markdown' || ext === 'txt') {
+    idiomas = parseMarkdownNarracoes(await file.text());
+  } else {
+    return null;
+  }
+  return { nomeArquivo: file.name, numeroEpisodio: extrairNumeroEpisodio(file.name), idiomas, canalGrupo: canalGrupoPadrao, selecionado: true };
+}
+
+async function processarArquivos(fileList) {
+  const arquivos = Array.from(fileList || []);
+  if (!arquivos.length) return;
+  let ok = 0, semSuporte = 0, vazios = 0;
+  for (const f of arquivos) {
+    let doc;
+    try { doc = await processarArquivo(f); }
+    catch (e) { showToast(`⚠️ ${f.name}: ${e.message}`); continue; }
+    if (!doc) { semSuporte++; continue; }
+    if (!Object.keys(doc.idiomas).length) vazios++;
+    documentos.push(doc);
+    ok++;
+  }
+  renderDocumentos();
+  blocos.forEach(sincronizarBloco);
+  const partes = [`📄 ${ok} documento(s) carregado(s)`];
+  if (vazios) partes.push(`${vazios} sem narração reconhecida`);
+  if (semSuporte) partes.push(`${semSuporte} formato não suportado`);
+  showToast(partes.join(' · '));
+}
+
+function renderDocumentos() {
+  const wrap = document.getElementById('docsLista');
+  wrap.innerHTML = '';
+  document.getElementById('loteArea').classList.toggle('hidden', documentos.length === 0);
+
+  documentos.forEach(doc => {
+    const row = document.createElement('div');
+    row.className = 'doc-row';
+
+    const sel = document.createElement('input');
+    sel.type = 'checkbox'; sel.className = 'doc-select';
+    sel.checked = doc.selecionado !== false;
+    sel.title = 'Incluir este documento ao criar blocos automaticamente';
+    sel.addEventListener('change', () => { doc.selecionado = sel.checked; });
+
+    const nome = document.createElement('span');
+    nome.className = 'doc-nome'; nome.textContent = doc.nomeArquivo; nome.title = doc.nomeArquivo;
+
+    const num = document.createElement('input');
+    num.type = 'number'; num.className = 'doc-ep';
+    num.value = doc.numeroEpisodio ?? '';
+    num.title = 'Número do episódio detectado no nome do arquivo — corrija se estiver errado';
+    num.addEventListener('input', () => {
+      doc.numeroEpisodio = num.value === '' ? null : parseInt(num.value, 10);
+      blocos.forEach(sincronizarBloco);
+    });
+
+    const canal = document.createElement('select');
+    canal.className = 'doc-canal';
+    canal.title = 'Canal do projeto — define qual Voice Bible/voz entra sozinha no "Perfil deste bloco" e ajuda a desempatar episódios repetidos entre canais';
+    preencherOpcoesCanal(canal);
+    canal.value = doc.canalGrupo || '';
+    canal.addEventListener('change', () => {
+      doc.canalGrupo = canal.value;
+      blocos.forEach(sincronizarBloco);
+    });
+
+    const langs = document.createElement('span');
+    langs.className = 'doc-langs';
+    ['PT','EN','ES','FR','DE'].forEach(l => {
+      const chip = document.createElement('span');
+      chip.className = 'doc-lang-chip' + (doc.idiomas[l] ? ' achou' : '');
+      chip.textContent = l;
+      chip.title = doc.idiomas[l] ? `${doc.idiomas[l].length} caracteres encontrados` : 'não encontrado neste documento';
+      langs.appendChild(chip);
+    });
+
+    const btnDel = document.createElement('button');
+    btnDel.className = 'btn-icon'; btnDel.textContent = '🗑'; btnDel.title = 'Remover este documento';
+    btnDel.onclick = () => { documentos = documentos.filter(d => d !== doc); renderDocumentos(); blocos.forEach(sincronizarBloco); };
+
+    row.append(sel, nome, num, canal, langs, btnDel);
+    wrap.appendChild(row);
+  });
+
+  renderLoteIdiomas();
+}
+
+// ── geração em lote: cada documento marcado × cada idioma marcado vira um
+// bloco manual, já nomeado ("<canal> <ep> <lang>") e com a narração
+// preenchida — mesma lógica de busca do sincronizarBloco, só que disparada
+// por um clique em vez de o usuário digitar o nome campo a campo.
+const LANG_ORDEM = ['PT', 'EN', 'ES', 'FR', 'DE'];
+let loteIdiomas = new Set(['PT', 'EN', 'ES']);   // ligados por padrão — FR/DE ficam de fora, mas editável
+
+function idiomasDisponiveis() {
+  return LANG_ORDEM.filter(l => documentos.some(d => d.idiomas[l]));
+}
+
+function renderLoteIdiomas() {
+  const wrap = document.getElementById('loteIdiomas');
+  wrap.innerHTML = '';
+  const disponiveis = idiomasDisponiveis();
+  disponiveis.forEach(l => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'lote-lang-btn' + (loteIdiomas.has(l) ? ' sel' : '');
+    btn.textContent = l;
+    btn.onclick = () => {
+      loteIdiomas.has(l) ? loteIdiomas.delete(l) : loteIdiomas.add(l);
+      btn.classList.toggle('sel', loteIdiomas.has(l));
+    };
+    wrap.appendChild(btn);
+  });
+  document.getElementById('loteResumo').textContent = disponiveis.length
+    ? 'usa os documentos marcados acima × os idiomas marcados aqui'
+    : 'nenhum idioma reconhecido ainda nos documentos carregados';
+}
+
+function criarBlocosEmLote() {
+  const docsSelecionados = documentos.filter(d => d.selecionado !== false);
+  if (!docsSelecionados.length) { showToast('⚠️ Marque ao menos um documento na lista'); return; }
+  if (!loteIdiomas.size) { showToast('⚠️ Marque ao menos um idioma'); return; }
+
+  const idiomasAlvo = LANG_ORDEM.filter(l => loteIdiomas.has(l));
+  let criados = 0, semEpisodio = 0, semNarracao = 0;
+
+  docsSelecionados
+    .slice()
+    .sort((a, b) => (a.numeroEpisodio ?? 0) - (b.numeroEpisodio ?? 0))
+    .forEach(doc => {
+      if (doc.numeroEpisodio == null) { semEpisodio++; return; }
+      const g = GRUPOS_PERFIL_BLOCO.find(x => x.grupo === doc.canalGrupo);
+      const prefixo = g ? g.apelidos[0] + ' ' : '';
+      idiomasAlvo.forEach(lang => {
+        if (!doc.idiomas[lang]) { semNarracao++; return; }
+        const nome = `${prefixo}${doc.numeroEpisodio} ${lang}`;
+        const b = adicionarBloco();
+        b.nome = nome;
+        if (b._el) b._el.nomeInput.value = nome;
+        sincronizarBloco(b);
+        criados++;
+      });
+    });
+
+  const partes = [criados ? `⚡ ${criados} bloco(s) criado(s)` : '⚠️ nenhum bloco criado'];
+  if (semEpisodio) partes.push(`${semEpisodio} documento(s) sem episódio detectado, pulado(s)`);
+  if (semNarracao) partes.push(`${semNarracao} combinação(ões) sem narração disponível, pulada(s)`);
+  showToast(partes.join(' · '));
+}
+
+// acha o(s) documento(s) carregado(s) para este número de episódio
+function documentosParaEpisodio(numero) {
+  return documentos.filter(d => d.numeroEpisodio === numero);
+}
+
+// ── sincroniza um bloco com os documentos carregados, a partir do NOME que
+// o usuário deu a ele (ex: "ESS 1 EN"): preenche a narração E, se o
+// documento tiver um "canal do projeto" definido, também o Perfil deste
+// bloco (voz + Voice Bible do canal certo). Nunca sobrescreve texto ou
+// perfil editados à mão — só o que ainda for exatamente o último valor
+// auto-preenchido pode ser trocado de novo.
+function sincronizarBloco(b) {
+  const el = b._el;
+  if (!el) return;
+  const { episodio, idioma, canal } = extrairEpisodioIdiomaDoNome(b.nome);
+  if (episodio == null || !idioma) { el.syncInfo.textContent = ''; el.syncInfo.className = 'bloco-sync-info'; return; }
+
+  let candidatos = documentosParaEpisodio(episodio);
+  if (!candidatos.length) {
+    el.syncInfo.textContent = `⚠ episódio ${episodio} não encontrado nos documentos carregados`;
+    el.syncInfo.className = 'bloco-sync-info aviso';
+    return;
+  }
+  let desempatadoPorCanal = false;
+  if (candidatos.length > 1 && canal) {
+    const filtrados = candidatos.filter(d => grupoCombinaComToken(d.canalGrupo, canal));
+    if (filtrados.length === 1) { candidatos = filtrados; desempatadoPorCanal = true; }
+  }
+  const doc = candidatos[candidatos.length - 1];
+  const narracao = doc.idiomas[idioma];
+  if (!narracao) {
+    el.syncInfo.textContent = `⚠ "${doc.nomeArquivo}" não tem narração em ${idioma}`;
+    el.syncInfo.className = 'bloco-sync-info aviso';
+    return;
+  }
+
+  const ambiguo = (candidatos.length > 1 && !desempatadoPorCanal)
+    ? ' (vários com esse número — usando o mais recente; defina o "canal do projeto" na lista pra desempatar)'
+    : '';
+  let mudou = false;
+
+  const podeSubstituirTexto = !b.texto.trim() || b.texto === b._autoTexto;
+  if (podeSubstituirTexto && b.texto !== narracao) {
+    b.texto = narracao; b._autoTexto = narracao; mudou = true;
+  }
+
+  const perfilAuto = doc.canalGrupo ? perfilParaGrupoIdioma(doc.canalGrupo, idioma) : '';
+  const podeSubstituirPerfil = !b._perfilManual;
+  if (perfilAuto && podeSubstituirPerfil && b.perfil !== perfilAuto) {
+    b.perfil = perfilAuto; mudou = true;
+  }
+
+  const avisos = [];
+  if (!podeSubstituirTexto && b.texto !== narracao) avisos.push('texto editado à mão, não sobrescrito');
+  if (perfilAuto && !podeSubstituirPerfil && b.perfil !== perfilAuto) avisos.push('perfil trocado à mão, não sobrescrito');
+
+  el.syncInfo.textContent = `📄 ${doc.nomeArquivo}${ambiguo}${avisos.length ? ' · ' + avisos.join(' · ') : ''}`;
+  el.syncInfo.className = 'bloco-sync-info' + (avisos.length ? '' : ' ok');
+
+  if (mudou) { atualizarBloco(b); atualizarResumo(); }
+}
+
+// evita que soltar o arquivo fora da zona de drop faça o navegador abrir o
+// arquivo e navegar pra longe da mesa (perderia tudo que não foi baixado)
+window.addEventListener('dragover', e => e.preventDefault());
+window.addEventListener('drop', e => e.preventDefault());
+
+const dropDocs = document.getElementById('dropDocs');
+const dropDocsInput = document.getElementById('dropDocsInput');
+dropDocs.addEventListener('click', () => dropDocsInput.click());
+dropDocs.addEventListener('dragover', e => { e.preventDefault(); dropDocs.classList.add('arrastando'); });
+dropDocs.addEventListener('dragleave', () => dropDocs.classList.remove('arrastando'));
+dropDocs.addEventListener('drop', e => {
+  e.preventDefault();
+  dropDocs.classList.remove('arrastando');
+  processarArquivos(e.dataTransfer.files);
+});
+dropDocsInput.addEventListener('change', () => {
+  processarArquivos(dropDocsInput.files);
+  dropDocsInput.value = '';
+});
+
+// seletor global de canal: define o padrão pros próximos documentos soltos
+// aqui e preenche de uma vez só os que já estão carregados e ainda não têm
+// canal escolhido — nunca troca um canal que o usuário já definiu arquivo
+// por arquivo, pra não jogar fora uma escolha específica.
+const canalGlobalSelect = document.getElementById('canalGlobalSelect');
+preencherOpcoesCanal(canalGlobalSelect);
+canalGlobalSelect.addEventListener('change', () => {
+  canalGrupoPadrao = canalGlobalSelect.value;
+  let aplicados = 0;
+  documentos.forEach(d => { if (!d.canalGrupo && canalGrupoPadrao) { d.canalGrupo = canalGrupoPadrao; aplicados++; } });
+  renderDocumentos();
+  blocos.forEach(sincronizarBloco);
+  if (aplicados) showToast(`🌐 canal aplicado a ${aplicados} documento(s) sem canal definido`);
+});
+
+// ════════════════════════════════════════════════════════
+// MESA DE BLOCOS
+// ════════════════════════════════════════════════════════
+function novoBloco(texto = '', nome = '') {
+  return { id: ++seqId, texto, nome, blob: null, url: '', picos: null,
+           status: 'pendente', erro: '', aprovado: false, textoGerado: null,
+           perfil: '', _autoTexto: null, _perfilManual: false, foiRefeito: false };
+}
+
+function tamanhoAlvo() {
+  const v = parseInt(document.getElementById('splitTamanho').value, 10);
+  return (isNaN(v) || v < 80) ? 500 : v;
+}
+
+function atualizarPreviewSplit() {
+  const el = document.getElementById('splitPreview');
+  if (!el) return;
+  const txt = mainText.value.trim();
+  if (!txt) { el.textContent = ''; return; }
+  const bl = dividirEmBlocos(txt, tamanhoAlvo());
+  const t = bl.map(b => b.length);
+  el.textContent = bl.length === 1
+    ? `resultará em 1 bloco · ${t[0]} caracteres`
+    : `resultará em ${bl.length} blocos · menor ${Math.min(...t)} · maior ${Math.max(...t)}`;
+}
+
+// ── ② → ③ distribui o roteiro pelos blocos, sem quebrar frase
+function distribuirBlocos() {
+  const txt = mainText.value.trim();
+  if (!txt) { showToast('⚠️ Cole o roteiro primeiro'); return; }
+  if (gerandoLote) { showToast('⏳ Espere a geração terminar'); return; }
+
+  const jaGerados = blocos.filter(b => b.blob).length;
+  if (jaGerados && !confirm(`Redistribuir vai descartar ${jaGerados} áudio(s) já gerado(s). Continuar?`)) return;
+
+  blocos.forEach(b => { if (b.url) URL.revokeObjectURL(b.url); });
+  document.getElementById('blocosLista').innerHTML = '';
+
+  const partes = dividirEmBlocos(txt, tamanhoAlvo());
+  const base = document.getElementById('nomeBase').value.trim();
+  blocos = partes.map((t, i) => novoBloco(t, base ? proximoNome(base, i) : ''));
+  renderBlocos();
+  showToast(`⿻ ${blocos.length} blocos`);
+}
+
+// ── bloco manual: pode entrar a qualquer momento, inclusive durante a geração.
+// Já entra com o Perfil do Canal ativo agora na tela, para não precisar
+// selecionar isso manualmente depois em cada bloco criado assim.
+// Não move nem foca a tela — quem chama decide se quer navegar até lá.
+function adicionarBloco(depoisDoId) {
+  const b = novoBloco('');
+  b.perfil = perfilAtivoAtual();
+  if (depoisDoId == null) {
+    blocos.push(b);
+  } else {
+    const i = blocos.findIndex(x => x.id === depoisDoId);
+    blocos.splice(i < 0 ? blocos.length : i + 1, 0, b);
+  }
+  renderBlocos();
+  return b;
+}
+
+// ── cria em lote a quantidade indicada no campo "Qtde." — cada bloco
+// herda o Perfil do Canal ativo agora, e a tela não se move
+function adicionarBlocosManual() {
+  const el = document.getElementById('qtdBlocosManual');
+  let n = parseInt(el ? el.value : '1', 10);
+  if (isNaN(n) || n < 1) n = 1;
+  if (n > 200) n = 200;   // limite de segurança contra cliques acidentais
+  for (let i = 0; i < n; i++) adicionarBloco();
+  showToast(n === 1 ? '＋ 1 bloco adicionado' : `＋ ${n} blocos adicionados`);
+}
+
+function duplicarBloco(id) {
+  const i = blocos.findIndex(b => b.id === id);
+  if (i < 0) return;
+  const orig = blocos[i];
+  const copia = novoBloco(orig.texto, '');
+  copia.perfil = orig.perfil;   // preserva o perfil escolhido ao duplicar
+  copia._perfilManual = orig._perfilManual;
+  blocos.splice(i + 1, 0, copia);
+  renderBlocos();
+}
+
+function removerBloco(id) {
+  const i = blocos.findIndex(b => b.id === id);
+  if (i < 0) return;
+  const b = blocos[i];
+  if (b.status === 'gerando') { showToast('⏳ Esse bloco está gerando agora'); return; }
+  if ((b.blob || b.texto.trim()) && !confirm('Remover este bloco?')) return;
+  if (b.url) URL.revokeObjectURL(b.url);
+  if (b._el) b._el.row.remove();
+  blocos.splice(i, 1);
+  renderBlocos();
+}
+
+// ── ⑤ numeração sequencial a partir do nome-base
+function proximoNome(base, i) {
+  const m = base.match(/^(.*?)(\d+)(\D*)$/);
+  if (!m) return i === 0 ? base : `${base}_${String(i + 1).padStart(2, '0')}`;
+  const [, pre, num, suf] = m;
+  return pre + String(parseInt(num, 10) + i).padStart(num.length, '0') + suf;
+}
+
+function aplicarNomesSequenciais() {
+  const base = document.getElementById('nomeBase').value.trim();
+  if (!base) { showToast('⚠️ Escreva o nome do primeiro bloco'); return; }
+  if (!blocos.length) { showToast('⚠️ Distribua o roteiro primeiro'); return; }
+  blocos.forEach((b, i) => { b.nome = proximoNome(base, i); });
+  renderBlocos();
+  showToast('↧ Nomes aplicados');
+}
+
+// ── render: reaproveita as linhas existentes ────────────
+// Reconstruir tudo a cada mudança de status mataria o áudio tocando e o
+// texto em edição. Aqui cada bloco tem sua linha fixa; o render só cria,
+// reordena e manda atualizar.
+function renderBlocos() {
+  const area = document.getElementById('blocosArea');
+  const lista = document.getElementById('blocosLista');
+  area.classList.toggle('hidden', blocos.length === 0);
+
+  blocos.forEach((b, i) => {
+    if (!b._el) criarLinha(b);
+    b._el.num.textContent = String(i + 1).padStart(2, '0');
+    if (lista.children[i] !== b._el.row) lista.insertBefore(b._el.row, lista.children[i] || null);
+    atualizarBloco(b);
+  });
+
+  // limpa linhas de blocos removidos
+  Array.from(lista.children).forEach(el => {
+    if (!blocos.some(b => b._el && b._el.row === el)) el.remove();
+  });
+
+  atualizarResumo();
+}
+
+function atualizarResumo() {
+  const ok     = blocos.filter(b => b.status === 'ok').length;
+  const ap     = blocos.filter(b => b.aprovado).length;
+  const er     = blocos.filter(b => b.status === 'erro').length;
+  const custom = blocos.filter(b => b.perfil).length;
+  document.getElementById('blocosResumo').textContent =
+    `· ${blocos.length} no total · ${ok} gerados · ${ap} aprovados${er ? ` · ${er} com erro` : ''}${custom ? ` · ${custom} com perfil próprio` : ''}`;
+}
+
+function criarLinha(b) {
+  const row = document.createElement('div');
+  row.className = 'bloco';
+
+  const num = document.createElement('div');
+  num.className = 'bloco-num';
+
+  // coluna do nome do arquivo + perfil deste bloco
+  const colNome = document.createElement('div');
+  const nomeInput = document.createElement('input');
+  nomeInput.type = 'text'; nomeInput.className = 'filename-input';
+  nomeInput.style.width = '100%';
+  nomeInput.placeholder = 'nome do arquivo';
+  nomeInput.value = b.nome;
+  nomeInput.addEventListener('input', () => { b.nome = nomeInput.value.trim(); sincronizarBloco(b); });
+
+  const syncInfo = document.createElement('div');
+  syncInfo.className = 'bloco-sync-info';
+
+  const lblPerfil = document.createElement('div');
+  lblPerfil.className = 'bloco-perfil-label';
+  lblPerfil.textContent = 'Perfil deste bloco';
+
+  const selPerfil = document.createElement('select');
+  selPerfil.className = 'bloco-perfil';
+  preencherSelectPerfilBloco(selPerfil);
+  selPerfil.value = b.perfil || '';
+  selPerfil.addEventListener('change', () => {
+    b.perfil = selPerfil.value;
+    b._perfilManual = true;   // usuário mexeu aqui — sincronizarBloco não pisa mais nisso
+    atualizarBloco(b);
+    atualizarResumo();
+  });
+
+  const vozInfo = document.createElement('div');
+  vozInfo.className = 'bloco-voz-preview';
+
+  const cnt = document.createElement('div');
+  cnt.className = 'bloco-status';
+  cnt.style.cssText = 'margin-top:5px;text-align:left';
+  colNome.append(nomeInput, syncInfo, lblPerfil, selPerfil, vozInfo, cnt);
+
+  // texto do bloco — editável
+  const txt = document.createElement('textarea');
+  txt.className = 'bloco-txt';
+  txt.value = b.texto;
+  txt.placeholder = 'texto deste bloco';
+  txt.addEventListener('input', () => { b.texto = txt.value; atualizarBloco(b); });
+
+  // coluna da direita: status + ações estruturais
+  const dir = document.createElement('div');
+  dir.className = 'bloco-dir';
+  const st = document.createElement('span');
+  st.className = 'bloco-status';
+  const linha = document.createElement('div');
+  linha.className = 'bloco-linha';
+
+  const btnGerar = document.createElement('button');
+  btnGerar.className = 'btn-icon';
+  btnGerar.onclick = () => gerarBloco(b.id);
+
+  const btnAdd = document.createElement('button');
+  btnAdd.className = 'btn-icon'; btnAdd.textContent = '＋';
+  btnAdd.title = 'Inserir bloco vazio abaixo deste, já com o Perfil do Canal atual';
+  btnAdd.onclick = () => adicionarBloco(b.id);
+
+  const btnDup = document.createElement('button');
+  btnDup.className = 'btn-icon'; btnDup.textContent = '⧉';
+  btnDup.title = 'Duplicar o texto (e o perfil) deste bloco abaixo';
+  btnDup.onclick = () => duplicarBloco(b.id);
+
+  const btnDel = document.createElement('button');
+  btnDel.className = 'btn-icon'; btnDel.textContent = '🗑';
+  btnDel.title = 'Remover bloco';
+  btnDel.onclick = () => removerBloco(b.id);
+
+  linha.append(btnGerar, btnAdd, btnDup, btnDel);
+  dir.append(st, linha);
+
+  // rodapé: ouvir, ver a onda e decidir
+  const rodape = document.createElement('div');
+  rodape.className = 'bloco-rodape hidden';
+
+  const audio = document.createElement('audio');
+  audio.controls = true; audio.preload = 'metadata';
+
+  const canvas = document.createElement('canvas');
+  canvas.className = 'wave';
+  canvas.title = 'Clique na onda para pular para esse ponto';
+
+  const btnOk = document.createElement('button');
+  btnOk.className = 'btn-icon';
+  btnOk.onclick = () => {
+    b.aprovado = !b.aprovado;
+    atualizarBloco(b); atualizarResumo();
+    showToast(b.aprovado ? '✓ Áudio aceito' : 'Aprovação removida');
+  };
+
+  const btnRefazer = document.createElement('button');
+  btnRefazer.className = 'btn-icon';
+  btnRefazer.textContent = '↻ Refazer';
+  btnRefazer.title = 'Gera de novo, com o mesmo texto e a mesma direção';
+  btnRefazer.onclick = () => gerarBloco(b.id);
+
+  const btnDescartar = document.createElement('button');
+  btnDescartar.className = 'btn-icon';
+  btnDescartar.textContent = '✕ Descartar';
+  btnDescartar.title = 'Joga o áudio fora e devolve o bloco para a fila';
+  btnDescartar.onclick = () => {
+    limparAudio(b);
+    b.status = 'pendente'; b.aprovado = false; b.erro = '';
+    atualizarBloco(b); atualizarResumo();
+  };
+
+  const btnDl = document.createElement('button');
+  btnDl.className = 'btn-download';
+  btnDl.textContent = '⬇ Baixar';
+  btnDl.onclick = () => {
+    const i = blocos.findIndex(x => x.id === b.id);
+    baixarBlob(b.blob, (b.nome || `bloco_${i + 1}`) + '.wav');
+  };
+
+  const badgeRefeito = document.createElement('span');
+  badgeRefeito.className = 'badge-refeito hidden';
+  badgeRefeito.textContent = '↻ refeito';
+  badgeRefeito.title = 'Esse áudio já foi gerado de novo pelo menos uma vez — não é o primeiro take';
+
+  rodape.append(audio, canvas, badgeRefeito, btnOk, btnRefazer, btnDescartar, btnDl);
+
+  // sincronia onda × player
+  let raf = 0;
+  const pintar = () => desenharOnda(canvas, b.picos,
+    audio.duration ? (audio.currentTime / audio.duration) : 0);
+  const loop = () => { pintar(); if (!audio.paused && !audio.ended) raf = requestAnimationFrame(loop); };
+  audio.addEventListener('play',   () => { cancelAnimationFrame(raf); loop(); });
+  audio.addEventListener('pause',  () => { cancelAnimationFrame(raf); pintar(); });
+  audio.addEventListener('seeked', pintar);
+  audio.addEventListener('loadedmetadata', pintar);
+  audio.addEventListener('ended',  () => desenharOnda(canvas, b.picos, 0));
+  canvas.addEventListener('click', e => {
+    if (!audio.duration) return;
+    const r = canvas.getBoundingClientRect();
+    audio.currentTime = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * audio.duration;
+    pintar();
+  });
+  b._pintar = pintar;
+
+  row.append(num, colNome, txt, dir, rodape);
+  b._el = { row, num, nomeInput, syncInfo, selPerfil, vozInfo, cnt, txt, st, btnGerar, btnDel, rodape, audio, canvas, btnOk, btnRefazer, btnDl, badgeRefeito };
+}
+
+function atualizarBloco(b) {
+  const el = b._el;
+  if (!el) return;
+
+  const alterado = b.status === 'ok' && b.textoGerado != null && b.textoGerado !== b.texto;
+
+  el.row.className = 'bloco'
+    + (b.aprovado ? ' aprovado'
+      : b.status === 'gerando' ? ' ativo'
+      : b.status === 'erro' ? ' erro'
+      : b.status === 'ok' ? ' ok' : '');
+
+  el.cnt.textContent = `${b.texto.length} caracteres`;
+  if (document.activeElement !== el.nomeInput && el.nomeInput.value !== b.nome) el.nomeInput.value = b.nome;
+  if (document.activeElement !== el.txt && el.txt.value !== b.texto) el.txt.value = b.texto;
+  if (document.activeElement !== el.selPerfil && el.selPerfil.value !== (b.perfil || '')) el.selPerfil.value = b.perfil || '';
+  el.vozInfo.textContent = '🎙 ' + vozPreviewBloco(b) + (b.perfil ? '' : ' (herdada)');
+
+  let s = b.status === 'gerando' ? '⏳ gerando...'
+        : b.status === 'erro'    ? '✕ ' + (b.erro || 'falhou')
+        : b.status === 'ok'      ? (b.aprovado ? '✓ aprovado' : '♪ ouça e decida')
+        : 'pendente';
+  if (alterado) s += ' · texto mudou depois do áudio';
+  el.st.textContent = s;
+  el.st.className = 'bloco-status ' + (b.aprovado ? 'ok' : b.status === 'erro' ? 'erro' : '');
+  el.st.title = b.erro || '';
+
+  el.btnGerar.textContent = b.status === 'ok' ? '↻ Regerar'
+                          : b.status === 'erro' ? '↻ Tentar de novo'
+                          : '▶ Gerar';
+  el.btnGerar.disabled = (b.status === 'gerando') || !b.texto.trim();
+  el.btnDel.disabled = (b.status === 'gerando');
+
+  el.rodape.classList.toggle('hidden', !b.blob);
+  if (b.blob) {
+    if (el.audio.src !== b.url) el.audio.src = b.url;
+    el.btnOk.textContent = b.aprovado ? '✓ Aprovado' : '✓ Aceitar';
+    el.btnOk.classList.toggle('btn-ok-sel', b.aprovado);
+    el.btnRefazer.disabled = (b.status === 'gerando');
+    el.btnDl.title = `${(b.blob.size / 1024).toFixed(0)} KB`;
+    el.badgeRefeito.classList.toggle('hidden', !b.foiRefeito);
+    if (b.picos) b._pintar();
+  }
+}
+
+function guardarAudio(b, blob) {
+  if (b.blob) b.foiRefeito = true;   // já tinha áudio antes — isso é um "refazer"
+  if (b.url) URL.revokeObjectURL(b.url);
+  b.blob = blob;
+  b.url = URL.createObjectURL(blob);
+  b.picos = null;
+  b.textoGerado = b.texto;
+  b.aprovado = false;          // áudio novo volta a precisar do seu aval
+  atualizarBloco(b);
+  picosDoBlob(blob).then(p => { b.picos = p; if (b._pintar) b._pintar(); });
+}
+
+function limparAudio(b) {
+  if (b._el) { b._el.audio.pause(); b._el.audio.removeAttribute('src'); b._el.audio.load(); }
+  if (b.url) URL.revokeObjectURL(b.url);
+  b.blob = null; b.url = ''; b.picos = null; b.textoGerado = null; b.foiRefeito = false;
+}
+
+// ════════════════════════════════════════════════════════
+// GERAÇÃO
+// ════════════════════════════════════════════════════════
+function ctxGeracao() {
+  const chaves = getChaves();
+  if (!chaves.length) { setStatus('⚠️ Cole ao menos uma API key.', 'error'); showOutput(true); return null; }
+  return {
+    chaves,
+    model: document.getElementById('modelSelect').value,
+    voice: document.getElementById('voiceSelect').value,
+    bible: document.getElementById('voiceBibleText').value
+  };
+}
+
+// escolhe uma chave que não esteja ocupada por um trabalhador do lote
+function chaveLivre(chaves) {
+  return chaves.find(k => !chavesEmUso.has(k)) || chaves[0];
+}
+
+// ⑥ geração de um bloco — é isso que permite refazer só o que saiu ruim,
+// mesmo com o lote rodando ao fundo. Se o bloco tiver um perfil próprio
+// selecionado, ele usa a voz e o Voice Bible daquele perfil em vez do
+// que estiver configurado no painel lateral.
+async function gerarBloco(id, ctx, chaveFixa) {
+  const c = ctx || ctxGeracao();
+  if (!c) return false;
+  const b = blocos.find(x => x.id === id);
+  if (!b || b.status === 'gerando') return false;
+  if (!b.texto.trim()) { showToast('⚠️ Bloco sem texto'); return false; }
+
+  const chave = chaveFixa || chaveLivre(c.chaves);
+  const avulso = !chaveFixa;
+  if (avulso) chavesEmUso.add(chave);
+
+  b.status = 'gerando'; b.erro = '';
+  atualizarBloco(b); atualizarResumo();
+
+  const { voice, bible } = resolverVozEBible(b, c);
+  const r = await chamarTTS({ chaves: c.chaves, chaveInicial: chave, model: c.model, voice, bible, texto: b.texto });
+
+  if (avulso) chavesEmUso.delete(chave);
+
+  if (r.ok) { b.status = 'ok'; b.erro = ''; guardarAudio(b, r.blob); }
+  else {
+    b.status = 'erro'; b.erro = r.erro;
+    if (r.todasChavesEstouraram) avisarTodasChavesEstouraram(c.chaves.length);
+  }
+  atualizarBloco(b); atualizarResumo();
+  return r.ok;
+}
+
+// Lote: um trabalhador por chave, puxando da fila dinamicamente.
+// Como a fila é lida a cada volta, blocos criados no meio da geração
+// entram sozinhos — desde que tenham texto. Cada bloco resolve seu
+// próprio perfil (herdado ou fixo) dentro de gerarBloco().
+async function gerarTodos() {
+  const c = ctxGeracao();
+  if (!c) return;
+  if (gerandoLote) { showToast('⏳ Geração já está rodando'); return; }
+  if (!blocos.length) { showToast('⚠️ Distribua o roteiro ou crie um bloco'); return; }
+
+  const tentados = new Set();   // evita ficar reciclando o mesmo erro
+  const proximo = () => blocos.find(b =>
+    b.status !== 'ok' && b.status !== 'gerando' && b.texto.trim() && !tentados.has(b.id));
+
+  if (!proximo()) { showToast('✓ Nada pendente para gerar'); return; }
+
+  gerandoLote = true;
+  setBusy(true);
+  showOutput(true);
+  let feitos = 0, falhas = 0;
+
+  const trabalhador = async (chave) => {
+    chavesEmUso.add(chave);
+    try {
+      while (gerandoLote) {
+        const b = proximo();
+        if (!b) break;
+        tentados.add(b.id);
+        const ok = await gerarBloco(b.id, c, chave);
+        ok ? feitos++ : falhas++;
+        const restam = blocos.filter(x =>
+          x.status !== 'ok' && x.texto.trim() && !tentados.has(x.id)).length;
+        setStatus(`⏳ ${feitos + falhas} processados · ${feitos} ok${falhas ? ` · ${falhas} com erro` : ''}${restam ? ` · ${restam} na fila` : ''}`, 'loading');
+      }
+    } finally { chavesEmUso.delete(chave); }
+  };
+
+  await Promise.all(c.chaves.map(trabalhador));
+
+  gerandoLote = false;
+  setStatus(falhas
+    ? `⚠️ ${feitos} gerados · ${falhas} falharam — use "Tentar de novo" nos blocos marcados`
+    : `✅ ${feitos} blocos gerados — ouça cada um e clique em "Aceitar"`, falhas ? 'error' : 'success');
+  setBusy(false);
+}
+
+// Uma chamada à API. Em cada chave tentada, até 3 tentativas (a doc do
+// Google avisa que o modelo às vezes devolve texto no lugar de áudio e
+// recomenda repetir automaticamente) — mas se a resposta for 429 (cota
+// estourada), não adianta insistir na mesma chave: pula direto pra próxima
+// chave cadastrada, sem esperar. Só desiste de vez se TODAS as chaves
+// tiverem sido tentadas.
+async function chamarTTS({ chaves, chaveInicial, model, voice, bible, texto }) {
+  const body = {
+    contents: [{ parts: [{ text: buildPrompt(bible, texto) }] }],
+    generationConfig: {
+      responseModalities: ['AUDIO'],
+      speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } }
+    }
+  };
+  const ordemChaves = [chaveInicial, ...chaves.filter(k => k !== chaveInicial)];
+  let ultimo = '', chavesEstouradas = 0;
+
+  for (const chave of ordemChaves) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${chave}`;
+    for (let t = 1; t <= 3; t++) {
+      try {
+        if (t > 1) await sleep(t === 2 ? 6000 : 12000);
+        const res = await fetch(url, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          if (res.status === 429) {
+            ultimo = 'cota da chave estourada (429)';
+            chavesEstouradas++;
+            break;   // essa chave não vai destravar em 6-12s — pula pra próxima
+          }
+          ultimo = data?.error?.message || `erro ${res.status}`;
+          continue;
+        }
+        const part = data?.candidates?.[0]?.content?.parts?.[0];
+        if (!part?.inlineData?.data) {
+          ultimo = part?.text ? 'modelo devolveu texto no lugar de áudio' : 'resposta sem áudio';
+          continue;
+        }
+        const mime = part.inlineData.mimeType || '';
+        const rate = mime.match(/rate=(\d+)/);
+        return { ok: true, blob: new Blob([pcmToWav(part.inlineData.data, rate ? parseInt(rate[1]) : 24000)], { type: 'audio/wav' }) };
+      } catch (e) { ultimo = e.message; }
+    }
+  }
+
+  const todasChavesEstouraram = chavesEstouradas === ordemChaves.length;
+  const erro = todasChavesEstouraram
+    ? (ordemChaves.length > 1 ? `todas as ${ordemChaves.length} chaves cadastradas estouraram a cota (429)` : 'cota da chave estourada (429)')
+    : ultimo;
+  return { ok: false, erro, todasChavesEstouraram: todasChavesEstouraram && ordemChaves.length > 1 };
+}
+
+// evita empilhar vários toasts iguais quando várias gerações em paralelo
+// batem na cota ao mesmo tempo
+let avisoTodasChavesEm = 0;
+function avisarTodasChavesEstouraram(qtd) {
+  const agora = Date.now();
+  if (agora - avisoTodasChavesEm < 15000) return;
+  avisoTodasChavesEm = agora;
+  showToast(`🔑 Todas as ${qtd} chaves cadastradas estouraram a cota (429) — adicione outra chave ou espere a cota renovar`);
+}
+
+// ════════════════════════════════════════════════════════
+// DOWNLOAD
+// ════════════════════════════════════════════════════════
+function baixarBlob(blob, nome) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = nome;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+
+async function baixarTodos(apenasAprovados) {
+  const prontos = blocos
+    .map((b, i) => ({ b, i }))
+    .filter(({ b }) => b.blob && (!apenasAprovados || b.aprovado));
+  if (!prontos.length) {
+    showToast(apenasAprovados ? '⚠️ Nenhum áudio aprovado ainda' : '⚠️ Nenhum áudio gerado ainda');
+    return;
+  }
+  for (const { b, i } of prontos) {
+    baixarBlob(b.blob, (b.nome || `bloco_${i + 1}`) + '.wav');
+    await sleep(350);   // o navegador bloqueia downloads simultâneos
+  }
+  showToast(`⬇ ${prontos.length} arquivos`);
+}
+
+// ════════════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════════════
+function setStatus(msg, type) {
+  const el = document.getElementById('statusMsg');
+  el.textContent = msg;
+  el.className = type || '';
+}
+
+function showOutput(show) {
+  document.getElementById('outputArea').classList.toggle('hidden', !show);
+}
+
+function setBusy(busy) {
+  const btn = document.getElementById('gerarTodosBtn');
+  btn.disabled = busy;
+  btn.innerHTML = busy ? '<span class="spinner"></span> Gerando...' : '▶ Gerar pendentes';
+  document.getElementById('distribuirBtn').disabled = busy;
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ════════════════════════════════════════════════════════
+// BACKUP NO GITHUB — grava um snapshot deste app (capturado uma única vez,
+// logo após o carregamento — ver SNAPSHOT_HTML no fim do arquivo) no
+// repositório via API do GitHub (Contents API). Sem backend: chama a API
+// direto do navegador, com o token que o usuário cola na caixinha (nunca
+// preenchido por código, nunca pedido no chat).
+// ════════════════════════════════════════════════════════
+const GH_PADRAO = { owner: 'JAEMult', repo: 'gemini-tts-studio', branch: 'main', path: 'gemini-tts-studio.html' };
+
+const ghOwnerInput = document.getElementById('ghOwner');
+const ghRepoInput = document.getElementById('ghRepo');
+const ghBranchInput = document.getElementById('ghBranch');
+const ghPathInput = document.getElementById('ghPath');
+const ghTokenInput = document.getElementById('ghToken');
+
+ghOwnerInput.value = localStorage.getItem('gemini_tts_gh_owner') || GH_PADRAO.owner;
+ghRepoInput.value = localStorage.getItem('gemini_tts_gh_repo') || GH_PADRAO.repo;
+ghBranchInput.value = localStorage.getItem('gemini_tts_gh_branch') || GH_PADRAO.branch;
+ghPathInput.value = localStorage.getItem('gemini_tts_gh_path') || GH_PADRAO.path;
+const ghTokenSalvo = localStorage.getItem('gemini_tts_gh_token') || '';
+if (ghTokenSalvo) ghTokenInput.value = ghTokenSalvo;
+
+[[ghOwnerInput, 'gemini_tts_gh_owner'], [ghRepoInput, 'gemini_tts_gh_repo'],
+ [ghBranchInput, 'gemini_tts_gh_branch'], [ghPathInput, 'gemini_tts_gh_path']]
+  .forEach(([el, chave]) => el.addEventListener('input', () => localStorage.setItem(chave, el.value.trim())));
+
+function atualizarInfoTokenGh() {
+  const salvo = localStorage.getItem('gemini_tts_gh_token');
+  document.getElementById('ghTokenInfo').textContent = salvo ? 'token salvo' : 'nenhum token salvo';
+}
+atualizarInfoTokenGh();
+
+document.getElementById('ghTokenToggle').addEventListener('click', () => {
+  alternarMascaraInput(ghTokenInput, document.getElementById('ghTokenToggle'));
+});
+
+document.getElementById('ghTokenSaveBtn').addEventListener('click', () => {
+  localStorage.setItem('gemini_tts_gh_token', ghTokenInput.value.trim());
+  atualizarInfoTokenGh();
+  const b = document.getElementById('ghTokenSaveBtn');
+  b.textContent = '✅';
+  setTimeout(() => b.textContent = '💾', 1500);
+});
+
+document.getElementById('ghTokenClearBtn').addEventListener('click', () => {
+  if (!ghTokenInput.value.trim() && !localStorage.getItem('gemini_tts_gh_token')) { showToast('Não há token salvo'); return; }
+  if (!confirm('Apagar o token do GitHub salvo neste navegador? Isso não pode ser desfeito — você vai precisar colar o token de novo pra fazer backup.')) return;
+  ghTokenInput.value = '';
+  localStorage.removeItem('gemini_tts_gh_token');
+  atualizarInfoTokenGh();
+  showToast('🗑 Token do GitHub apagado');
+});
+
+function definirStatusBackup(msg, tipo) {
+  const el = document.getElementById('ghStatus');
+  el.textContent = msg;
+  el.style.color = tipo === 'erro' ? 'var(--error)' : tipo === 'success' ? 'var(--success)' : tipo === 'loading' ? 'var(--warn)' : '';
+}
+
+function abrirConfigBackupGitHub() {
+  const det = document.getElementById('backupGithubDetails');
+  det.open = true;
+  det.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  ghTokenInput.focus();
+}
+
+// converte string (UTF-8, com acento/emoji) pra base64 do jeito que a API do GitHub espera —
+// btoa() sozinho só entende Latin-1, por isso passa pelos bytes UTF-8 primeiro
+function utf8ParaBase64(str) {
+  const bytes = new TextEncoder().encode(str);
+  let binario = '';
+  const passo = 0x8000;
+  for (let i = 0; i < bytes.length; i += passo) {
+    binario += String.fromCharCode.apply(null, bytes.subarray(i, i + passo));
+  }
+  return btoa(binario);
+}
+
+let backupEmAndamento = false;
+
+async function salvarBackupGitHub() {
+  if (backupEmAndamento) { showToast('⏳ Backup já está rodando'); return; }
+
+  const token = ghTokenInput.value.trim() || localStorage.getItem('gemini_tts_gh_token') || '';
+  if (!token) {
+    abrirConfigBackupGitHub();
+    definirStatusBackup('⚠️ Cole seu token do GitHub aqui embaixo e clique em "Salvar Backup" de novo.', 'erro');
+    showToast('⚠️ Configure o token do GitHub primeiro');
+    return;
+  }
+  if (!window.SNAPSHOT_HTML) {
+    definirStatusBackup('⚠️ Recarregue a página (F5) antes de salvar o backup — o snapshot só é capturado no carregamento.', 'erro');
+    showToast('⚠️ Dê F5 na página antes de salvar o backup');
+    return;
+  }
+
+  const owner = ghOwnerInput.value.trim() || GH_PADRAO.owner;
+  const repo = ghRepoInput.value.trim() || GH_PADRAO.repo;
+  const branch = ghBranchInput.value.trim() || GH_PADRAO.branch;
+  const path = ghPathInput.value.trim() || GH_PADRAO.path;
+  const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path.split('/').map(encodeURIComponent).join('/')}`;
+
+  const btn = document.getElementById('backupGithubBtn');
+  backupEmAndamento = true;
+  btn.disabled = true;
+  const textoOriginalBtn = btn.textContent;
+  btn.innerHTML = '<span class="spinner"></span> Salvando...';
+  definirStatusBackup('⏳ Verificando arquivo atual no repositório...', 'loading');
+
+  try {
+    let sha = null;
+    const getRes = await fetch(`${apiUrl}?ref=${encodeURIComponent(branch)}`, {
+      headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github+json' }
+    });
+    if (getRes.status === 200) {
+      sha = (await getRes.json()).sha;
+    } else if (getRes.status === 401) {
+      definirStatusBackup('✕ Token inválido ou expirado (401). Gere um novo em github.com/settings/tokens.', 'erro');
+      showToast('✕ Token do GitHub inválido (401)');
+      return;
+    } else if (getRes.status !== 404) {
+      definirStatusBackup(`✕ Erro ${getRes.status} ao checar o arquivo atual no repositório.`, 'erro');
+      showToast(`✕ Erro ${getRes.status} ao checar o backup`);
+      return;
+    }
+    // 404 = arquivo ainda não existe nesse caminho — sha fica null, PUT cria um arquivo novo
+
+    definirStatusBackup('⏳ Enviando snapshot...', 'loading');
+    const corpo = {
+      message: `backup: ${new Date().toLocaleString('pt-BR')}`,
+      content: utf8ParaBase64(window.SNAPSHOT_HTML),
+      branch,
+    };
+    if (sha) corpo.sha = sha;
+
+    const putRes = await fetch(apiUrl, {
+      method: 'PUT',
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github+json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(corpo),
+    });
+
+    if (putRes.ok) {
+      definirStatusBackup(`✅ Backup salvo em github.com/${owner}/${repo} (branch ${branch}) — ${new Date().toLocaleTimeString('pt-BR')}`, 'success');
+      showToast('✅ Backup salvo no GitHub');
+    } else if (putRes.status === 401) {
+      definirStatusBackup('✕ Token inválido ou expirado (401). Gere um novo em github.com/settings/tokens.', 'erro');
+      showToast('✕ Token do GitHub inválido (401)');
+    } else if (putRes.status === 409) {
+      definirStatusBackup('✕ Conflito (409) — o arquivo mudou no GitHub nesse meio tempo. Tente salvar de novo.', 'erro');
+      showToast('✕ Conflito ao salvar (409) — tente de novo');
+    } else {
+      const dados = await putRes.json().catch(() => ({}));
+      definirStatusBackup(`✕ Falha ao salvar (${putRes.status}): ${dados.message || 'erro desconhecido'}`, 'erro');
+      showToast(`✕ Falha ao salvar backup (${putRes.status})`);
+    }
+  } catch (e) {
+    definirStatusBackup(`✕ Erro de rede: ${e.message}`, 'erro');
+    showToast('✕ Erro de rede ao salvar backup');
+  } finally {
+    backupEmAndamento = false;
+    btn.disabled = false;
+    btn.textContent = textoOriginalBtn;
+  }
+}
+
+document.getElementById('backupGithubBtn').addEventListener('click', salvarBackupGitHub);
+
+// ════════════════════════════════════════════════════════
+// SNAPSHOT — captura o HTML como ele estava logo após este script terminar
+// de rodar pela 1ª vez (sem interação do usuário ainda), pra usar como
+// conteúdo do backup. TEM QUE ser a última coisa que o script faz — depois
+// de usar o app, o DOM acumula lixo de sessão (blocos, documentos, áudios)
+// que não deveria virar "código-fonte" salvo no repositório.
+// ════════════════════════════════════════════════════════
+window.SNAPSHOT_HTML = '<!doctype html>\n' + document.documentElement.outerHTML;
+</script>
+</body>
+</html>
