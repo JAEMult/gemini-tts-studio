@@ -323,6 +323,267 @@
       transition: opacity 0.2s; z-index: 100;
     }
     .toast.show { opacity: 1; }
+
+    /* ── BADGE DE AMBIENTE ── */
+    .env-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 9px;
+      border-radius: 999px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      user-select: none;
+      vertical-align: middle;
+    }
+    .env-badge.dev {
+      background: rgba(245, 158, 11, 0.18);
+      color: #f59e0b;
+      border: 1px solid rgba(245, 158, 11, 0.45);
+    }
+    .env-badge.prod {
+      background: rgba(16, 185, 129, 0.15);
+      color: #10b981;
+      border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+
+    /* ── PAINEL PÓS-PROCESSAMENTO (AUDACITY & WHISPER) ── */
+    .pos-proc-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      margin: 14px 0;
+      transition: border-color 0.2s;
+    }
+    .pos-proc-box:hover { border-color: rgba(124, 106, 247, 0.5); }
+    .pos-proc-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .pos-proc-body {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .pos-proc-field {
+      display: flex;
+      flex-direction: column;
+    }
+    .checkbox-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      user-select: none;
+    }
+    .checkbox-label input[type="checkbox"] {
+      accent-color: var(--accent);
+      cursor: pointer;
+      width: 16px;
+      height: 16px;
+    }
+    .btn-processar {
+      background: linear-gradient(135deg, #7c6af7, #5a45e8);
+      color: #fff;
+      border: none;
+      padding: 9px 18px;
+      border-radius: var(--radius);
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: filter 0.15s, transform 0.1s;
+    }
+    .btn-processar:hover { filter: brightness(1.12); }
+    .btn-processar:active { transform: scale(0.98); }
+    .btn-processar:disabled { opacity: 0.5; cursor: not-allowed; filter: none; }
+    .bridge-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .bridge-badge.online {
+      background: rgba(16, 185, 129, 0.15);
+      color: #10b981;
+      border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+    .bridge-badge.offline {
+      background: rgba(224, 90, 90, 0.15);
+      color: #e05a5a;
+      border: 1px solid rgba(224, 90, 90, 0.35);
+    }
+    .bridge-badge.checking {
+      background: rgba(245, 158, 11, 0.15);
+      color: #f59e0b;
+      border: 1px solid rgba(245, 158, 11, 0.35);
+    }
+
+    /* ── ABAS DO WORKSPACE ── */
+    .workspace-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 10px;
+    }
+    .ws-tab {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: var(--radius);
+      padding: 8px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+    .ws-tab:hover {
+      border-color: var(--accent);
+      color: var(--text);
+    }
+    .ws-tab.active {
+      background: var(--surface);
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: 0 2px 8px rgba(124, 106, 247, 0.15);
+    }
+    .ws-tab-badge {
+      background: var(--accent);
+      color: white;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 999px;
+      margin-left: 2px;
+    }
+
+    /* ── ABA ÁUDIOS MASTERIZADOS ── */
+    .master-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+    }
+    .master-acoes {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .master-empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 48px 24px;
+      background: var(--surface);
+      border: 1px dashed var(--border);
+      border-radius: var(--radius);
+      margin-top: 14px;
+      gap: 10px;
+      color: var(--text-muted);
+    }
+    .master-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--accent);
+      border-radius: var(--radius);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: border-color 0.15s;
+    }
+    .master-card:hover {
+      border-color: var(--accent);
+    }
+    .master-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .master-card-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .master-pill {
+      font-size: 11px;
+      font-weight: 600;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 2px 8px;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .master-pill.duracao { color: #38bdf8; border-color: rgba(56, 189, 248, 0.3); }
+    .master-pill.tamanho { color: #34d399; border-color: rgba(52, 211, 153, 0.3); }
+    .master-pill.macro { color: #a78bfa; border-color: rgba(167, 139, 250, 0.3); }
+    .master-player-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+    }
+    .master-player-row audio {
+      width: 260px;
+      height: 34px;
+      flex: none;
+    }
+    .master-player-row canvas.wave {
+      flex: 1;
+      min-width: 180px;
+      height: 48px;
+      border-radius: 6px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      cursor: pointer;
+    }
+    .master-srt-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-family: 'Courier New', monospace;
+      max-height: 140px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      line-height: 1.5;
+      color: var(--text-muted);
+    }
   </style>
 </head>
 <body>
@@ -330,8 +591,12 @@
 <header>
   <div class="dot"></div>
   <h1>Gemini TTS Studio</h1>
+  <span id="envBadge" class="env-badge"></span>
   <span id="headerProfile">Selecione um perfil</span>
-  <button class="btn-icon" id="backupGithubBtn" style="margin-left:auto" title="Salva uma cópia deste app (como ela estava no último F5) no seu repositório do GitHub">💾 Salvar Backup no GitHub</button>
+  <div style="margin-left:auto; display:flex; align-items:center; gap:8px;">
+    <button class="btn-icon" id="btnAplicarHtmlOg" onclick="aplicarMudancasNoHtmlOg()" style="display:none; background:var(--accent); color:white; border-color:var(--accent); font-weight:600; padding:6px 12px; cursor:pointer;" title="Aplica todas as melhorias testadas aqui no HTML original (Gemini TTS.html e Produção) com backup automático">🚀 Aplicar no HTML Original (PROD)</button>
+    <button class="btn-icon" id="backupGithubBtn" title="Salva uma cópia deste app (como ela estava no último F5) no seu repositório do GitHub">💾 Salvar Backup no GitHub</button>
+  </div>
 </header>
 
 <div class="main">
@@ -340,9 +605,9 @@
     <!-- PERFIL DO CANAL -->
     <div class="section">
       <div class="section-title">Perfil do Canal</div>
-      <select id="profileSelect">
+      <select id="profileSelect" autocomplete="off">
         <optgroup label="── Livre ──">
-          <option value="__livre__">🎛 Sem perfil — voz e direção livres</option>
+          <option value="__livre__" selected>🎛 Sem perfil — voz e direção livres</option>
         </optgroup>
         <optgroup label="── O Código Joshua ──">
           <option value="cj_pt">🇧🇷 PT-BR — O Código Joshua</option>
@@ -537,9 +802,22 @@
 
   <!-- WORKSPACE -->
   <main class="workspace">
-    <!-- 1 · ROTEIRO COMPLETO -->
-    <div>
-      <div class="area-label">① Roteiro completo</div>
+    <!-- NAVEGAÇÃO DE ABAS DO WORKSPACE -->
+    <div class="workspace-tabs">
+      <button class="ws-tab active" id="tabEstudioBtn" onclick="trocarAbaWorkspace('estudio')">
+        <span style="font-size:15px;">🎙️</span> Estúdio de Gravação
+      </button>
+      <button class="ws-tab" id="tabMasterizadosBtn" onclick="trocarAbaWorkspace('masterizados')">
+        <span style="font-size:15px;">🎚️</span> Áudios Masterizados
+        <span class="ws-tab-badge" id="badgeMasterizados">0</span>
+      </button>
+    </div>
+
+    <!-- VIEW 1: ESTÚDIO DE GRAVAÇÃO -->
+    <div id="viewEstudio">
+      <!-- 1 · ROTEIRO COMPLETO -->
+      <div>
+        <div class="area-label">① Roteiro completo</div>
       <textarea id="mainText" placeholder="Cole aqui o roteiro inteiro — ele será distribuído em blocos.
 
 Exemplo com audio tags:
@@ -597,7 +875,112 @@ Exemplo com audio tags:
           <button class="btn-download" onclick="baixarTodos(true)" style="padding:7px 14px" title="Só os que você marcou como aceitos">⬇ Baixar aprovados</button>
         </div>
       </div>
+
+      <!-- PAINEL AUDACITY & WHISPER (Pós-processamento) -->
+      <div class="pos-proc-box" id="posProcBox">
+        <div class="pos-proc-header">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:16px;">🎚</span>
+            <span style="font-weight:600; font-size:13px;">Pós-Processamento: Audacity & Whisper</span>
+            <span id="bridgeStatusBadge" class="bridge-badge checking">Verificando...</span>
+          </div>
+          <button class="btn-icon" id="fecharAudacityBtn" onclick="fecharAudacity()" title="Garante que o Audacity seja encerrado caso tenha ficado aberto" style="font-size:11px; padding:3px 8px;">✕ Fechar Audacity</button>
+        </div>
+
+        <div class="pos-proc-body">
+          <!-- 1. Juntar todos em um -->
+          <div class="pos-proc-field">
+            <label class="checkbox-label" title="Executa o alinhamento de ponta a ponta no Audacity ANTES de aplicar qualquer macro">
+              <input type="checkbox" id="checkJuntarAudios" onchange="atualizarInfoJuntar()">
+              <b>🔗 Juntar todos os áudios em um só</b> <span style="font-size:11px; opacity:.75;">(Alinha no Audacity antes de masterizar)</span>
+            </label>
+          </div>
+
+          <!-- 2. Gerar Legenda SRT com Whisper -->
+          <div class="pos-proc-field">
+            <label class="checkbox-label" title="Transcreve o áudio na GPU com o Whisper e gera o arquivo .srt sincronizado">
+              <input type="checkbox" id="checkGerarSrt">
+              <b>📄 Gerar legenda SRT com Whisper</b> <span id="srtDescInfo" style="font-size:11px; opacity:.75;">(1 SRT para cada bloco individual)</span>
+            </label>
+          </div>
+
+          <!-- 3. Seleção de Macro do Audacity (abaixo das opções) -->
+          <div class="pos-proc-field" style="margin-top:4px;">
+            <label style="font-size:11px; opacity:.85; margin-bottom:4px; font-weight:600; display:block;">🎚️ Macro do Audacity (TDR Nova, Compressor, Limiter):</label>
+            <select id="macroSelect" style="width:100%; max-width:440px;"></select>
+          </div>
+
+          <!-- 4. Botão de Disparo -->
+          <div style="display:flex; align-items:center; gap:12px; margin-top:10px;">
+            <button class="btn-processar" id="processarAudacityBtn" onclick="processarComAudacityEWhisper()">
+              ⚡ Processar no Audacity & Whisper
+            </button>
+            <span id="posProcMsg" style="font-size:12px; font-weight:500;"></span>
+          </div>
+
+          <!-- Resultados e Downloads do Pós-Processamento -->
+          <div id="posProcResultados" class="hidden" style="margin-top:10px; padding:10px; background:var(--surface2); border-radius:var(--radius); border:1px solid var(--border);">
+            <div style="font-weight:600; font-size:12px; margin-bottom:8px; color:var(--success);">✅ Processamento concluído! Baixe os arquivos finais:</div>
+            <div id="posProcDownloadsLista" style="display:flex; flex-direction:column; gap:6px;"></div>
+          </div>
+        </div>
+      </div>
+
       <div id="blocosLista"></div>
+    </div>
+    </div> <!-- /#viewEstudio -->
+
+    <!-- VIEW 2: ÁUDIOS MASTERIZADOS -->
+    <div id="viewMasterizados" class="hidden">
+      <!-- Barra de Ações em Lote e Resumo -->
+      <div class="master-head">
+        <div style="display:flex; flex-direction:column; gap:4px;">
+          <div class="area-label" style="margin:0">🎚️ Biblioteca de Masterizados & Legendas</div>
+          <span id="masterResumo" style="font-size:12px; opacity:.75;">Nenhum áudio masterizado nesta sessão ainda.</span>
+        </div>
+        <div class="master-acoes">
+          <button class="btn-download hidden" id="btnGerarSrtPendentes" onclick="gerarSrtParaPendentes()" style="padding:7px 14px; border-color:var(--accent); color:var(--accent);" title="Gera legenda SRT no Whisper para todos os áudios que ainda não possuem">
+            ⚡ Gerar SRT para pendentes
+          </button>
+          <div style="display:inline-flex; align-items:center; border:1px solid rgba(245,158,11,0.35); border-radius:var(--radius); overflow:hidden; background:var(--surface2);" title="Escolha a configuração de corte de silêncio para aplicar em lote">
+            <select id="selPresetLote" style="background:transparent; border:none; border-right:1px solid rgba(245,158,11,0.25); color:var(--text); padding:6px 10px; font-size:11.5px; font-weight:500; cursor:pointer; outline:none; font-family:inherit;">
+              <option value="2.0_40" selected style="background:#1a1a24; color:#e2e8f0;">2,0s / 40%</option>
+              <option value="1.3_30" style="background:#1a1a24; color:#e2e8f0;">1,3s / 30%</option>
+              <option value="0.5_60" style="background:#1a1a24; color:#e2e8f0;">0,5s / 60%</option>
+            </select>
+            <button class="btn-download" id="btnTravarSilencioTodos" onclick="travarSilencioTodosMasterizados()" style="border:none; border-radius:0; padding:6px 13px; background:rgba(245,158,11,0.14); color:#f59e0b; font-weight:600; font-size:11.5px; cursor:pointer; transition:all 0.15s ease; font-family:inherit; white-space:nowrap;" onmouseover="this.style.background='#f59e0b';this.style.color='#111';" onmouseout="this.style.background='rgba(245,158,11,0.14)';this.style.color='#f59e0b';" title="Aplica a configuração selecionada em todos os áudios e ressincroniza as legendas">
+              ✂️ Travar em Todos
+            </button>
+          </div>
+          <button class="btn-download" id="btnBaixarTodosWav" onclick="baixarTodosWavMasterizados()" style="padding:7px 14px" title="Baixar todos os áudios .wav masterizados">
+            🎵 Baixar todos os Áudios (.wav)
+          </button>
+          <button class="btn-download" id="btnBaixarTodasLegendas" onclick="baixarTodasLegendasMasterizadas()" style="padding:7px 14px; border-color:var(--accent); color:var(--accent);" title="Baixar todas as legendas .srt geradas pelo Whisper">
+            📄 Baixar todas as Legendas (.srt)
+          </button>
+          <button class="btn-generate" id="btnBaixarTudo" onclick="baixarTudoMasterizado()" style="padding:7px 16px;" title="Baixar todos os áudios .wav e legendas .srt">
+            📦 Baixar Áudios + .SRT
+          </button>
+          <button class="btn-icon" id="btnLimparCache" onclick="limparHistoricoProcessados()" style="padding:7px 12px; font-size:12px; border-color:var(--border);" title="Exclui os arquivos temporários gerados em Processados para liberar espaço no PC">
+            🗑️ Limpar do PC
+          </button>
+        </div>
+      </div>
+
+      <!-- Estado vazio -->
+      <div id="masterVazio" class="master-empty-state">
+        <span style="font-size:38px; opacity:.4;">🎚️</span>
+        <div style="font-weight:600; font-size:14px;">Nenhum áudio masterizado ainda</div>
+        <div style="font-size:12px; opacity:.7; max-width:440px; text-align:center; line-height:1.5;">
+          Gere os blocos no Estúdio de Gravação e clique em <b>⚡ Processar no Audacity & Whisper</b> para que os áudios tratados com o TDR Nova e as legendas sincronizadas apareçam aqui.
+        </div>
+        <button class="btn-icon" onclick="trocarAbaWorkspace('estudio')" style="margin-top:10px; padding:6px 14px;">
+          ← Voltar para o Estúdio de Gravação
+        </button>
+      </div>
+
+      <!-- Lista de Cards Masterizados -->
+      <div id="masterizadosLista" style="display:flex; flex-direction:column; gap:12px; margin-top:14px;"></div>
     </div>
 
     <div class="output-area hidden" id="outputArea">
@@ -611,6 +994,71 @@ Exemplo com audio tags:
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
 // ════════════════════════════════════════════════════════
+// GESTÃO DE AMBIENTE: PRODUÇÃO vs DESENVOLVIMENTO
+// ════════════════════════════════════════════════════════
+const APP_ENV = (function() {
+  if (typeof window.__APP_ENV_OVERRIDE__ === 'string') return window.__APP_ENV_OVERRIDE__;
+  const href = window.location.href.toLowerCase();
+  if (href.includes('desenvolvimento') || href.includes('-dev') || href.includes('mode=dev')) {
+    return 'dev';
+  }
+  return 'prod';
+})();
+
+const APP_BUILD_VERSION = 2026091301;
+
+const appStorage = {
+  prefix: APP_ENV === 'dev' ? 'dev_' : '',
+  getItem(key) {
+    try {
+      if (APP_ENV === 'dev') {
+        const devVal = localStorage.getItem(this.prefix + key);
+        if (devVal !== null) return devVal;
+        // Fallback amigável de leitura para configurações pré-existentes
+        if (key === 'gemini_tts_api_keys' || key === 'gemini_tts_api_key' || key === 'gemini_tts_gh_token' || key === 'gemini_tts_tema' || key === 'gemini_tts_profiles') {
+          return localStorage.getItem(key);
+        }
+        return null;
+      }
+      return localStorage.getItem(key);
+    } catch (e) {
+      return null;
+    }
+  },
+  setItem(key, val) {
+    try {
+      localStorage.setItem(this.prefix + key, val);
+    } catch (e) {}
+  },
+  removeItem(key) {
+    try {
+      localStorage.removeItem(this.prefix + key);
+    } catch (e) {}
+  }
+};
+
+function atualizarBadgeAmbiente() {
+  const badge = document.getElementById('envBadge');
+  const btnAplicar = document.getElementById('btnAplicarHtmlOg');
+  if (btnAplicar) {
+    btnAplicar.style.display = (APP_ENV === 'dev') ? 'inline-flex' : 'none';
+  }
+  if (!badge) return;
+  if (APP_ENV === 'dev') {
+    badge.className = 'env-badge dev';
+    badge.textContent = '🟡 DEV';
+    badge.title = 'Ambiente de Desenvolvimento (Branch dev / Storage isolado)';
+    document.title = '[DEV] Gemini TTS Studio';
+  } else {
+    badge.className = 'env-badge prod';
+    badge.textContent = '🟢 PROD';
+    badge.title = 'Ambiente de Produção (Branch main / Estável)';
+    document.title = 'Gemini TTS Studio';
+  }
+}
+atualizarBadgeAmbiente();
+
+// ════════════════════════════════════════════════════════
 // ESTADO DA MESA — declarado no topo porque o tema e a onda
 // sonora precisam dele antes das seções mais abaixo.
 // blocos[] = { id, texto, nome, blob, picos, status, erro, aprovado, perfil }
@@ -621,6 +1069,8 @@ let blocos = [];
 let seqId = 0;
 let gerandoLote = false;
 const chavesEmUso = new Set();
+var masterizadosItens = [];
+var abaWorkspaceAtual = 'estudio';
 
 // ════════════════════════════════════════════════════════
 // VOICE BIBLES — 15 perfis (3 canais × 5 idiomas)
@@ -1057,7 +1507,7 @@ const GRUPOS_PERFIL_BLOCO = [
 ];
 
 function preencherSelectPerfilBloco(sel) {
-  sel.add(new Option('🔗 Perfil ativo da tela (herdar)', ''));
+  sel.add(new Option('🔗 Herdar perfil da tela', ''));
   GRUPOS_PERFIL_BLOCO.forEach(({ grupo, ids }) => {
     const og = document.createElement('optgroup');
     og.label = `── ${grupo} ──`;
@@ -1216,7 +1666,7 @@ function montarVoiceBibleLivre() {
 // GESTÃO DE PERFIS
 // ════════════════════════════════════════════════════════
 function getStoredProfiles() {
-  try { return JSON.parse(localStorage.getItem('gemini_tts_profiles') || '{}'); }
+  try { return JSON.parse(appStorage.getItem('gemini_tts_profiles') || '{}'); }
   catch { return {}; }
 }
 
@@ -1239,9 +1689,8 @@ function loadProfile(id) {
     const nome = '🎛 Sem perfil — voz e direção livres';
     document.getElementById('vbLabel').textContent = nome;
     document.getElementById('headerProfile').textContent = nome;
-    const salvo = localStorage.getItem('gemini_tts_livre_vb');
+    const salvo = appStorage.getItem('gemini_tts_livre_vb');
     if (salvo !== null) document.getElementById('voiceBibleText').value = salvo;
-    localStorage.setItem('gemini_tts_active_profile', id);
     return;
   }
 
@@ -1251,7 +1700,6 @@ function loadProfile(id) {
   const p = PROFILES[id];
   document.getElementById('vbLabel').textContent = p.name;
   document.getElementById('headerProfile').textContent = p.name;
-  localStorage.setItem('gemini_tts_active_profile', id);
 }
 
 document.getElementById('profileSelect').addEventListener('change', function() {
@@ -1271,7 +1719,7 @@ document.getElementById('saveProfileBtn').addEventListener('click', () => {
     voice: document.getElementById('voiceSelect').value,
     voiceBible: document.getElementById('voiceBibleText').value
   };
-  localStorage.setItem('gemini_tts_profiles', JSON.stringify(stored));
+  appStorage.setItem('gemini_tts_profiles', JSON.stringify(stored));
   showToast('✅ Perfil salvo');
 });
 
@@ -1283,7 +1731,7 @@ document.getElementById('resetProfileBtn').addEventListener('click', () => {
   document.getElementById('voiceBibleText').value = def.vb;
   const stored = getStoredProfiles();
   delete stored[id];
-  localStorage.setItem('gemini_tts_profiles', JSON.stringify(stored));
+  appStorage.setItem('gemini_tts_profiles', JSON.stringify(stored));
   showToast('↺ Voice Bible restaurado ao padrão');
 });
 
@@ -1295,25 +1743,36 @@ document.getElementById('livreAplicarBtn').addEventListener('click', () => {
     return;
   }
   document.getElementById('voiceBibleText').value = vb;
-  localStorage.setItem('gemini_tts_livre_vb', vb);
+  appStorage.setItem('gemini_tts_livre_vb', vb);
   showToast('✅ Voice Bible montado');
 });
 document.getElementById('voiceBibleText').addEventListener('input', () => {
   if (document.getElementById('profileSelect').value === MODO_LIVRE) {
-    localStorage.setItem('gemini_tts_livre_vb', document.getElementById('voiceBibleText').value);
+    appStorage.setItem('gemini_tts_livre_vb', document.getElementById('voiceBibleText').value);
   }
 });
 
-const lastProfile = localStorage.getItem('gemini_tts_active_profile') || 'cj_pt';
-document.getElementById('profileSelect').value = lastProfile;
-loadProfile(lastProfile);
+// Perfil do Canal SEMPRE inicia como "🎛 Sem perfil — voz e direção livres" (MODO_LIVRE)
+// sem canal pré-definido por padrão conforme solicitado pelo usuário
+try {
+  appStorage.removeItem('gemini_tts_active_profile');
+  appStorage.removeItem('gemini_tts_active_profile_v2');
+} catch(e) {}
+document.getElementById('profileSelect').value = MODO_LIVRE;
+loadProfile(MODO_LIVRE);
+window.addEventListener('pageshow', () => {
+  if (document.getElementById('profileSelect').value !== MODO_LIVRE) {
+    document.getElementById('profileSelect').value = MODO_LIVRE;
+    loadProfile(MODO_LIVRE);
+  }
+});
 
 // ════════════════════════════════════════════════════════
 // API KEY
 // ════════════════════════════════════════════════════════
 const apiKeysInput = document.getElementById('apiKeys');
-const savedKeys = localStorage.getItem('gemini_tts_api_keys')
-               || localStorage.getItem('gemini_tts_api_key');
+const savedKeys = appStorage.getItem('gemini_tts_api_keys')
+               || appStorage.getItem('gemini_tts_api_key');
 if (savedKeys) apiKeysInput.value = savedKeys;
 
 function getChaves() {
@@ -1331,7 +1790,7 @@ apiKeysInput.addEventListener('input', atualizarInfoChaves);
 atualizarInfoChaves();
 
 document.getElementById('saveKeyBtn').addEventListener('click', () => {
-  localStorage.setItem('gemini_tts_api_keys', apiKeysInput.value.trim());
+  appStorage.setItem('gemini_tts_api_keys', apiKeysInput.value.trim());
   const b = document.getElementById('saveKeyBtn');
   b.textContent = '✅';
   setTimeout(() => b.textContent = '💾', 1500);
@@ -1359,11 +1818,11 @@ document.getElementById('apiKeysToggle').addEventListener('click', () => {
 });
 
 document.getElementById('apiKeysClearBtn').addEventListener('click', () => {
-  if (!apiKeysInput.value.trim() && !localStorage.getItem('gemini_tts_api_keys')) { showToast('Não há chave salva'); return; }
+  if (!apiKeysInput.value.trim() && !appStorage.getItem('gemini_tts_api_keys')) { showToast('Não há chave salva'); return; }
   if (!confirm('Apagar as API Keys salvas neste navegador? Isso não pode ser desfeito — você vai precisar colar as chaves de novo.')) return;
   apiKeysInput.value = '';
-  localStorage.removeItem('gemini_tts_api_keys');
-  localStorage.removeItem('gemini_tts_api_key');
+  appStorage.removeItem('gemini_tts_api_keys');
+  appStorage.removeItem('gemini_tts_api_key');
   atualizarInfoChaves();
   showToast('🗑 Chaves apagadas');
 });
@@ -1373,14 +1832,15 @@ document.getElementById('apiKeysClearBtn').addEventListener('click', () => {
 // ════════════════════════════════════════════════════════
 function aplicarTema(t) {
   document.documentElement.setAttribute('data-tema', t);
-  localStorage.setItem('gemini_tts_tema', t);
+  appStorage.setItem('gemini_tts_tema', t);
   document.querySelectorAll('.tema-btn').forEach(b =>
     b.classList.toggle('sel', b.dataset.tema === t));
   redesenharOndas();   // as ondas usam as cores do tema
 }
 document.querySelectorAll('.tema-btn').forEach(b =>
   b.addEventListener('click', () => aplicarTema(b.dataset.tema)));
-aplicarTema(localStorage.getItem('gemini_tts_tema') || 'escuro');
+aplicarTema(appStorage.getItem('gemini_tts_tema') || 'escuro');
+atualizarBadgeAmbiente();
 
 // ════════════════════════════════════════════════════════
 // CONTADOR DE CARACTERES
@@ -1419,28 +1879,50 @@ function pcmToWav(base64Data, sampleRate = 24000) {
 // ════════════════════════════════════════════════════════
 // Como o WAV é gerado aqui mesmo (PCM 16-bit mono, header de 44 bytes),
 // dá para ler os picos direto do buffer — sem AudioContext, sem decodificar.
-async function picosDoBlob(blob, n = 420) {
+async function picosDoBlob(blob, nPadrao = 300) {
   const buf = await blob.arrayBuffer();
-  const amostras = Math.floor((buf.byteLength - 44) / 2);
-  if (amostras <= 0) return null;
-  const pcm = new Int16Array(buf, 44, amostras);
-  const passo = Math.max(1, Math.floor(amostras / n));
+  if (buf.byteLength < 44) return null;
+
+  const dv = new DataView(buf);
+  const sampleRate = dv.getUint32(24, true) || 24000;
+  const numCanais = dv.getUint16(22, true) || 1;
+  const bitsPorAmostra = dv.getUint16(34, true) || 16;
+  const bytesPorAmostra = Math.max(1, (bitsPorAmostra / 8) * numCanais);
+  const totalAmostras = Math.floor((buf.byteLength - 44) / (bitsPorAmostra / 8));
+  if (totalAmostras <= 0) return null;
+
+  const duracao = (buf.byteLength - 44) / (sampleRate * bytesPorAmostra);
+  const pcm = new Int16Array(buf, 44, totalAmostras);
+
+  // Escala padrão: 1:30 (90 segundos).
+  // Áudios <= 90s recebem número de barras proporcional para manter o mesmo espaçamento/densidade visual.
+  // Áudios > 90s ignoram a regra e usam o total padrão de barras (preenchem 100%).
+  let totalBarras;
+  if (duracao <= 90) {
+    totalBarras = Math.max(15, Math.round(nPadrao * (duracao / 90)));
+  } else {
+    totalBarras = nPadrao;
+  }
+
+  const passo = Math.max(1, Math.floor(totalAmostras / totalBarras));
   const picos = [];
   let teto = 1;
-  for (let i = 0; i < n; i++) {
+  for (let i = 0; i < totalBarras; i++) {
     const ini = i * passo;
-    if (ini >= amostras) break;
-    const fim = Math.min(amostras, ini + passo);
+    if (ini >= totalAmostras) break;
+    const fim = Math.min(totalAmostras, ini + passo);
     let max = 0;
     for (let j = ini; j < fim; j++) { const v = Math.abs(pcm[j]); if (v > max) max = v; }
     if (max > teto) teto = max;
     picos.push(max);
   }
-  // normaliza pelo pico real: silêncio fica visível, mas a forma preenche a altura
-  return picos.map(p => p / teto);
+
+  const res = picos.map(p => p / teto);
+  res.duracao = duracao;
+  return res;
 }
 
-function desenharOnda(cv, picos, prog = 0) {
+function desenharOnda(cv, picos, currentTime = 0, duracaoAudio = 0) {
   const ctx = cv.getContext('2d');
   const dpr = window.devicePixelRatio || 1;
   const w = cv.clientWidth || 300, h = cv.clientHeight || 46;
@@ -1455,24 +1937,58 @@ function desenharOnda(cv, picos, prog = 0) {
   const corIdle  = cs.getPropertyValue('--text-muted').trim() || '#888';
   const corAtiva = cs.getPropertyValue('--accent').trim() || '#7c6af7';
 
+  const dur = (duracaoAudio && duracaoAudio > 0) ? duracaoAudio : (picos.duracao || 0);
+
+  // Escala de 1:30 (90s): se áudio <= 90s, ocupa apenas (duracao / 90) da largura.
+  // Se áudio > 90s, preenche 100% da largura (como era antes).
+  const ehAte90 = (dur > 0 && dur <= 90);
+  const fracAudio = ehAte90 ? Math.min(1.0, dur / 90) : 1.0;
+  const wAudio = w * fracAudio;
+
   const n = picos.length;
-  const bw = w / n;
+  const bw = wAudio / n;
+
+  // Posição do cursor em pixels no canvas
+  const tempoAtual = Math.max(0, Math.min(dur > 0 ? dur : 1, currentTime));
+  const xCursor = ehAte90 ? (w * (tempoAtual / 90)) : (dur > 0 ? (w * (tempoAtual / dur)) : 0);
+
+  // Desenha trilha vazia do padrão de 1:30 além do término do áudio
+  if (ehAte90 && wAudio < w) {
+    // Linha de baseline suave na parte vazia
+    ctx.fillStyle = 'rgba(128, 128, 128, 0.22)';
+    ctx.fillRect(wAudio, Math.round((h - 2) / 2), w - wAudio, 2);
+
+    // Marcador discreto de término do áudio
+    ctx.fillStyle = 'rgba(128, 128, 128, 0.4)';
+    ctx.fillRect(Math.round(wAudio), Math.round((h - 12) / 2), 1.5, 12);
+
+    // Marcador do limite de 1:30 (extremidade direita)
+    ctx.fillStyle = 'rgba(128, 128, 128, 0.3)';
+    ctx.fillRect(w - 1.5, Math.round((h - 16) / 2), 1.5, 16);
+  }
+
+  // Desenha as barras da onda sonora com espaçamento proporcional fixo
   for (let i = 0; i < n; i++) {
     const x = i * bw;
     const alt = Math.max(1.5, picos[i] * (h - 6));
-    ctx.fillStyle = (x / w) <= prog ? corAtiva : corIdle;
+    ctx.fillStyle = (x <= xCursor) ? corAtiva : corIdle;
     ctx.fillRect(x, (h - alt) / 2, Math.max(1, bw - 0.6), alt);
   }
-  // linha do cursor
-  if (prog > 0 && prog < 1) {
+
+  // Linha vertical do cursor de reprodução
+  if (tempoAtual > 0 && tempoAtual < dur) {
     ctx.fillStyle = corAtiva;
-    ctx.fillRect(prog * w, 0, 1.5, h);
+    ctx.fillRect(xCursor, 0, 1.5, h);
   }
 }
 
 function redesenharOndas() {
-  if (!Array.isArray(blocos)) return;
-  blocos.forEach(b => { if (b._pintar && b.picos) b._pintar(); });
+  if (Array.isArray(blocos)) {
+    blocos.forEach(b => { if (b._pintar && b.picos) b._pintar(); });
+  }
+  if (typeof redesenharOndasMasterizados === 'function') {
+    redesenharOndasMasterizados();
+  }
 }
 let resizeTimer = 0;
 window.addEventListener('resize', () => {
@@ -1960,7 +2476,8 @@ function sincronizarBloco(b) {
     b.texto = narracao; b._autoTexto = narracao; mudou = true;
   }
 
-  const perfilAuto = doc.canalGrupo ? perfilParaGrupoIdioma(doc.canalGrupo, idioma) : '';
+  const canalAtivo = document.getElementById('profileSelect') ? document.getElementById('profileSelect').value : '';
+  const perfilAuto = (canalAtivo !== MODO_LIVRE && doc.canalGrupo) ? perfilParaGrupoIdioma(doc.canalGrupo, idioma) : '';
   const podeSubstituirPerfil = !b._perfilManual;
   if (perfilAuto && podeSubstituirPerfil && b.perfil !== perfilAuto) {
     b.perfil = perfilAuto; mudou = true;
@@ -2017,7 +2534,7 @@ canalGlobalSelect.addEventListener('change', () => {
 function novoBloco(texto = '', nome = '') {
   return { id: ++seqId, texto, nome, blob: null, url: '', picos: null,
            status: 'pendente', erro: '', aprovado: false, textoGerado: null,
-           perfil: '', _autoTexto: null, _perfilManual: false, foiRefeito: false };
+           perfil: perfilAtivoAtual(), _autoTexto: null, _perfilManual: false, foiRefeito: false };
 }
 
 function tamanhoAlvo() {
@@ -2051,7 +2568,12 @@ function distribuirBlocos() {
 
   const partes = dividirEmBlocos(txt, tamanhoAlvo());
   const base = document.getElementById('nomeBase').value.trim();
-  blocos = partes.map((t, i) => novoBloco(t, base ? proximoNome(base, i) : ''));
+  const perfilAtual = perfilAtivoAtual();
+  blocos = partes.map((t, i) => {
+    const b = novoBloco(t, base ? proximoNome(base, i) : '');
+    b.perfil = perfilAtual;
+    return b;
+  });
   renderBlocos();
   showToast(`⿻ ${blocos.length} blocos`);
 }
@@ -2288,18 +2810,24 @@ function criarLinha(b) {
 
   // sincronia onda × player
   let raf = 0;
-  const pintar = () => desenharOnda(canvas, b.picos,
-    audio.duration ? (audio.currentTime / audio.duration) : 0);
+  const obterDuracao = () => audio.duration || (b.picos ? b.picos.duracao : 0);
+  const pintar = () => desenharOnda(canvas, b.picos, audio.currentTime, obterDuracao());
   const loop = () => { pintar(); if (!audio.paused && !audio.ended) raf = requestAnimationFrame(loop); };
   audio.addEventListener('play',   () => { cancelAnimationFrame(raf); loop(); });
   audio.addEventListener('pause',  () => { cancelAnimationFrame(raf); pintar(); });
   audio.addEventListener('seeked', pintar);
   audio.addEventListener('loadedmetadata', pintar);
-  audio.addEventListener('ended',  () => desenharOnda(canvas, b.picos, 0));
+  audio.addEventListener('ended',  () => desenharOnda(canvas, b.picos, 0, obterDuracao()));
   canvas.addEventListener('click', e => {
-    if (!audio.duration) return;
+    const dur = obterDuracao();
+    if (!dur) return;
     const r = canvas.getBoundingClientRect();
-    audio.currentTime = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * audio.duration;
+    const fracX = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+    if (dur <= 90) {
+      audio.currentTime = Math.min(dur, fracX * 90);
+    } else {
+      audio.currentTime = fracX * dur;
+    }
     pintar();
   });
   b._pintar = pintar;
@@ -2559,6 +3087,903 @@ async function baixarTodos(apenasAprovados) {
 }
 
 // ════════════════════════════════════════════════════════
+// PÓS-PROCESSAMENTO: AUDACITY & WHISPER (LOCAL BRIDGE)
+// ════════════════════════════════════════════════════════
+const BRIDGE_URL = 'http://127.0.0.1:5006';
+let bridgeOnline = false;
+
+async function checarBridgeStatus() {
+  const badge = document.getElementById('bridgeStatusBadge');
+  const selMacro = document.getElementById('macroSelect');
+  if (!badge || !selMacro) return;
+
+  try {
+    const res = await fetch(`${BRIDGE_URL}/api/status`, { cache: 'no-store' });
+    if (!res.ok) throw new Error('Ponte offline');
+    const data = await res.json();
+    bridgeOnline = true;
+    if (data.audacityInstalado === false) {
+      badge.className = 'bridge-badge checking';
+      badge.textContent = '⚠️ AUDACITY NÃO ENCONTRADO';
+      badge.title = 'Audacity não foi localizado no PC. Instale pelo site oficial: audacityteam.org';
+    } else {
+      badge.className = 'bridge-badge online';
+      badge.textContent = '🟢 CONECTADO';
+      badge.title = 'Ponte Audacity & Whisper ativa (porta 5006) · Audacity localizado em: ' + (data.audacityCaminho || 'PC');
+    }
+
+    const valorAtual = selMacro.value;
+    selMacro.innerHTML = '<option value="none">-- Nenhuma (somente juntar sem efeitos) --</option>';
+    if (data.macros && data.macros.length) {
+      const macrosFiltradas = data.macros.filter(m => !m.nome.toLowerCase().includes('juntar'));
+      macrosFiltradas.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.arquivo;
+        opt.textContent = m.nome;
+        selMacro.appendChild(opt);
+      });
+      if (valorAtual && valorAtual !== 'none') {
+        selMacro.value = valorAtual;
+      } else {
+        const defaultMacro = macrosFiltradas.find(m => m.nome.toLowerCase().includes('materiza') || m.nome.toLowerCase().includes('masteriza'));
+        if (defaultMacro) selMacro.value = defaultMacro.arquivo;
+      }
+    }
+  } catch (e) {
+    bridgeOnline = false;
+    badge.className = 'bridge-badge offline';
+    badge.textContent = '🔴 PONTE OFFLINE';
+    badge.title = 'Inicie o app pelo atalho "Gemini TTS Studio (DEV)" para ativar Audacity e Whisper';
+  }
+}
+
+function atualizarInfoJuntar() {
+  const check = document.getElementById('checkJuntarAudios');
+  const srtInfo = document.getElementById('srtDescInfo');
+  if (!check || !srtInfo) return;
+  if (check.checked) {
+    srtInfo.textContent = '(1 SRT único para o áudio juntado)';
+  } else {
+    srtInfo.textContent = '(1 SRT para cada bloco individual)';
+  }
+}
+
+async function fecharAudacity() {
+  try {
+    const res = await fetch(`${BRIDGE_URL}/api/audacity/fechar`, { method: 'POST' });
+    const data = await res.json();
+    showToast(data.msg || 'Audacity encerrado.');
+  } catch (e) {
+    showToast('Ponte offline — Audacity já está fechado');
+  }
+}
+
+function blobParaBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+function trocarAbaWorkspace(aba) {
+  abaWorkspaceAtual = aba;
+  const tabEstudio = document.getElementById('tabEstudioBtn');
+  const tabMaster = document.getElementById('tabMasterizadosBtn');
+  const viewEstudio = document.getElementById('viewEstudio');
+  const viewMaster = document.getElementById('viewMasterizados');
+  if (!tabEstudio || !tabMaster || !viewEstudio || !viewMaster) return;
+
+  if (aba === 'masterizados') {
+    tabEstudio.classList.remove('active');
+    tabMaster.classList.add('active');
+    viewEstudio.classList.add('hidden');
+    viewMaster.classList.remove('hidden');
+    setTimeout(redesenharOndasMasterizados, 60);
+  } else {
+    tabMaster.classList.remove('active');
+    tabEstudio.classList.add('active');
+    viewMaster.classList.add('hidden');
+    viewEstudio.classList.remove('hidden');
+    setTimeout(redesenharOndas, 60);
+  }
+}
+
+async function picosDoBlobUniversal(blob, nPadrao = 300) {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (AudioCtx) {
+      const actx = new AudioCtx();
+      const ab = await blob.arrayBuffer();
+      const audioBuf = await actx.decodeAudioData(ab);
+      const data = audioBuf.getChannelData(0);
+      const amostras = data.length;
+      if (amostras <= 0) return null;
+      const duracao = audioBuf.duration;
+
+      let totalBarras;
+      if (duracao <= 90) {
+        totalBarras = Math.max(15, Math.round(nPadrao * (duracao / 90)));
+      } else {
+        totalBarras = nPadrao;
+      }
+
+      const passo = Math.max(1, Math.floor(amostras / totalBarras));
+      const picos = [];
+      let teto = 0.001;
+      for (let i = 0; i < totalBarras; i++) {
+        const ini = i * passo;
+        if (ini >= amostras) break;
+        const fim = Math.min(amostras, ini + passo);
+        let max = 0;
+        for (let j = ini; j < fim; j++) {
+          const v = Math.abs(data[j]);
+          if (v > max) max = v;
+        }
+        if (max > teto) teto = max;
+        picos.push(max);
+      }
+      try { actx.close(); } catch {}
+      const res = picos.map(p => p / teto);
+      res.duracao = duracao;
+      return res;
+    }
+  } catch (e) {
+    console.warn('[Onda] Fallback picos:', e);
+  }
+  return picosDoBlob(blob, nPadrao);
+}
+
+function redesenharOndasMasterizados() {
+  if (!Array.isArray(masterizadosItens)) return;
+  masterizadosItens.forEach(item => {
+    if (item._pintar && item.picos) item._pintar();
+  });
+}
+
+function renderizarMasterizados(itens, macroNome) {
+  masterizadosItens = itens || [];
+  const badge = document.getElementById('badgeMasterizados');
+  const resumo = document.getElementById('masterResumo');
+  const vazio = document.getElementById('masterVazio');
+  const lista = document.getElementById('masterizadosLista');
+  const btnPendentes = document.getElementById('btnGerarSrtPendentes');
+  if (!badge || !resumo || !vazio || !lista) return;
+
+  badge.textContent = masterizadosItens.length;
+  if (!masterizadosItens.length) {
+    vazio.classList.remove('hidden');
+    lista.innerHTML = '';
+    resumo.textContent = 'Nenhum áudio masterizado nesta sessão ainda.';
+    if (btnPendentes) btnPendentes.classList.add('hidden');
+    return;
+  }
+
+  const temPendentes = masterizadosItens.some(it => !it.urlSrt);
+  if (btnPendentes) {
+    if (temPendentes) btnPendentes.classList.remove('hidden');
+    else btnPendentes.classList.add('hidden');
+  }
+
+  vazio.classList.add('hidden');
+  lista.innerHTML = '';
+  resumo.textContent = `· ${masterizadosItens.length} arquivo(s) gerado(s) · Macro: ${macroNome || 'Padrão'}`;
+
+  masterizadosItens.forEach((item, idx) => {
+    const card = document.createElement('div');
+    card.className = 'master-card';
+
+    // 1. Cabeçalho do card: num/badge, nome, metadados e ações
+    const top = document.createElement('div');
+    top.className = 'master-card-top';
+
+    const info = document.createElement('div');
+    info.className = 'master-card-info';
+
+    const numBadge = document.createElement('span');
+    numBadge.className = 'master-pill';
+    numBadge.style.cssText = 'background:var(--accent); color:white; border-color:var(--accent); font-weight:700;';
+    numBadge.textContent = item.tipo === 'unificado' ? '🌟 CONSOLIDADO' : String(idx + 1).padStart(2, '0');
+
+    const titulo = document.createElement('span');
+    titulo.style.cssText = 'font-weight:700; font-size:14px; letter-spacing:0.02em;';
+    titulo.textContent = item.nome + '.wav';
+
+    const pillDur = document.createElement('span');
+    pillDur.className = 'master-pill duracao';
+    pillDur.textContent = `⏱️ ${item.duracaoFmt || '00:00'}`;
+
+    const pillTam = document.createElement('span');
+    pillTam.className = 'master-pill tamanho';
+    pillTam.textContent = `💾 ${item.tamanhoFmt || '0 KB'}`;
+
+    const pillMacro = document.createElement('span');
+    pillMacro.className = 'master-pill macro';
+    pillMacro.textContent = `🎚️ ${item.macro || macroNome || 'Audacity'}`;
+
+    info.append(numBadge, titulo, pillDur, pillTam, pillMacro);
+
+    const acoes = document.createElement('div');
+    acoes.style.cssText = 'display:flex; align-items:center; gap:8px; flex-wrap:wrap;';
+
+    if (item.urlWav) {
+      const btnWav = document.createElement('a');
+      btnWav.href = `${BRIDGE_URL}${item.urlWav}`;
+      btnWav.download = `${item.nome}.wav`;
+      btnWav.className = 'btn-download';
+      btnWav.style.cssText = 'text-decoration:none; padding:6px 12px; font-weight:600;';
+      btnWav.textContent = '⬇ Baixar .WAV';
+      acoes.appendChild(btnWav);
+    }
+
+    const renderizarSecaoSrt = () => {
+      const oldDetails = card.querySelector('.master-srt-details');
+      if (oldDetails) oldDetails.remove();
+
+      if (item.srtConteudo) {
+        const srtDetails = document.createElement('details');
+        srtDetails.className = 'master-srt-details';
+        srtDetails.style.cssText = 'background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; margin-top:4px;';
+
+        const srtSummary = document.createElement('summary');
+        srtSummary.style.cssText = 'padding:8px 12px; font-size:11px; cursor:pointer; font-weight:600; color:var(--text);';
+        const numLinhas = (item.srtConteudo.match(/\d+\s+\d{2}:\d{2}:\d{2}/g) || []).length;
+        srtSummary.innerHTML = `📄 Visualizar Legenda SRT <span style="opacity:.7; font-weight:400;">(${numLinhas || 'várias'} falas sincronizadas)</span>`;
+
+        const srtBox = document.createElement('div');
+        srtBox.className = 'master-srt-box';
+        srtBox.textContent = item.srtConteudo;
+
+        const srtActions = document.createElement('div');
+        srtActions.style.cssText = 'padding:6px 12px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:8px;';
+
+        const btnCopiarSrt = document.createElement('button');
+        btnCopiarSrt.className = 'btn-icon';
+        btnCopiarSrt.textContent = '📋 Copiar SRT';
+        btnCopiarSrt.onclick = () => {
+          navigator.clipboard.writeText(item.srtConteudo);
+          showToast('📋 Legenda SRT copiada para a área de transferência!');
+        };
+        srtActions.appendChild(btnCopiarSrt);
+
+        srtDetails.append(srtSummary, srtBox, srtActions);
+        card.appendChild(srtDetails);
+      }
+    };
+
+    const atualizarAcoesSrt = () => {
+      const antigos = acoes.querySelectorAll('.btn-srt-dinamico');
+      antigos.forEach(b => b.remove());
+
+      if (item.urlSrt) {
+        const btnSrt = document.createElement('a');
+        btnSrt.href = `${BRIDGE_URL}${item.urlSrt}`;
+        btnSrt.download = `${item.nome}.srt`;
+        btnSrt.className = 'btn-download btn-srt-dinamico';
+        btnSrt.style.cssText = 'text-decoration:none; padding:6px 12px; font-weight:600; border-color:var(--accent); color:var(--accent);';
+        btnSrt.textContent = '📄 Baixar .SRT';
+        acoes.appendChild(btnSrt);
+      } else {
+        const btnGerarSrt = document.createElement('button');
+        btnGerarSrt.className = 'btn-download btn-srt-dinamico';
+        btnGerarSrt.style.cssText = 'padding:6px 12px; font-weight:600; border-color:var(--accent); color:var(--accent); cursor:pointer;';
+        btnGerarSrt.innerHTML = '⚡ Gerar legenda SRT';
+        btnGerarSrt.title = 'Transcreve este áudio na GPU com o Whisper para gerar a legenda';
+        btnGerarSrt.onclick = async () => {
+          btnGerarSrt.disabled = true;
+          btnGerarSrt.innerHTML = '⏳ Transcrevendo na GPU...';
+          showToast(`⏳ Gerando legenda SRT para "${item.nome}" com Whisper...`);
+          try {
+            const resp = await fetch(`${BRIDGE_URL}/api/whisper/gerar-srt`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                caminhoWav: item.caminhoWav,
+                textoReferencia: item.texto || ''
+              })
+            });
+            const dadosSrt = await resp.json();
+            if (!dadosSrt.success) throw new Error(dadosSrt.error || 'Falha ao transcrever');
+            item.caminhoSrt = dadosSrt.caminhoSrt;
+            item.urlSrt = dadosSrt.urlSrt;
+            item.srtConteudo = dadosSrt.srtConteudo;
+            atualizarAcoesSrt();
+            renderizarSecaoSrt();
+            const faltam = masterizadosItens.some(it => !it.urlSrt);
+            if (btnPendentes) {
+              if (faltam) btnPendentes.classList.remove('hidden');
+              else btnPendentes.classList.add('hidden');
+            }
+            showToast(`✅ Legenda SRT de "${item.nome}" gerada com sucesso!`);
+          } catch (err) {
+            btnGerarSrt.disabled = false;
+            btnGerarSrt.innerHTML = '⚡ Gerar legenda SRT';
+            showToast(`❌ Erro ao gerar SRT: ${err.message}`);
+          }
+        };
+        acoes.appendChild(btnGerarSrt);
+      }
+    };
+
+    atualizarAcoesSrt();
+
+    // Bloco Travar Silêncio com Seletor de Configurações Clean (Opção 1, 2 e 3)
+    const grupoSilencio = document.createElement('div');
+    grupoSilencio.style.cssText = 'display:inline-flex; align-items:center; border:1px solid rgba(245,158,11,0.35); border-radius:var(--radius); overflow:hidden; background:var(--surface2);';
+
+    const selSilencio = document.createElement('select');
+    selSilencio.style.cssText = 'background:transparent; border:none; border-right:1px solid rgba(245,158,11,0.25); color:var(--text); padding:5px 8px; font-size:11px; font-weight:500; cursor:pointer; outline:none; font-family:inherit;';
+    selSilencio.title = 'Escolha a configuração de corte de silêncio para este áudio';
+    selSilencio.innerHTML = `
+      <option value="2.0_40" selected style="background:#1a1a24; color:#e2e8f0;">2,0s / 40%</option>
+      <option value="1.3_30" style="background:#1a1a24; color:#e2e8f0;">1,3s / 30%</option>
+      <option value="0.5_60" style="background:#1a1a24; color:#e2e8f0;">0,5s / 60%</option>
+    `;
+
+    const btnTravarSilencio = document.createElement('button');
+    btnTravarSilencio.style.cssText = 'border:none; border-radius:0; padding:5px 11px; background:rgba(245,158,11,0.14); color:#f59e0b; font-weight:600; font-size:11px; cursor:pointer; transition:all 0.15s ease; font-family:inherit; white-space:nowrap;';
+    btnTravarSilencio.innerHTML = '✂️ Travar';
+    btnTravarSilencio.title = 'Aplica o corte de silêncio selecionado neste áudio e ressincroniza a legenda';
+    btnTravarSilencio.onmouseenter = () => { btnTravarSilencio.style.background = '#f59e0b'; btnTravarSilencio.style.color = '#111'; };
+    btnTravarSilencio.onmouseleave = () => { btnTravarSilencio.style.background = 'rgba(245,158,11,0.14)'; btnTravarSilencio.style.color = '#f59e0b'; };
+    btnTravarSilencio.onclick = () => executarAcaoTravarSilencio(item, btnTravarSilencio, selSilencio.value, pillDur, pillTam, card, audio, pintar, renderizarSecaoSrt, atualizarAcoesSrt);
+
+    grupoSilencio.append(selSilencio, btnTravarSilencio);
+    acoes.appendChild(grupoSilencio);
+
+    top.append(info, acoes);
+
+    // 2. Linha do Player de Áudio nativo + Onda Sonora Interativa
+    const playerRow = document.createElement('div');
+    playerRow.className = 'master-player-row';
+
+    const audio = document.createElement('audio');
+    audio.controls = true;
+    audio.preload = 'metadata';
+
+    const canvas = document.createElement('canvas');
+    canvas.className = 'wave';
+    canvas.title = 'Clique na onda sonora para pular no áudio';
+
+    playerRow.append(audio, canvas);
+
+    let raf = 0;
+    const obterDuracao = () => audio.duration || item.duracaoSeg || (item.picos ? item.picos.duracao : 0);
+    const pintar = () => {
+      if (item.picos) {
+        desenharOnda(canvas, item.picos, audio.currentTime, obterDuracao());
+      }
+    };
+    const loop = () => { pintar(); if (!audio.paused && !audio.ended) raf = requestAnimationFrame(loop); };
+    audio.addEventListener('play', () => { cancelAnimationFrame(raf); loop(); });
+    audio.addEventListener('pause', () => { cancelAnimationFrame(raf); pintar(); });
+    audio.addEventListener('seeked', pintar);
+    audio.addEventListener('loadedmetadata', () => {
+      if (audio.duration && audio.duration > 0 && (!item.duracaoSeg || item.duracaoFmt === '00:00')) {
+        const m = Math.floor(audio.duration / 60);
+        const s = Math.floor(audio.duration % 60);
+        item.duracaoFmt = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        item.duracaoSeg = audio.duration;
+        pillDur.textContent = `⏱️ ${item.duracaoFmt}`;
+      }
+      pintar();
+    });
+    audio.addEventListener('ended', () => { if (item.picos) desenharOnda(canvas, item.picos, 0, obterDuracao()); });
+    canvas.addEventListener('click', e => {
+      const dur = obterDuracao();
+      if (!dur) return;
+      const r = canvas.getBoundingClientRect();
+      const fracX = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+      if (dur <= 90) {
+        audio.currentTime = Math.min(dur, fracX * 90);
+      } else {
+        audio.currentTime = fracX * dur;
+      }
+      pintar();
+    });
+    item._pintar = pintar;
+
+    // Busca o áudio via fetch na rota /api/audio (stream limpo), cria Blob URL na memória RAM e calcula a onda
+    const urlAudioStream = `${BRIDGE_URL}${item.urlAudio || item.urlWav}`;
+    fetch(urlAudioStream)
+      .then(res => {
+        if (!res.ok) throw new Error('Status ' + res.status);
+        return res.blob();
+      })
+      .then(async blob => {
+        item.blob = blob;
+        const blobUrl = URL.createObjectURL(blob);
+        audio.src = blobUrl;
+
+        // Atualização garantida de tamanho via blob real
+        if (!item.tamanhoBytes || item.tamanhoFmt === '0 KB') {
+          item.tamanhoBytes = blob.size;
+          item.tamanhoFmt = blob.size < 1048576
+            ? `${(blob.size / 1024).toFixed(1)} KB`
+            : `${(blob.size / 1048576).toFixed(2)} MB`;
+          pillTam.textContent = `💾 ${item.tamanhoFmt}`;
+        }
+
+        item.picos = await picosDoBlobUniversal(blob);
+        pintar();
+      })
+      .catch(e => {
+        console.warn('[Onda/Audio] Carregando diretamente pela URL:', e);
+        audio.src = urlAudioStream;
+      });
+
+    card.append(top, playerRow);
+    renderizarSecaoSrt();
+    lista.appendChild(card);
+  });
+}
+
+async function gerarSrtParaPendentes() {
+  const pendentes = masterizadosItens.filter(it => !it.urlSrt);
+  if (!pendentes.length) {
+    showToast('✅ Todos os áudios já possuem legendas SRT!');
+    return;
+  }
+  const btn = document.getElementById('btnGerarSrtPendentes');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = `⏳ Gerando 1/${pendentes.length} no Whisper...`;
+  }
+
+  let concluidos = 0;
+  for (let i = 0; i < pendentes.length; i++) {
+    const item = pendentes[i];
+    if (btn) btn.textContent = `⏳ Gerando ${i + 1}/${pendentes.length} no Whisper...`;
+    showToast(`⏳ Gerando legenda ${i + 1} de ${pendentes.length} ("${item.nome}")...`);
+    try {
+      const resp = await fetch(`${BRIDGE_URL}/api/whisper/gerar-srt`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          caminhoWav: item.caminhoWav,
+          textoReferencia: item.texto || ''
+        })
+      });
+      const dados = await resp.json();
+      if (dados.success) {
+        item.caminhoSrt = dados.caminhoSrt;
+        item.urlSrt = dados.urlSrt;
+        item.srtConteudo = dados.srtConteudo;
+        concluidos++;
+      }
+    } catch (e) {
+      console.error('[Whisper] Erro no pendente:', e);
+    }
+  }
+
+  if (btn) {
+    btn.disabled = false;
+    btn.textContent = '⚡ Gerar SRT para pendentes';
+  }
+  renderizarMasterizados(masterizadosItens);
+  showToast(`✅ ${concluidos} legenda(s) SRT gerada(s) com sucesso na GPU!`);
+}
+
+async function executarAcaoTravarSilencio(item, btn, preset, pillDur, pillTam, card, audio, pintar, renderizarSecaoSrt, atualizarAcoesSrt) {
+  if (!item || !item.caminhoWav) return;
+  const textoOriginal = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '⏳ Cortando...';
+  }
+  const nomePreset = preset === '2.0_40' ? '2,0s / 40%' : (preset === '0.5_60' ? '0,5s / 60%' : '1,3s / 30%');
+  showToast(`✂️ Aplicando corte de silêncio (${nomePreset}) em "${item.nome}" no Audacity...`);
+
+  try {
+    const resp = await fetch(`${BRIDGE_URL}/api/audacity/travar-silencio`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        caminhoWav: item.caminhoWav,
+        textoReferencia: item.texto || '',
+        gerarSrt: !!item.urlSrt || !!item.srtConteudo,
+        preset: preset || '2.0_40'
+      })
+    });
+    const dados = await resp.json();
+    if (!dados.success) throw new Error(dados.error || 'Falha ao travar silêncio');
+
+    // Atualiza dados do item com os novos valores pós-corte
+    item.duracaoFmt = dados.duracaoFmt;
+    item.duracaoSeg = dados.duracaoSeg;
+    item.tamanhoFmt = dados.tamanhoFmt;
+    item.tamanhoBytes = dados.tamanhoBytes;
+    item.urlAudio = dados.urlAudio;
+    item.urlWav = dados.urlWav;
+
+    if (dados.caminhoSrt) {
+      item.caminhoSrt = dados.caminhoSrt;
+      item.urlSrt = dados.urlSrt;
+      item.srtConteudo = dados.srtConteudo;
+    }
+
+    if (pillDur) pillDur.textContent = `⏱️ ${item.duracaoFmt}`;
+    if (pillTam) pillTam.textContent = `💾 ${item.tamanhoFmt}`;
+
+    // Atualiza o link do botão de download do WAV se existir
+    if (card) {
+      const linkWav = card.querySelector('a.btn-download');
+      if (linkWav) linkWav.href = `${BRIDGE_URL}${item.urlWav}`;
+    }
+
+    if (typeof atualizarAcoesSrt === 'function') atualizarAcoesSrt();
+    if (typeof renderizarSecaoSrt === 'function') renderizarSecaoSrt();
+
+    // Recarrega o áudio via stream com timestamp para evitar cache e renderiza a nova onda sonora
+    try {
+      const resAudio = await fetch(`${BRIDGE_URL}${item.urlAudio}`);
+      if (resAudio.ok) {
+        const blob = await resAudio.blob();
+        item.blob = blob;
+        if (audio) audio.src = URL.createObjectURL(blob);
+        item.picos = await picosDoBlobUniversal(blob);
+        if (typeof pintar === 'function') pintar();
+      }
+    } catch (errAudio) {
+      console.warn('[Audio/Wave] Erro ao recarregar onda pós corte:', errAudio);
+    }
+
+    showToast(`✅ Silêncio (${nomePreset}) aplicado em "${item.nome}" com sucesso! Nova duração: ${item.duracaoFmt}`);
+  } catch (err) {
+    showToast(`❌ Erro ao travar silêncio: ${err.message}`);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = textoOriginal || '✂️ Travar';
+    }
+  }
+}
+
+async function travarSilencioTodosMasterizados() {
+  if (!masterizadosItens.length) {
+    showToast('⚠️ Nenhum áudio masterizado disponível para travar silêncio.');
+    return;
+  }
+  const selPreset = document.getElementById('selPresetLote');
+  const preset = selPreset ? selPreset.value : '2.0_40';
+  const nomePreset = preset === '2.0_40' ? '2,0s / 40%' : (preset === '0.5_60' ? '0,5s / 60%' : '1,3s / 30%');
+
+  const btn = document.getElementById('btnTravarSilencioTodos');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = `⏳ Cortando (1/${masterizadosItens.length})...`;
+  }
+  showToast(`✂️ Iniciando corte de silêncio (${nomePreset}) em ${masterizadosItens.length} áudio(s)...`);
+
+  let concluidos = 0;
+  for (let i = 0; i < masterizadosItens.length; i++) {
+    const item = masterizadosItens[i];
+    if (btn) btn.textContent = `⏳ Cortando (${i + 1}/${masterizadosItens.length})...`;
+    showToast(`✂️ Cortando silêncio ${i + 1} de ${masterizadosItens.length} ("${item.nome}")...`);
+    try {
+      const resp = await fetch(`${BRIDGE_URL}/api/audacity/travar-silencio`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          caminhoWav: item.caminhoWav,
+          textoReferencia: item.texto || '',
+          gerarSrt: !!item.urlSrt || !!item.srtConteudo,
+          preset: preset
+        })
+      });
+      const dados = await resp.json();
+      if (dados.success) {
+        item.duracaoFmt = dados.duracaoFmt;
+        item.duracaoSeg = dados.duracaoSeg;
+        item.tamanhoFmt = dados.tamanhoFmt;
+        item.tamanhoBytes = dados.tamanhoBytes;
+        item.urlAudio = dados.urlAudio;
+        item.urlWav = dados.urlWav;
+        if (dados.caminhoSrt) {
+          item.caminhoSrt = dados.caminhoSrt;
+          item.urlSrt = dados.urlSrt;
+          item.srtConteudo = dados.srtConteudo;
+        }
+        concluidos++;
+      }
+    } catch (e) {
+      console.error('[TravarSilencioLote] Erro:', e);
+    }
+  }
+
+  if (btn) {
+    btn.disabled = false;
+    btn.textContent = '✂️ Travar em Todos';
+  }
+  renderizarMasterizados(masterizadosItens);
+  showToast(`✅ Silêncio (${nomePreset}) travado com sucesso em ${concluidos} áudio(s)!`);
+}
+
+async function baixarTodosWavMasterizados() {
+  if (!masterizadosItens.length) {
+    showToast('⚠️ Nenhum áudio masterizado para baixar');
+    return;
+  }
+  showToast(`⏳ Baixando ${masterizadosItens.length} áudio(s)...`);
+  for (const item of masterizadosItens) {
+    if (item.urlWav) {
+      const a = document.createElement('a');
+      a.href = `${BRIDGE_URL}${item.urlWav}`;
+      a.download = `${item.nome}.wav`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      await sleep(350);
+    }
+  }
+  showToast(`✅ ${masterizadosItens.length} áudio(s) .wav baixados com sucesso!`);
+}
+
+async function baixarTodasLegendasMasterizadas() {
+  const comSrt = masterizadosItens.filter(it => it.urlSrt);
+  if (!comSrt.length) {
+    showToast('⚠️ Nenhuma legenda SRT disponível para baixar');
+    return;
+  }
+  showToast(`⏳ Baixando ${comSrt.length} legenda(s)...`);
+  for (const item of comSrt) {
+    const a = document.createElement('a');
+    a.href = `${BRIDGE_URL}${item.urlSrt}`;
+    a.download = `${item.nome}.srt`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    await sleep(350);
+  }
+  showToast(`✅ ${comSrt.length} legenda(s) .srt baixadas com sucesso!`);
+}
+
+async function baixarTudoMasterizado() {
+  if (!masterizadosItens.length) {
+    showToast('⚠️ Nenhum arquivo masterizado para baixar');
+    return;
+  }
+  showToast('⏳ Baixando pacote completo (Áudios + Legendas .SRT)...');
+  for (const item of masterizadosItens) {
+    if (item.urlWav) {
+      const a = document.createElement('a');
+      a.href = `${BRIDGE_URL}${item.urlWav}`;
+      a.download = `${item.nome}.wav`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      await sleep(350);
+    }
+    if (item.urlSrt) {
+      const a = document.createElement('a');
+      a.href = `${BRIDGE_URL}${item.urlSrt}`;
+      a.download = `${item.nome}.srt`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      await sleep(350);
+    }
+  }
+  showToast('✅ Todos os áudios e legendas foram baixados com sucesso!');
+}
+
+async function limparHistoricoProcessados() {
+  if (!confirm('Deseja apagar os arquivos temporários da pasta Processados para liberar espaço no computador?\n\n(Isso NÃO afeta os áudios que você já baixou para a sua máquina)')) {
+    return;
+  }
+  try {
+    const res = await fetch(`${BRIDGE_URL}/api/limpar-cache`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tudo: true })
+    });
+    if (res.ok) {
+      const d = await res.json();
+      showToast(`🗑️ ${d.removidos || 0} lote(s) temporários apagados com sucesso!`);
+      masterizadosItens = [];
+      renderizarMasterizados([]);
+    } else {
+      showToast('⚠️ Não foi possível limpar os arquivos');
+    }
+  } catch (e) {
+    showToast('⚠️ Ponte offline — não foi possível conectar');
+  }
+}
+
+let processandoAudacity = false;
+
+async function processarComAudacityEWhisper() {
+  if (processandoAudacity) {
+    showToast('⏳ Processamento no Audacity já em andamento, aguarde...');
+    return;
+  }
+
+  const prontos = blocos.filter(b => b.blob);
+  if (!prontos.length) {
+    showToast('⚠️ Nenhum áudio gerado ainda. Gere os blocos primeiro!');
+    return;
+  }
+
+  const btn = document.getElementById('processarAudacityBtn');
+  const msgEl = document.getElementById('posProcMsg');
+  const resArea = document.getElementById('posProcResultados');
+  const listaDownloads = document.getElementById('posProcDownloadsLista');
+
+  const juntar = document.getElementById('checkJuntarAudios').checked;
+  const macro = document.getElementById('macroSelect').value;
+  const gerarSrt = document.getElementById('checkGerarSrt').checked;
+
+  if (juntar && prontos.length < blocos.length) {
+    const faltam = blocos.length - prontos.length;
+    if (!confirm(`Atenção: Existem ${faltam} bloco(s) ainda sem áudio gerado.\n\nDeseja juntar apenas os ${prontos.length} áudios prontos na ordem da tela?`)) {
+      return;
+    }
+  }
+
+  // Trava imediata síncrona contra múltiplos cliques ou disparos acidentais
+  processandoAudacity = true;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Processando...';
+  msgEl.textContent = 'Verificando conexão...';
+  msgEl.style.color = 'var(--warn)';
+  resArea.classList.add('hidden');
+  listaDownloads.innerHTML = '';
+
+  if (!bridgeOnline) {
+    msgEl.textContent = 'Verificando ponte local...';
+    await checarBridgeStatus();
+    if (!bridgeOnline) {
+      showToast('⚠️ Ponte local offline. Abra pelo atalho Gemini TTS Studio (DEV)');
+      processandoAudacity = false;
+      btn.disabled = false;
+      btn.innerHTML = '⚡ Processar no Audacity & Whisper';
+      return;
+    }
+  }
+
+  // Verifica se o Audacity está instalado no computador
+  try {
+    const sRes = await fetch(`${BRIDGE_URL}/api/status`, { cache: 'no-store' });
+    if (sRes.ok) {
+      const sData = await sRes.json();
+      if (sData.audacityInstalado === false) {
+        showToast('⚠️ Audacity não encontrado no computador');
+        alert('⚠️ O Audacity não foi encontrado no seu computador!\n\nPor favor, baixe e instale o Audacity pelo site oficial para poder masterizar seus áudios:\nhttps://www.audacityteam.org/download/');
+        processandoAudacity = false;
+        btn.disabled = false;
+        btn.innerHTML = '⚡ Processar no Audacity & Whisper';
+        return;
+      }
+    }
+  } catch (e) {}
+
+  if (juntar) {
+    if (prontos.length > 1) {
+      msgEl.textContent = `Preparando junção de ${prontos.length} blocos em ordem...`;
+      showToast(`🔗 Juntando ${prontos.length} blocos na ordem da tela...`);
+    } else {
+      msgEl.textContent = 'Processando 1 bloco...';
+    }
+  } else {
+    msgEl.textContent = `Preparando ${prontos.length} bloco(s)...`;
+  }
+
+  let polling = true;
+  const pollProgresso = async () => {
+    while (polling) {
+      try {
+        const pRes = await fetch(`${BRIDGE_URL}/api/progresso`, { cache: 'no-store' });
+        if (pRes.ok) {
+          const pData = await pRes.json();
+          if (pData.progresso) msgEl.textContent = pData.progresso;
+        }
+      } catch {}
+      await sleep(500);
+    }
+  };
+  pollProgresso();
+
+  try {
+    msgEl.textContent = 'Codificando áudios gerados...';
+
+    // Regra de nomenclatura da primeira aba:
+    const nomeBaseInput = document.getElementById('nomeBase').value.trim();
+    const nomeBase = nomeBaseInput || (prontos[0].nome ? prontos[0].nome : 'audio_completo');
+
+    const audiosPayload = [];
+    for (let i = 0; i < prontos.length; i++) {
+      const b = prontos[i];
+      const b64 = await blobParaBase64(b.blob);
+      audiosPayload.push({
+        nome: b.nome || `bloco_${String(i + 1).padStart(2, '0')}`,
+        base64: b64,
+        texto: b.texto || '',
+        nome_unificado: nomeBase
+      });
+    }
+
+    const payload = {
+      audios: audiosPayload,
+      juntar,
+      macro,
+      gerarSrt
+    };
+
+    msgEl.textContent = 'Enviando para o Audacity...';
+    const resp = await fetch(`${BRIDGE_URL}/api/processar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const resultado = await resp.json();
+    if (!resp.ok || !resultado.success) {
+      throw new Error(resultado.error || 'Falha no processamento');
+    }
+
+    msgEl.textContent = '✅ Concluído com sucesso!';
+    msgEl.style.color = 'var(--success)';
+    showToast('✅ Processamento concluído! Abrindo Áudios Masterizados...');
+
+    resArea.classList.remove('hidden');
+    listaDownloads.innerHTML = '';
+
+    resultado.itens.forEach(item => {
+      const card = document.createElement('div');
+      card.style.cssText = 'background:var(--surface); padding:8px 12px; border-radius:var(--radius); border:1px solid var(--border); display:flex; align-items:center; gap:8px; width:100%;';
+
+      const titulo = document.createElement('span');
+      titulo.style.cssText = 'font-weight:600; font-size:12px; flex:1;';
+      titulo.textContent = (item.tipo === 'unificado' ? '🌟 Áudio Completo: ' : '🎵 ') + item.nome;
+      card.appendChild(titulo);
+
+      if (item.urlWav) {
+        const btnWav = document.createElement('a');
+        btnWav.href = `${BRIDGE_URL}${item.urlWav}`;
+        btnWav.className = 'btn-download';
+        btnWav.style.cssText = 'text-decoration:none; padding:4px 10px; font-size:11px;';
+        btnWav.textContent = '⬇ Baixar WAV';
+        btnWav.download = `${item.nome}.wav`;
+        card.appendChild(btnWav);
+      }
+
+      if (item.urlSrt) {
+        const btnSrt = document.createElement('a');
+        btnSrt.href = `${BRIDGE_URL}${item.urlSrt}`;
+        btnSrt.className = 'btn-download';
+        btnSrt.style.cssText = 'text-decoration:none; padding:4px 10px; font-size:11px; border-color:var(--accent); color:var(--accent);';
+        btnSrt.textContent = '📄 Baixar Legenda (.srt)';
+        btnSrt.download = `${item.nome}.srt`;
+        card.appendChild(btnSrt);
+      }
+
+      listaDownloads.appendChild(card);
+    });
+
+    // Popula e abre a nova aba "Áudios Masterizados"
+    renderizarMasterizados(resultado.itens, macro);
+    setTimeout(() => {
+      trocarAbaWorkspace('masterizados');
+    }, 600);
+
+  } catch (err) {
+    msgEl.textContent = `✕ ${err.message}`;
+    msgEl.style.color = 'var(--error)';
+    showToast(`✕ Erro: ${err.message}`);
+  } finally {
+    polling = false;
+    processandoAudacity = false;
+    btn.disabled = false;
+    btn.innerHTML = '⚡ Processar no Audacity & Whisper';
+  }
+}
+
+// Inicializa checagem da ponte
+setInterval(checarBridgeStatus, 6000);
+setTimeout(checarBridgeStatus, 500);
+
+// ════════════════════════════════════════════════════════
 // HELPERS
 // ════════════════════════════════════════════════════════
 function setStatus(msg, type) {
@@ -2594,7 +4019,12 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 // direto do navegador, com o token que o usuário cola na caixinha (nunca
 // preenchido por código, nunca pedido no chat).
 // ════════════════════════════════════════════════════════
-const GH_PADRAO = { owner: 'JAEMult', repo: 'gemini-tts-studio', branch: 'main', path: 'gemini-tts-studio.html' };
+const GH_PADRAO = {
+  owner: 'JAEMult',
+  repo: 'gemini-tts-studio',
+  branch: 'main',
+  path: 'gemini-tts-studio.html'
+};
 
 const ghOwnerInput = document.getElementById('ghOwner');
 const ghRepoInput = document.getElementById('ghRepo');
@@ -2602,19 +4032,20 @@ const ghBranchInput = document.getElementById('ghBranch');
 const ghPathInput = document.getElementById('ghPath');
 const ghTokenInput = document.getElementById('ghToken');
 
-ghOwnerInput.value = localStorage.getItem('gemini_tts_gh_owner') || GH_PADRAO.owner;
-ghRepoInput.value = localStorage.getItem('gemini_tts_gh_repo') || GH_PADRAO.repo;
-ghBranchInput.value = localStorage.getItem('gemini_tts_gh_branch') || GH_PADRAO.branch;
-ghPathInput.value = localStorage.getItem('gemini_tts_gh_path') || GH_PADRAO.path;
-const ghTokenSalvo = localStorage.getItem('gemini_tts_gh_token') || '';
+ghOwnerInput.value = appStorage.getItem('gemini_tts_gh_owner') || GH_PADRAO.owner;
+ghRepoInput.value = appStorage.getItem('gemini_tts_gh_repo') || GH_PADRAO.repo;
+const savedBranch = appStorage.getItem('gemini_tts_gh_branch');
+ghBranchInput.value = (savedBranch && savedBranch !== 'dev') ? savedBranch : GH_PADRAO.branch;
+ghPathInput.value = appStorage.getItem('gemini_tts_gh_path') || GH_PADRAO.path;
+const ghTokenSalvo = appStorage.getItem('gemini_tts_gh_token') || '';
 if (ghTokenSalvo) ghTokenInput.value = ghTokenSalvo;
 
 [[ghOwnerInput, 'gemini_tts_gh_owner'], [ghRepoInput, 'gemini_tts_gh_repo'],
  [ghBranchInput, 'gemini_tts_gh_branch'], [ghPathInput, 'gemini_tts_gh_path']]
-  .forEach(([el, chave]) => el.addEventListener('input', () => localStorage.setItem(chave, el.value.trim())));
+  .forEach(([el, chave]) => el.addEventListener('input', () => appStorage.setItem(chave, el.value.trim())));
 
 function atualizarInfoTokenGh() {
-  const salvo = localStorage.getItem('gemini_tts_gh_token');
+  const salvo = appStorage.getItem('gemini_tts_gh_token');
   document.getElementById('ghTokenInfo').textContent = salvo ? 'token salvo' : 'nenhum token salvo';
 }
 atualizarInfoTokenGh();
@@ -2624,7 +4055,7 @@ document.getElementById('ghTokenToggle').addEventListener('click', () => {
 });
 
 document.getElementById('ghTokenSaveBtn').addEventListener('click', () => {
-  localStorage.setItem('gemini_tts_gh_token', ghTokenInput.value.trim());
+  appStorage.setItem('gemini_tts_gh_token', ghTokenInput.value.trim());
   atualizarInfoTokenGh();
   const b = document.getElementById('ghTokenSaveBtn');
   b.textContent = '✅';
@@ -2632,13 +4063,41 @@ document.getElementById('ghTokenSaveBtn').addEventListener('click', () => {
 });
 
 document.getElementById('ghTokenClearBtn').addEventListener('click', () => {
-  if (!ghTokenInput.value.trim() && !localStorage.getItem('gemini_tts_gh_token')) { showToast('Não há token salvo'); return; }
+  if (!ghTokenInput.value.trim() && !appStorage.getItem('gemini_tts_gh_token')) { showToast('Não há token salvo'); return; }
   if (!confirm('Apagar o token do GitHub salvo neste navegador? Isso não pode ser desfeito — você vai precisar colar o token de novo pra fazer backup.')) return;
   ghTokenInput.value = '';
-  localStorage.removeItem('gemini_tts_gh_token');
+  appStorage.removeItem('gemini_tts_gh_token');
   atualizarInfoTokenGh();
   showToast('🗑 Token do GitHub apagado');
 });
+
+async function aplicarMudancasNoHtmlOg() {
+  if (!confirm('Deseja aplicar todas as melhorias testadas no Desenvolvimento para o HTML original (PROD)?\n\n- O arquivo "Gemini TTS.html" e "Producao/gemini-tts-studio.html" serão atualizados.\n- Um backup de segurança do HTML original será salvo automaticamente na pasta "Backups/".')) {
+    return;
+  }
+  const btn = document.getElementById('btnAplicarHtmlOg');
+  const txtOrig = btn ? btn.textContent : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '⏳ Aplicando...';
+  }
+  showToast('⏳ Aplicando mudanças no HTML original...');
+  try {
+    const res = await fetch(`${BRIDGE_URL}/api/publicar`, { method: 'POST' });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || 'Erro desconhecido');
+    showToast('✅ Sucesso! Mudanças aplicadas no HTML original com backup salvo!');
+    alert('✅ Sucesso!\n\nAs alterações de Desenvolvimento foram aplicadas no HTML Original (Gemini TTS.html e Produção).\n\nBackup de segurança salvo em:\n' + (data.backup || 'pasta Backups/'));
+  } catch (e) {
+    showToast('❌ Erro ao aplicar: ' + e.message);
+    alert('❌ Erro ao aplicar alterações no HTML original: ' + e.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = txtOrig;
+    }
+  }
+}
 
 function definirStatusBackup(msg, tipo) {
   const el = document.getElementById('ghStatus');
@@ -2670,7 +4129,7 @@ let backupEmAndamento = false;
 async function salvarBackupGitHub() {
   if (backupEmAndamento) { showToast('⏳ Backup já está rodando'); return; }
 
-  const token = ghTokenInput.value.trim() || localStorage.getItem('gemini_tts_gh_token') || '';
+  const token = ghTokenInput.value.trim() || appStorage.getItem('gemini_tts_gh_token') || '';
   if (!token) {
     abrirConfigBackupGitHub();
     definirStatusBackup('⚠️ Cole seu token do GitHub aqui embaixo e clique em "Salvar Backup" de novo.', 'erro');
@@ -2685,7 +4144,12 @@ async function salvarBackupGitHub() {
 
   const owner = ghOwnerInput.value.trim() || GH_PADRAO.owner;
   const repo = ghRepoInput.value.trim() || GH_PADRAO.repo;
-  const branch = ghBranchInput.value.trim() || GH_PADRAO.branch;
+  let branch = ghBranchInput.value.trim() || GH_PADRAO.branch;
+  if (!branch || branch.toLowerCase() === 'dev') {
+    branch = 'main';
+    ghBranchInput.value = 'main';
+    appStorage.setItem('gemini_tts_gh_branch', 'main');
+  }
   const path = ghPathInput.value.trim() || GH_PADRAO.path;
   const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path.split('/').map(encodeURIComponent).join('/')}`;
 
@@ -2716,13 +4180,13 @@ async function salvarBackupGitHub() {
 
     definirStatusBackup('⏳ Enviando snapshot...', 'loading');
     const corpo = {
-      message: `backup: ${new Date().toLocaleString('pt-BR')}`,
+      message: `backup (${APP_ENV}): ${new Date().toLocaleString('pt-BR')}`,
       content: utf8ParaBase64(window.SNAPSHOT_HTML),
       branch,
     };
     if (sha) corpo.sha = sha;
 
-    const putRes = await fetch(apiUrl, {
+    let putRes = await fetch(apiUrl, {
       method: 'PUT',
       headers: {
         Authorization: `token ${token}`,
@@ -2731,6 +4195,43 @@ async function salvarBackupGitHub() {
       },
       body: JSON.stringify(corpo),
     });
+
+    if (putRes.status === 404 && branch !== 'main') {
+      definirStatusBackup(`⏳ Branch "${branch}" não encontrada. Criando a partir de "main"...`, 'loading');
+      try {
+        const refRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/ref/heads/main`, {
+          headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github+json' }
+        });
+        if (refRes.ok) {
+          const refData = await refRes.json();
+          const createBranchRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/refs`, {
+            method: 'POST',
+            headers: {
+              Authorization: `token ${token}`,
+              Accept: 'application/vnd.github+json',
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              ref: `refs/heads/${branch}`,
+              sha: refData.object.sha
+            })
+          });
+          if (createBranchRes.ok) {
+            putRes = await fetch(apiUrl, {
+              method: 'PUT',
+              headers: {
+                Authorization: `token ${token}`,
+                Accept: 'application/vnd.github+json',
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(corpo)
+            });
+          }
+        }
+      } catch (errBranch) {
+        console.warn('Erro ao criar branch:', errBranch);
+      }
+    }
 
     if (putRes.ok) {
       definirStatusBackup(`✅ Backup salvo em github.com/${owner}/${repo} (branch ${branch}) — ${new Date().toLocaleTimeString('pt-BR')}`, 'success');
@@ -2757,6 +4258,17 @@ async function salvarBackupGitHub() {
 }
 
 document.getElementById('backupGithubBtn').addEventListener('click', salvarBackupGitHub);
+
+// Notifica o servidor local para encerrar o Audacity caso tenha sido aberto pelo estúdio
+window.addEventListener('beforeunload', () => {
+  try {
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(`${BRIDGE_URL}/api/app/fechar`);
+    } else {
+      fetch(`${BRIDGE_URL}/api/app/fechar`, { method: 'POST', keepalive: true });
+    }
+  } catch {}
+});
 
 // ════════════════════════════════════════════════════════
 // SNAPSHOT — captura o HTML como ele estava logo após este script terminar
