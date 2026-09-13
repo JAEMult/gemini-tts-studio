@@ -4129,10 +4129,33 @@ let backupEmAndamento = false;
 async function salvarBackupGitHub() {
   if (backupEmAndamento) { showToast('⏳ Backup já está rodando'); return; }
 
+  const btn = document.getElementById('backupGithubBtn');
+  backupEmAndamento = true;
+  btn.disabled = true;
+  const textoOriginalBtn = btn.textContent;
+  btn.innerHTML = '<span class="spinner"></span> Salvando...';
+  definirStatusBackup('⏳ Sincronizando com o GitHub...', 'loading');
+
+  // 1. Tenta salvar via Bridge Server local (utiliza o Git nativo do Windows com credenciais salvas)
+  try {
+    const bridgeRes = await fetch(`${BRIDGE_URL}/api/github/backup`, { method: 'POST' });
+    if (bridgeRes.ok) {
+      const bData = await bridgeRes.json();
+      if (bData.success) {
+        definirStatusBackup(`✅ Backup salvo no GitHub (branch main) com sucesso! — ${new Date().toLocaleTimeString('pt-BR')}`, 'success');
+        showToast('✅ Backup salvo no GitHub com sucesso!');
+        return;
+      }
+    }
+  } catch (e) {
+    // Se o bridge_server não responder, segue para a API REST direta do GitHub
+  }
+
+  // 2. Fallback: API REST direta do GitHub via Token
   const token = ghTokenInput.value.trim() || appStorage.getItem('gemini_tts_gh_token') || '';
   if (!token) {
     abrirConfigBackupGitHub();
-    definirStatusBackup('⚠️ Cole seu token do GitHub aqui embaixo e clique em "Salvar Backup" de novo.', 'erro');
+    definirStatusBackup('⚠️ Servidor local não respondeu. Cole seu token do GitHub aqui embaixo.', 'erro');
     showToast('⚠️ Configure o token do GitHub primeiro');
     return;
   }
@@ -4153,11 +4176,6 @@ async function salvarBackupGitHub() {
   const path = ghPathInput.value.trim() || GH_PADRAO.path;
   const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path.split('/').map(encodeURIComponent).join('/')}`;
 
-  const btn = document.getElementById('backupGithubBtn');
-  backupEmAndamento = true;
-  btn.disabled = true;
-  const textoOriginalBtn = btn.textContent;
-  btn.innerHTML = '<span class="spinner"></span> Salvando...';
   definirStatusBackup('⏳ Verificando arquivo atual no repositório...', 'loading');
 
   try {

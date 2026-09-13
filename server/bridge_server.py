@@ -8,6 +8,8 @@ import shutil
 import urllib.parse
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 import threading
+import subprocess
+from datetime import datetime
 
 # Garante que a pasta atual do server esteja no sys.path
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -363,6 +365,39 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     'backup': backup_path
                 })
             except Exception as e:
+                self.responder_json({'success': False, 'error': str(e)}, status=500)
+
+        elif caminho == '/api/github/backup':
+            try:
+                set_progresso("Sincronizando com o GitHub...")
+                repo_dir = r"C:\Projetos\_repo_gemini_tts"
+                
+                # Sincroniza os arquivos locais para a pasta do repositório git
+                arquivo_origem = os.path.join(os.path.dirname(__file__), '..', 'gemini-tts-studio.html')
+                if os.path.isfile(arquivo_origem):
+                    shutil.copy2(arquivo_origem, os.path.join(repo_dir, 'gemini-tts-studio.html'))
+                
+                pasta_server = os.path.dirname(__file__)
+                shutil.copytree(pasta_server, os.path.join(repo_dir, 'server'), dirs_exist_ok=True, ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
+                
+                pasta_macros = os.path.join(os.path.dirname(__file__), '..', 'macros')
+                if os.path.isdir(pasta_macros):
+                    shutil.copytree(pasta_macros, os.path.join(repo_dir, 'macros'), dirs_exist_ok=True)
+                
+                # Executa o git commit e git push usando as credenciais do sistema
+                subprocess.run(['git', 'add', 'gemini-tts-studio.html', 'macros', 'server'], cwd=repo_dir, check=True)
+                subprocess.run(['git', 'commit', '-m', f'Backup do app: {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}'], cwd=repo_dir)
+                res = subprocess.run(['git', 'push', 'origin', 'main'], cwd=repo_dir, capture_output=True, text=True)
+                if res.returncode != 0:
+                    raise Exception(res.stderr or 'Erro ao enviar para o GitHub')
+                
+                set_progresso("Backup no GitHub concluído com sucesso!")
+                self.responder_json({
+                    'success': True,
+                    'msg': 'Backup enviado e sincronizado no GitHub com sucesso!'
+                })
+            except Exception as e:
+                set_progresso("Erro no backup do GitHub")
                 self.responder_json({'success': False, 'error': str(e)}, status=500)
 
         elif caminho == '/api/processar':
