@@ -4139,13 +4139,15 @@ async function salvarBackupGitHub() {
   // 1. Tenta salvar via Bridge Server local (utiliza o Git nativo do Windows com credenciais salvas)
   try {
     const bridgeRes = await fetch(`${BRIDGE_URL}/api/github/backup`, { method: 'POST' });
-    if (bridgeRes.ok) {
-      const bData = await bridgeRes.json();
-      if (bData.success) {
-        definirStatusBackup(`✅ Backup salvo no GitHub (branch main) com sucesso! — ${new Date().toLocaleTimeString('pt-BR')}`, 'success');
-        showToast('✅ Backup salvo no GitHub com sucesso!');
-        return;
-      }
+    const bData = await bridgeRes.json().catch(() => null);
+    if (bridgeRes.ok && bData && bData.success) {
+      definirStatusBackup(`✅ Backup salvo no GitHub (branch main) com sucesso! — ${new Date().toLocaleTimeString('pt-BR')}`, 'success');
+      showToast('✅ Backup salvo no GitHub com sucesso!');
+      return;
+    } else if (bData && bData.error) {
+      definirStatusBackup(`✕ Erro no Git local: ${bData.error}`, 'erro');
+      showToast(`✕ Erro no Git local: ${bData.error}`);
+      return;
     }
   } catch (e) {
     // Se o bridge_server não responder, segue para a API REST direta do GitHub
