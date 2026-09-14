@@ -410,7 +410,9 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 subprocess.run(['git', 'commit', '-m', f'Backup ({branch_destino}): {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}'], cwd=repo_dir)
                 res = subprocess.run(['git', 'push', 'origin', branch_destino], cwd=repo_dir, capture_output=True, text=True)
                 if res.returncode != 0:
-                    raise Exception(res.stderr or f'Erro ao enviar para a branch {branch_destino} no GitHub')
+                    res = subprocess.run(['git', 'push', 'origin', branch_destino, '--force'], cwd=repo_dir, capture_output=True, text=True)
+                    if res.returncode != 0:
+                        raise Exception(res.stderr or f'Erro ao enviar para a branch {branch_destino} no GitHub')
                 
                 set_progresso(f"Backup na branch {branch_destino} concluído com sucesso!")
                 self.responder_json({
