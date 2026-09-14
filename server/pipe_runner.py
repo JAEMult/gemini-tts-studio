@@ -210,24 +210,43 @@ def ensure_audacity_cfg():
                     content += '\n[Module]\nmod-script-pipe=1\n'
                 changed = True
 
+            # Desativa varredura lenta de plugins/efeitos na inicialização que exibe a modal "O Audacity está iniciando..."
+            if '[Effects]' in content:
+                if 'SkipEffectsScanAtStartup=0' in content:
+                    content = content.replace('SkipEffectsScanAtStartup=0', 'SkipEffectsScanAtStartup=1')
+                    changed = True
+                elif 'SkipEffectsScanAtStartup=1' not in content:
+                    content = content.replace('[Effects]', '[Effects]\nSkipEffectsScanAtStartup=1')
+                    changed = True
+            else:
+                content += '\n[Effects]\nSkipEffectsScanAtStartup=1\n'
+                changed = True
+
             # Desativa tela de splash inicial e diálogos de boas-vindas
-            if 'ShowSplashScreen=1' in content:
-                content = content.replace('ShowSplashScreen=1', 'ShowSplashScreen=0')
+            if '[GUI]' not in content:
+                content += '\n[GUI]\nShowSplashScreen=0\nShowHowToGetHelpAtLaunch=0\nShowHelpAtLaunch=0\nIntroOrderStart=0\n'
                 changed = True
-            elif 'ShowSplashScreen=0' not in content:
-                content = content.replace('[GUI]', '[GUI]\nShowSplashScreen=0')
-                changed = True
+            else:
+                if 'ShowSplashScreen=1' in content:
+                    content = content.replace('ShowSplashScreen=1', 'ShowSplashScreen=0')
+                    changed = True
+                elif 'ShowSplashScreen=0' not in content:
+                    content = content.replace('[GUI]', '[GUI]\nShowSplashScreen=0')
+                    changed = True
 
-            if 'IntroOrderStart=1' in content:
-                content = content.replace('IntroOrderStart=1', 'IntroOrderStart=0')
-                changed = True
+                if 'IntroOrderStart=1' in content:
+                    content = content.replace('IntroOrderStart=1', 'IntroOrderStart=0')
+                    changed = True
+                elif 'IntroOrderStart=0' not in content:
+                    content = content.replace('[GUI]', '[GUI]\nIntroOrderStart=0')
+                    changed = True
 
-            if 'ShowHowToGetHelpAtLaunch=1' in content:
-                content = content.replace('ShowHowToGetHelpAtLaunch=1', 'ShowHowToGetHelpAtLaunch=0')
-                changed = True
-            elif 'ShowHowToGetHelpAtLaunch=0' not in content:
-                content = content.replace('[GUI]', '[GUI]\nShowHowToGetHelpAtLaunch=0\nShowHelpAtLaunch=0')
-                changed = True
+                if 'ShowHowToGetHelpAtLaunch=1' in content:
+                    content = content.replace('ShowHowToGetHelpAtLaunch=1', 'ShowHowToGetHelpAtLaunch=0')
+                    changed = True
+                elif 'ShowHowToGetHelpAtLaunch=0' not in content:
+                    content = content.replace('[GUI]', '[GUI]\nShowHowToGetHelpAtLaunch=0\nShowHelpAtLaunch=0')
+                    changed = True
 
             if '[Update]' in content:
                 if 'DefaultUpdatesChecking=1' in content:
@@ -237,10 +256,17 @@ def ensure_audacity_cfg():
                     content = content.replace('UpdateNoticeShown=0', 'UpdateNoticeShown=1')
                     changed = True
 
-            # Impede que a janela inicie em modo minimizado/iconizado para não registrar na barra de tarefas
-            if 'Iconized=1' in content:
-                content = content.replace('Iconized=1', 'Iconized=0')
+            # Coordenadas de inicialização sempre fora de qualquer monitor
+            if '[Window]' not in content:
+                content += '\n[Window]\nX=-32000\nY=-32000\nNormal_X=-32000\nNormal_Y=-32000\nWidth=1180\nHeight=714\nNormal_Width=1180\nNormal_Height=714\nMaximized=0\nIconized=0\n'
                 changed = True
+            else:
+                if 'Iconized=1' in content:
+                    content = content.replace('Iconized=1', 'Iconized=0')
+                    changed = True
+                if 'Maximized=1' in content:
+                    content = content.replace('Maximized=1', 'Maximized=0')
+                    changed = True
 
             if changed:
                 with open(cfg_path, 'w', encoding='utf-8') as f:
@@ -274,6 +300,16 @@ user32.SetWindowRgn.restype = ctypes.c_int
 
 gdi32.CreateRectRgn.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int]
 gdi32.CreateRectRgn.restype = wintypes.HRGN
+
+# APIs para enumeração no desktop interativo do usuário ('Default')
+user32.OpenDesktopW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+user32.OpenDesktopW.restype = wintypes.HDESK
+user32.CloseDesktop.argtypes = [wintypes.HDESK]
+user32.CloseDesktop.restype = wintypes.BOOL
+
+EnumDesktopWindowsProc = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+user32.EnumDesktopWindows.argtypes = [wintypes.HDESK, EnumDesktopWindowsProc, wintypes.LPARAM]
+user32.EnumDesktopWindows.restype = wintypes.BOOL
 
 WINEVENTPROC = ctypes.WINFUNCTYPE(
     None,
@@ -314,6 +350,7 @@ _SILENCER_HOOK_READY = threading.Event()
 _AUDACITY_PID_CACHE = {}
 _AUDACITY_PIDS = set()
 _CB_HOLDER = None
+_ENUM_DESK_PROC = None
 
 def _atualizar_pids_audacity():
     """Mantém a lista de PIDs do Audacity atualizada sem overhead de OpenProcess contínuo."""
@@ -382,29 +419,18 @@ def neutralizar_janela_audacity(hwnd):
         pass
 
 def _silencer_worker(target_pid=0):
-    global _SILENCER_ACTIVE, _SILENCER_HOOK, _CB_HOLDER
+    global _SILENCER_ACTIVE, _SILENCER_HOOK, _CB_HOLDER, _ENUM_DESK_PROC
     
     def _hook_cb(hWinEventHook, event, hwnd, idObject, idChild, dwEventThread, dwmsEventTime):
         if hwnd and idObject == 0:
             p = wintypes.DWORD()
             user32.GetWindowThreadProcessId(hwnd, ctypes.byref(p))
             pid = p.value
-            if pid and (pid in _AUDACITY_PIDS or (target_pid > 0 and pid == target_pid)):
+            if pid and (pid in _AUDACITY_PIDS or (target_pid > 0 and pid == target_pid) or _is_audacity_pid(pid)):
                 _AUDACITY_PIDS.add(pid)
                 neutralizar_janela_audacity(hwnd)
-            elif pid:
-                cls = ctypes.create_unicode_buffer(256)
-                user32.GetClassNameW(hwnd, cls, 256)
-                if 'wxWindowNR' in cls.value:
-                    buf = ctypes.create_unicode_buffer(512)
-                    user32.GetWindowTextW(hwnd, buf, 512)
-                    t = buf.value.lower()
-                    if 'audacity' in t or 'iniciando' in t or not t:
-                        _AUDACITY_PIDS.add(pid)
-                        neutralizar_janela_audacity(hwnd)
 
     _CB_HOLDER = WINEVENTPROC(_hook_cb)
-    # Intercepta toda a faixa de eventos do sistema operacional
     _SILENCER_HOOK = user32.SetWinEventHook(
         0x0001,
         0x7FFFFFFF,
@@ -414,24 +440,41 @@ def _silencer_worker(target_pid=0):
         0,
         0
     )
+
+    def _desk_enum_cb(hwnd, lparam):
+        p = wintypes.DWORD()
+        user32.GetWindowThreadProcessId(hwnd, ctypes.byref(p))
+        pid = p.value
+        if pid and (pid in _AUDACITY_PIDS or (target_pid > 0 and pid == target_pid) or _is_audacity_pid(pid)):
+            _AUDACITY_PIDS.add(pid)
+            neutralizar_janela_audacity(hwnd)
+        return True
+
+    _ENUM_DESK_PROC = EnumDesktopWindowsProc(_desk_enum_cb)
+    h_desktop = user32.OpenDesktopW('Default', 0, False, 0x01FF)
+
     _SILENCER_HOOK_READY.set()
-    
     ensure_audacity_hidden()
 
     msg = wintypes.MSG()
-    ciclos = 0
     while _SILENCER_ACTIVE:
         try:
             while user32.PeekMessageW(ctypes.byref(msg), 0, 0, 0, 1):
                 user32.TranslateMessage(ctypes.byref(msg))
                 user32.DispatchMessageW(ctypes.byref(msg))
 
-            ciclos += 1
-            if ciclos % 25 == 0:
-                ensure_audacity_hidden()
+            # Varredura direta e instantânea no Desktop Default sem nenhum subprocesso
+            if h_desktop:
+                user32.EnumDesktopWindows(h_desktop, _ENUM_DESK_PROC, 0)
         except Exception:
             pass
-        time.sleep(0.001)
+        time.sleep(0.002)
+
+    if h_desktop:
+        try:
+            user32.CloseDesktop(h_desktop)
+        except Exception:
+            pass
 
     if _SILENCER_HOOK:
         try:
@@ -441,23 +484,28 @@ def _silencer_worker(target_pid=0):
         _SILENCER_HOOK = None
 
 def ensure_audacity_hidden():
-    """Varredura imediata para forçar neutralização em qualquer janela existente do Audacity."""
-    _atualizar_pids_audacity()
-    if not _AUDACITY_PIDS:
-        return
+    """Varredura imediata para forçar neutralização em qualquer janela existente do Audacity no Desktop interativo."""
     try:
         def enum_cb(hwnd, lparam):
             try:
                 pid = wintypes.DWORD()
                 user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
                 p = pid.value
-                if p and p in _AUDACITY_PIDS:
+                if p and (p in _AUDACITY_PIDS or _is_audacity_pid(p)):
+                    _AUDACITY_PIDS.add(p)
                     neutralizar_janela_audacity(hwnd)
             except Exception:
                 pass
             return True
-        EnumProc = ctypes.WINFUNCTYPE(ctypes.c_bool, wintypes.HWND, wintypes.LPARAM)
-        user32.EnumWindows(EnumProc(enum_cb), 0)
+
+        fn = EnumDesktopWindowsProc(enum_cb)
+        h_desk = user32.OpenDesktopW('Default', 0, False, 0x01FF)
+        if h_desk:
+            user32.EnumDesktopWindows(h_desk, fn, 0)
+            user32.CloseDesktop(h_desk)
+
+        # Também varre a área de trabalho do processo atual
+        user32.EnumWindows(fn, 0)
     except Exception:
         pass
 
@@ -526,8 +574,10 @@ def launch_audacity():
     start_audacity_silencer()
 
     si = subprocess.STARTUPINFO()
-    si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    si.dwFlags |= subprocess.STARTF_USESHOWWINDOW | 0x00000004 # STARTF_USEPOSITION
     si.wShowWindow = 0 # SW_HIDE (100% invisível em background)
+    si.dwX = -32000
+    si.dwY = -32000
 
     proc = None
     try:
@@ -924,3 +974,96 @@ def executar_travar_silencio(caminho_wav, duracao="1,3", compressao="30", limiar
             client.close()
             close_audacity(force=True)
             report('Silêncio ajustado e Audacity liberado.')
+
+def executar_travar_silencio_lote(itens, duracao="2", compressao="50", limiar="-35", descartar="0,5", progress_callback=None):
+    """
+    Executa o corte de silêncio configurado em LOTE para múltiplos arquivos WAV
+    em uma ÚNICA sessão do Audacity, sem reiniciar o processo entre os arquivos.
+    Protegido por AUDACITY_LOCK.
+    """
+    def report(msg):
+        if progress_callback:
+            progress_callback(msg)
+        sys.stderr.write(f'[Audacity-TravarSilencioLote] {msg}\n')
+
+    if not itens:
+        return {'success': False, 'error': 'Nenhum item informado para corte de silêncio.'}
+
+    cmd_truncate = gerar_comando_truncate_silence(duracao=duracao, compressao=compressao, limiar=limiar, descartar=descartar)
+
+    with AUDACITY_LOCK:
+        report(f'Iniciando Audacity em segundo plano para travar silêncio em lote ({len(itens)} áudio(s))...')
+        launch_audacity()
+
+        client = PipeClient()
+        connected = client.connect(timeout=15.0)
+        if not connected:
+            close_audacity()
+            return {'success': False, 'error': 'Não foi possível conectar ao Audacity via mod-script-pipe.'}
+
+        time.sleep(0.5)
+        boost_audacity_priority()
+
+        resultados = []
+        try:
+            total = len(itens)
+            for idx, item in enumerate(itens, 1):
+                caminho_wav = item.get('caminhoWav') or item.get('caminho') or ''
+                nome = item.get('nome') or os.path.basename(caminho_wav)
+                if not os.path.isfile(caminho_wav):
+                    report(f'Arquivo WAV {idx}/{total} não encontrado: {caminho_wav}')
+                    continue
+
+                report(f'Cortando silêncio {idx}/{total}: {nome} ({duracao}s / {compressao}%)...')
+                limpar_todas_faixas(client)
+
+                caminho_norm = os.path.abspath(caminho_wav).replace('\\', '/')
+                caminho_temp = os.path.abspath(caminho_wav + '.trunc_temp.wav').replace('\\', '/')
+
+                client.send(f'Import2: Filename="{caminho_norm}"', timeout=15.0)
+                time.sleep(0.15)
+
+                client.send('SelectAll:', timeout=3.0)
+                client.send(cmd_truncate, timeout=120.0)
+                time.sleep(0.15)
+
+                client.send('SelectAll:', timeout=3.0)
+                client.send(f'Export2: Filename="{caminho_temp}" NumChannels=1', timeout=60.0)
+                time.sleep(0.2)
+
+                limpar_todas_faixas(client)
+
+                caminho_temp_os = os.path.abspath(caminho_wav + '.trunc_temp.wav')
+                if os.path.isfile(caminho_temp_os) and os.path.getsize(caminho_temp_os) > 500:
+                    os.replace(caminho_temp_os, caminho_wav)
+                    resultados.append({
+                        'success': True,
+                        'caminhoWav': caminho_wav,
+                        'nome': nome,
+                        'textoReferencia': item.get('textoReferencia') or item.get('texto', ''),
+                        'gerarSrt': item.get('gerarSrt', True)
+                    })
+                else:
+                    resultados.append({
+                        'success': False,
+                        'caminhoWav': caminho_wav,
+                        'nome': nome,
+                        'error': 'Falha ao exportar áudio truncado no Audacity'
+                    })
+
+            report('Todos os áudios foram processados com sucesso no Audacity!')
+            return {'success': True, 'itens': resultados}
+
+        except Exception as e:
+            report(f'Erro no processamento em lote: {e}')
+            return {'success': False, 'error': str(e), 'itens': resultados}
+
+        finally:
+            try:
+                limpar_todas_faixas(client)
+            except:
+                pass
+            client.close()
+            close_audacity(force=True)
+            report('Sessão em lote do Audacity finalizada com sucesso.')
+

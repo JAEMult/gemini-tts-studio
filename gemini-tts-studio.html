@@ -73,6 +73,8 @@
     .bloco.ativo    { border-left:3px solid var(--accent); }
     .bloco-num { font-size:12px; color:var(--text-muted); padding-top:8px; font-weight:600; }
     .bloco-txt { width:100%; min-height:58px; font-size:12px; line-height:1.5; resize:vertical; }
+    .modo-juntar-ativo .bloco { grid-template-columns: 30px 190px 1fr; }
+    .modo-juntar-ativo .bloco-txt { display: none !important; }
     .bloco-dir { display:flex; flex-direction:column; gap:6px; align-items:flex-end; min-width:190px; }
     .bloco-linha { display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
     .bloco-status { font-size:11px; color:var(--text-muted); text-align:right; }
@@ -586,6 +588,45 @@
       line-height: 1.5;
       color: var(--text-muted);
     }
+    .master-texto-area {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      margin-top: 4px;
+    }
+    .master-texto-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+    .master-texto-header span.sub {
+      font-weight: 400;
+      opacity: 0.75;
+    }
+    .master-texto-area textarea {
+      width: 100%;
+      min-height: 52px;
+      max-height: 160px;
+      resize: vertical;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 8px 12px;
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--text);
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      box-sizing: border-box;
+    }
+    .master-texto-area textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+    }
     .btn-pastel-green {
       background: linear-gradient(135deg, #1b4332, #2d6a4f) !important;
       border: 1px solid #52b788 !important;
@@ -940,6 +981,17 @@ Exemplo com audio tags:
               <input type="checkbox" id="checkJuntarAudios" onchange="atualizarInfoJuntar()">
               <b>🔗 Juntar todos os áudios em um só</b> <span style="font-size:11px; opacity:.75;">(Alinha no Audacity antes de masterizar)</span>
             </label>
+          </div>
+
+          <!-- Campo de Texto Único quando Juntar Áudios está ativado -->
+          <div id="campoTextoUnificado" class="pos-proc-field hidden" style="margin-top:6px; padding:10px 12px; background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+              <label for="textoUnificadoSrt" style="font-size:11.5px; font-weight:600; display:flex; align-items:center; gap:5px; color:var(--text); margin:0;">
+                <span>📝 Texto / Roteiro do Áudio Unificado:</span>
+              </label>
+              <span style="font-size:10.5px; opacity:.75;">(espaço único para o texto da narração que será sincronizado na legenda SRT)</span>
+            </div>
+            <textarea id="textoUnificadoSrt" style="width:100%; min-height:85px; font-family:inherit; font-size:12px; padding:8px 10px; border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); resize:vertical; box-sizing:border-box;" placeholder="Cole ou digite aqui o roteiro/texto completo correspondente aos áudios que serão juntados para guiar o Whisper na legenda SRT..."></textarea>
           </div>
 
           <!-- 2. Gerar Legenda SRT com Whisper -->
@@ -3092,6 +3144,10 @@ function renderBlocos() {
   const lista = document.getElementById('blocosLista');
   area.classList.toggle('hidden', blocos.length === 0);
 
+  const juntarAtivo = document.getElementById('checkJuntarAudios')?.checked;
+  if (juntarAtivo) area.classList.add('modo-juntar-ativo');
+  else area.classList.remove('modo-juntar-ativo');
+
   blocos.forEach((b, i) => {
     if (!b._el) criarLinha(b);
     b._el.num.textContent = String(i + 1).padStart(2, '0');
@@ -3618,11 +3674,27 @@ async function checarBridgeStatus() {
 function atualizarInfoJuntar() {
   const check = document.getElementById('checkJuntarAudios');
   const srtInfo = document.getElementById('srtDescInfo');
-  if (!check || !srtInfo) return;
+  const campoUnificado = document.getElementById('campoTextoUnificado');
+  const areaBlocos = document.getElementById('blocosArea');
+  if (!check) return;
+
   if (check.checked) {
-    srtInfo.textContent = '(1 SRT único para o áudio juntado)';
+    if (srtInfo) srtInfo.textContent = '(1 SRT único para o áudio juntado)';
+    if (campoUnificado) {
+      campoUnificado.classList.remove('hidden');
+      const txtArea = document.getElementById('textoUnificadoSrt');
+      if (txtArea && !txtArea.value.trim()) {
+        const textosDosBlocos = blocos.map(b => b.texto ? b.texto.trim() : '').filter(Boolean).join('\n\n');
+        const main = document.getElementById('mainText')?.value?.trim();
+        txtArea.value = textosDosBlocos || main || '';
+      }
+    }
+    // Oculta os campos individuais de texto de cada bloco para deixar APENAS 1 espaço pra texto
+    if (areaBlocos) areaBlocos.classList.add('modo-juntar-ativo');
   } else {
-    srtInfo.textContent = '(1 SRT para cada bloco individual)';
+    if (srtInfo) srtInfo.textContent = '(1 SRT para cada bloco individual)';
+    if (campoUnificado) campoUnificado.classList.add('hidden');
+    if (areaBlocos) areaBlocos.classList.remove('modo-juntar-ativo');
   }
 }
 
@@ -3808,9 +3880,65 @@ function renderizarMasterizados(itens, macroNome) {
       }
     };
 
+    // Campo de texto / roteiro do áudio para guiar o Whisper na legenda SRT
+    const areaTextoCard = document.createElement('div');
+    areaTextoCard.className = 'master-texto-area';
+
+    const headerTexto = document.createElement('div');
+    headerTexto.className = 'master-texto-header';
+    headerTexto.innerHTML = `
+      <span>📝 Roteiro / Texto da Legenda (SRT):</span>
+      <span class="sub">(usado para guiar o Whisper na sincronização do SRT)</span>
+    `;
+
+    const txtSrtCard = document.createElement('textarea');
+    txtSrtCard.className = 'textarea-srt-master';
+    txtSrtCard.placeholder = 'Cole ou digite aqui o texto correspondente a este áudio para gerar ou regerar a legenda SRT sincronizada...';
+    txtSrtCard.value = item.texto || '';
+    txtSrtCard.addEventListener('input', () => {
+      item.texto = txtSrtCard.value;
+    });
+
+    areaTextoCard.append(headerTexto, txtSrtCard);
+
     const atualizarAcoesSrt = () => {
       const antigos = acoes.querySelectorAll('.btn-srt-dinamico');
       antigos.forEach(b => b.remove());
+
+      const dispararWhisperSrt = async (btnRef) => {
+        item.texto = txtSrtCard.value;
+        btnRef.disabled = true;
+        const textoOriginal = btnRef.innerHTML;
+        btnRef.innerHTML = '⏳ Transcrevendo na GPU...';
+        showToast(`⏳ Gerando legenda SRT para "${item.nome}" com Whisper...`);
+        try {
+          const resp = await fetch(`${BRIDGE_URL}/api/whisper/gerar-srt`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              caminhoWav: item.caminhoWav,
+              textoReferencia: item.texto || ''
+            })
+          });
+          const dadosSrt = await resp.json();
+          if (!dadosSrt.success) throw new Error(dadosSrt.error || 'Falha ao transcrever');
+          item.caminhoSrt = dadosSrt.caminhoSrt;
+          item.urlSrt = dadosSrt.urlSrt;
+          item.srtConteudo = dadosSrt.srtConteudo;
+          atualizarAcoesSrt();
+          renderizarSecaoSrt();
+          const faltam = masterizadosItens.some(it => !it.urlSrt);
+          if (btnPendentes) {
+            if (faltam) btnPendentes.classList.remove('hidden');
+            else btnPendentes.classList.add('hidden');
+          }
+          showToast(`✅ Legenda SRT de "${item.nome}" gerada com sucesso!`);
+        } catch (err) {
+          btnRef.disabled = false;
+          btnRef.innerHTML = textoOriginal;
+          showToast(`❌ Erro ao gerar SRT: ${err.message}`);
+        }
+      };
 
       if (item.urlSrt) {
         const btnSrt = document.createElement('a');
@@ -3820,44 +3948,21 @@ function renderizarMasterizados(itens, macroNome) {
         btnSrt.style.cssText = 'text-decoration:none; padding:6px 12px; font-weight:600; border-color:var(--accent); color:var(--accent);';
         btnSrt.textContent = '📄 Baixar .SRT';
         acoes.appendChild(btnSrt);
+
+        const btnRegerar = document.createElement('button');
+        btnRegerar.className = 'btn-download btn-srt-dinamico';
+        btnRegerar.style.cssText = 'padding:6px 10px; font-size:11px; border-color:rgba(167,139,250,0.45); color:#c4b5fd; cursor:pointer; background:rgba(167,139,250,0.12); font-weight:600;';
+        btnRegerar.innerHTML = '🔄 Regerar SRT';
+        btnRegerar.title = 'Regera a legenda SRT com base no texto atual do campo';
+        btnRegerar.onclick = () => dispararWhisperSrt(btnRegerar);
+        acoes.appendChild(btnRegerar);
       } else {
         const btnGerarSrt = document.createElement('button');
         btnGerarSrt.className = 'btn-download btn-srt-dinamico';
         btnGerarSrt.style.cssText = 'padding:6px 12px; font-weight:600; border-color:var(--accent); color:var(--accent); cursor:pointer;';
         btnGerarSrt.innerHTML = '⚡ Gerar legenda SRT';
         btnGerarSrt.title = 'Transcreve este áudio na GPU com o Whisper para gerar a legenda';
-        btnGerarSrt.onclick = async () => {
-          btnGerarSrt.disabled = true;
-          btnGerarSrt.innerHTML = '⏳ Transcrevendo na GPU...';
-          showToast(`⏳ Gerando legenda SRT para "${item.nome}" com Whisper...`);
-          try {
-            const resp = await fetch(`${BRIDGE_URL}/api/whisper/gerar-srt`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                caminhoWav: item.caminhoWav,
-                textoReferencia: item.texto || ''
-              })
-            });
-            const dadosSrt = await resp.json();
-            if (!dadosSrt.success) throw new Error(dadosSrt.error || 'Falha ao transcrever');
-            item.caminhoSrt = dadosSrt.caminhoSrt;
-            item.urlSrt = dadosSrt.urlSrt;
-            item.srtConteudo = dadosSrt.srtConteudo;
-            atualizarAcoesSrt();
-            renderizarSecaoSrt();
-            const faltam = masterizadosItens.some(it => !it.urlSrt);
-            if (btnPendentes) {
-              if (faltam) btnPendentes.classList.remove('hidden');
-              else btnPendentes.classList.add('hidden');
-            }
-            showToast(`✅ Legenda SRT de "${item.nome}" gerada com sucesso!`);
-          } catch (err) {
-            btnGerarSrt.disabled = false;
-            btnGerarSrt.innerHTML = '⚡ Gerar legenda SRT';
-            showToast(`❌ Erro ao gerar SRT: ${err.message}`);
-          }
-        };
+        btnGerarSrt.onclick = () => dispararWhisperSrt(btnGerarSrt);
         acoes.appendChild(btnGerarSrt);
       }
     };
@@ -3883,7 +3988,10 @@ function renderizarMasterizados(itens, macroNome) {
     btnTravarSilencio.title = 'Aplica o corte de silêncio selecionado neste áudio e ressincroniza a legenda';
     btnTravarSilencio.onmouseenter = () => { btnTravarSilencio.style.background = '#f59e0b'; btnTravarSilencio.style.color = '#111'; };
     btnTravarSilencio.onmouseleave = () => { btnTravarSilencio.style.background = 'rgba(245,158,11,0.14)'; btnTravarSilencio.style.color = '#f59e0b'; };
-    btnTravarSilencio.onclick = () => executarAcaoTravarSilencio(item, btnTravarSilencio, selSilencio.value, pillDur, pillTam, card, audio, pintar, renderizarSecaoSrt, atualizarAcoesSrt);
+    btnTravarSilencio.onclick = () => {
+      item.texto = txtSrtCard.value;
+      executarAcaoTravarSilencio(item, btnTravarSilencio, selSilencio.value, pillDur, pillTam, card, audio, pintar, renderizarSecaoSrt, atualizarAcoesSrt);
+    };
 
     grupoSilencio.append(selSilencio, btnTravarSilencio);
     acoes.appendChild(grupoSilencio);
@@ -4002,7 +4110,7 @@ function renderizarMasterizados(itens, macroNome) {
         }
       });
 
-    card.append(top, playerRow);
+    card.append(top, playerRow, areaTextoCard);
     renderizarSecaoSrt();
     lista.appendChild(card);
   });
@@ -4152,52 +4260,64 @@ async function travarSilencioTodosMasterizados() {
   const btn = document.getElementById('btnTravarSilencioTodos');
   if (btn) {
     btn.disabled = true;
-    btn.textContent = `⏳ Cortando (1/${masterizadosItens.length})...`;
+    btn.innerHTML = '<span class="emoji-girando">⏳</span> Cortando silêncio em lote...';
   }
-  showToast(`✂️ Iniciando corte de silêncio (${nomePreset}) em ${masterizadosItens.length} áudio(s)...`);
+  showToast(`✂️ Iniciando corte de silêncio (${nomePreset}) em lote para ${masterizadosItens.length} áudio(s)...`);
 
-  let concluidos = 0;
-  for (let i = 0; i < masterizadosItens.length; i++) {
-    const item = masterizadosItens[i];
-    if (btn) btn.textContent = `⏳ Cortando (${i + 1}/${masterizadosItens.length})...`;
-    showToast(`✂️ Cortando silêncio ${i + 1} de ${masterizadosItens.length} ("${item.nome}")...`);
-    try {
-      const resp = await fetch(`${BRIDGE_URL}/api/audacity/travar-silencio`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          caminhoWav: item.caminhoWav,
-          textoReferencia: item.texto || '',
-          gerarSrt: !!item.urlSrt || !!item.srtConteudo,
-          preset: preset
-        })
-      });
-      const dados = await resp.json();
-      if (dados.success) {
-        item.duracaoFmt = dados.duracaoFmt;
-        item.duracaoSeg = dados.duracaoSeg;
-        item.tamanhoFmt = dados.tamanhoFmt;
-        item.tamanhoBytes = dados.tamanhoBytes;
-        item.urlAudio = dados.urlAudio;
-        item.urlWav = dados.urlWav;
-        if (dados.caminhoSrt) {
-          item.caminhoSrt = dados.caminhoSrt;
-          item.urlSrt = dados.urlSrt;
-          item.srtConteudo = dados.srtConteudo;
+  try {
+    const listaPayload = masterizadosItens.map(it => ({
+      caminhoWav: it.caminhoWav,
+      nome: it.nome,
+      textoReferencia: it.texto || '',
+      gerarSrt: !!it.urlSrt || !!it.srtConteudo
+    }));
+
+    const resp = await fetch(`${BRIDGE_URL}/api/audacity/travar-silencio-lote`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        itens: listaPayload,
+        preset: preset
+      })
+    });
+    const dados = await resp.json();
+    if (!dados.success) {
+      throw new Error(dados.error || 'Falha ao processar lote no Audacity');
+    }
+
+    let atualizadosCount = 0;
+    if (Array.isArray(dados.itens)) {
+      dados.itens.forEach(ret => {
+        const original = masterizadosItens.find(it => it.caminhoWav === ret.caminhoWav || it.nome === ret.nome);
+        if (original && ret.success) {
+          original.duracaoFmt = ret.duracaoFmt;
+          original.duracaoSeg = ret.duracaoSeg;
+          original.tamanhoFmt = ret.tamanhoFmt;
+          original.tamanhoBytes = ret.tamanhoBytes;
+          original.urlAudio = ret.urlAudio;
+          original.urlWav = ret.urlWav;
+          if (ret.caminhoSrt) {
+            original.caminhoSrt = ret.caminhoSrt;
+            original.urlSrt = ret.urlSrt;
+            original.srtConteudo = ret.srtConteudo;
+          }
+          delete original.picos;
+          atualizadosCount++;
         }
-        concluidos++;
-      }
-    } catch (e) {
-      console.error('[TravarSilencioLote] Erro:', e);
+      });
+    }
+
+    renderizarMasterizados(masterizadosItens);
+    showToast(`✅ Silêncio (${nomePreset}) travado com sucesso em ${atualizadosCount} áudio(s)!`);
+  } catch (e) {
+    console.error('[TravarSilencioLote] Erro:', e);
+    showToast(`❌ Erro ao travar silêncio em lote: ${e.message}`);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '✂️ Travar em Todos';
     }
   }
-
-  if (btn) {
-    btn.disabled = false;
-    btn.textContent = '✂️ Travar em Todos';
-  }
-  renderizarMasterizados(masterizadosItens);
-  showToast(`✅ Silêncio (${nomePreset}) travado com sucesso em ${concluidos} áudio(s)!`);
 }
 
 async function baixarTodosWavMasterizados() {
@@ -4481,6 +4601,7 @@ async function processarComAudacityEWhisper() {
         macro,
         gerarSrt,
         nome_unificado: nomeBase,
+        texto_unificado: document.getElementById('textoUnificadoSrt')?.value?.trim() || '',
         blocos: blocosMeta
       })
     });
@@ -4691,6 +4812,7 @@ async function processarSomenteSrt() {
         macro: 'apenas_srt',
         gerarSrt: true,
         nome_unificado: nomeBase,
+        texto_unificado: document.getElementById('textoUnificadoSrt')?.value?.trim() || '',
         blocos: blocosMeta
       })
     });

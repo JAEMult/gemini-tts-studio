@@ -558,6 +558,99 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 set_progresso(f"Erro ao travar silêncio: {e}")
                 self.responder_json({'success': False, 'error': str(e)}, status=500)
 
+        elif caminho == '/api/audacity/travar-silencio-lote':
+            try:
+                tamanho = int(self.headers.get('Content-Length', 0))
+                corpo_bruto = self.rfile.read(tamanho)
+                dados = json.loads(corpo_bruto.decode('utf-8'))
+
+                itens = dados.get('itens', [])
+                if not itens:
+                    return self.responder_json({'success': False, 'error': 'Nenhum áudio informado.'}, status=400)
+
+                preset = dados.get('preset', '2.0_50')
+                if preset in ('2s_50', '2.0_50', '2_50', '2s_40', '2.0_40', '2_40'):
+                    duracao, compressao = '2', '50'
+                elif preset in ('1.3s_60', '1.3_60', '1.3s_30', '1.3_30'):
+                    duracao, compressao = '1,3', '60'
+                elif preset in ('0.5s_80', '0.5_80', '0.5s_60', '0.5_60'):
+                    duracao, compressao = '0,5', '80'
+                else:
+                    duracao = str(dados.get('duracao', '2'))
+                    compressao = str(dados.get('compressao', '50'))
+
+                limiar = str(dados.get('limiar', '-35'))
+                descartar = str(dados.get('descartar', '0,5'))
+
+                set_progresso(f"Iniciando corte de silêncio em lote no Audacity ({len(itens)} áudio(s))...")
+                res_lote = pipe_runner.executar_travar_silencio_lote(
+                    itens,
+                    duracao=duracao,
+                    compressao=compressao,
+                    limiar=limiar,
+                    descartar=descartar,
+                    progress_callback=set_progresso
+                )
+
+                if not res_lote.get('success'):
+                    set_progresso("Falha no corte de silêncio em lote no Audacity.")
+                    return self.responder_json(res_lote, status=500)
+
+                itens_processados = res_lote.get('itens', [])
+                itens_atualizados = []
+                total = len(itens_processados)
+
+                for idx, it in enumerate(itens_processados, 1):
+                    if not it.get('success'):
+                        itens_atualizados.append(it)
+                        continue
+
+                    caminho_wav = it['caminhoWav']
+                    meta = calcular_metadados_audio(caminho_wav)
+                    caminho_srt_existente = os.path.splitext(caminho_wav)[0] + '.srt'
+                    deve_regerar_srt = it.get('gerarSrt', True) or os.path.isfile(caminho_srt_existente)
+                    srt_conteudo = ""
+                    caminho_srt = ""
+
+                    if deve_regerar_srt:
+                        set_progresso(f"Ressincronizando SRT no Whisper ({idx}/{total}): {os.path.basename(caminho_wav)}...")
+                        try:
+                            srt_conteudo = transcribe_whisper.gerar_srt_whisper(
+                                caminho_wav,
+                                texto_referencia=it.get('textoReferencia', '')
+                            )
+                            caminho_srt = caminho_srt_existente
+                            with open(caminho_srt, 'w', encoding='utf-8') as sf:
+                                sf.write(srt_conteudo)
+                        except Exception as ew:
+                            sys.stderr.write(f"[Whisper] Erro ao ressincronizar SRT em lote: {ew}\n")
+
+                    ts_cache = int(time.time())
+                    itens_atualizados.append({
+                        'success': True,
+                        'caminhoWav': caminho_wav,
+                        'nome': it.get('nome', os.path.basename(caminho_wav)),
+                        'tamanhoFmt': meta['tamanho_fmt'],
+                        'tamanhoBytes': meta['tamanho_bytes'],
+                        'duracaoFmt': meta['duracao_fmt'],
+                        'duracaoSeg': meta['duracao_seg'],
+                        'urlAudio': f'/api/audio?path={urllib.parse.quote(caminho_wav)}&t={ts_cache}',
+                        'urlWav': f'/api/download?path={urllib.parse.quote(caminho_wav)}&t={ts_cache}',
+                        'caminhoSrt': caminho_srt,
+                        'urlSrt': f'/api/download?path={urllib.parse.quote(caminho_srt)}&t={ts_cache}' if caminho_srt else '',
+                        'srtConteudo': srt_conteudo
+                    })
+
+                set_progresso(f"Silêncio travado com sucesso em {len(itens_atualizados)} áudio(s)!")
+                self.responder_json({
+                    'success': True,
+                    'itens': itens_atualizados
+                })
+            except Exception as e:
+                set_progresso(f"Erro ao travar silêncio em lote: {e}")
+                self.responder_json({'success': False, 'error': str(e)}, status=500)
+
+
         elif caminho == '/api/publicar':
             try:
                 pasta_atual = os.path.abspath(os.path.join(BASE_DIR, '..'))
@@ -754,6 +847,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     'macro': nome_macro,
                     'gerarSrt': gerar_srt,
                     'nome_unificado': nome_unificado,
+                    'texto_unificado': str(dados.get('texto_unificado', '')).strip(),
                     'pasta_job': pasta_job,
                     'pasta_temp': pasta_temp,
                     'pasta_saida': pasta_saida,
@@ -895,6 +989,10 @@ class BridgeHandler(BaseHTTPRequestHandler):
                         'texto': txt,
                         'nome_unificado': nome_unificado
                     })
+
+                texto_unificado_custom = job_meta.get('texto_unificado', '').strip()
+                if texto_unificado_custom and job_meta.get('juntar', False):
+                    roteiro_completo = [texto_unificado_custom]
 
                 if not itens_processar:
                     return self.responder_json({'success': False, 'error': 'Nenhum arquivo de áudio foi recebido para este job.'}, status=400)
