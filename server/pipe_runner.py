@@ -15,6 +15,8 @@ GENERIC_WRITE = 0x40000000
 OPEN_EXISTING = 3
 
 kernel32 = ctypes.windll.kernel32
+user32 = ctypes.windll.user32
+gdi32 = ctypes.windll.gdi32
 kernel32.CreateFileW.restype = wintypes.HANDLE
 kernel32.CreateFileW.argtypes = [
     wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
@@ -173,22 +175,28 @@ def list_available_macros():
 
 def clean_audacity_sessions():
     """
-    Remove arquivos temporários residuais de sessões do Audacity (.aup3unsaved*)
+    Remove arquivos temporários residuais de sessões do Audacity (.aup3unsaved*, AutoSave)
     que causam a exibição da janela modal 'Recuperação Automática de Falhas'.
     """
     try:
-        session_dir = os.path.join(os.environ.get('LOCALAPPDATA', ''), 'audacity', 'SessionData')
-        if os.path.exists(session_dir):
-            for f in glob.glob(os.path.join(session_dir, '*.aup3unsaved*')):
-                try:
-                    os.remove(f)
-                except Exception:
-                    pass
+        pastas_sessao = [
+            os.path.join(os.environ.get('LOCALAPPDATA', ''), 'audacity', 'SessionData'),
+            os.path.join(os.environ.get('APPDATA', ''), 'audacity', 'SessionData'),
+            os.path.join(os.environ.get('APPDATA', ''), 'audacity', 'AutoSave'),
+        ]
+        for session_dir in pastas_sessao:
+            if os.path.exists(session_dir):
+                for f in glob.glob(os.path.join(session_dir, '*')):
+                    if os.path.isfile(f):
+                        try:
+                            os.remove(f)
+                        except Exception:
+                            pass
     except Exception:
         pass
 
 def ensure_audacity_cfg():
-    """Garante que o módulo de script pipe esteja ativo e todas as telas de splash/intro/ajuda desativadas."""
+    """Garante que o módulo de script pipe esteja ativo, telas de splash/intro/ajuda desativadas e janela configurada fora da tela."""
     appdata = os.environ.get('APPDATA', '')
     cfg_path = os.path.join(appdata, 'audacity', 'audacity.cfg')
     if os.path.exists(cfg_path):
@@ -229,6 +237,11 @@ def ensure_audacity_cfg():
                     content = content.replace('UpdateNoticeShown=0', 'UpdateNoticeShown=1')
                     changed = True
 
+            # Impede que a janela inicie em modo minimizado/iconizado para não registrar na barra de tarefas
+            if 'Iconized=1' in content:
+                content = content.replace('Iconized=1', 'Iconized=0')
+                changed = True
+
             if changed:
                 with open(cfg_path, 'w', encoding='utf-8') as f:
                     f.write(content)
@@ -239,18 +252,91 @@ def is_audacity_running():
     out = subprocess.run(['tasklist', '/FI', 'IMAGENAME eq Audacity.exe'], capture_output=True, text=True)
     return 'Audacity.exe' in out.stdout
 
+# Configurações de API do Windows (Win32 / Win64)
+user32.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, wintypes.UINT]
+user32.SetWindowPos.restype = wintypes.BOOL
+user32.ShowWindow.argtypes = [wintypes.HWND, ctypes.c_int]
+user32.ShowWindow.restype = wintypes.BOOL
+
+SetWindowLongPtrW = getattr(user32, 'SetWindowLongPtrW', user32.SetWindowLongW)
+SetWindowLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int, ctypes.c_ssize_t]
+SetWindowLongPtrW.restype = ctypes.c_ssize_t
+
+GetWindowLongPtrW = getattr(user32, 'GetWindowLongPtrW', user32.GetWindowLongW)
+GetWindowLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int]
+GetWindowLongPtrW.restype = ctypes.c_ssize_t
+
+user32.SetLayeredWindowAttributes.argtypes = [wintypes.HWND, wintypes.COLORREF, wintypes.BYTE, wintypes.DWORD]
+user32.SetLayeredWindowAttributes.restype = wintypes.BOOL
+
+user32.SetWindowRgn.argtypes = [wintypes.HWND, wintypes.HRGN, wintypes.BOOL]
+user32.SetWindowRgn.restype = ctypes.c_int
+
+gdi32.CreateRectRgn.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+gdi32.CreateRectRgn.restype = wintypes.HRGN
+
+WINEVENTPROC = ctypes.WINFUNCTYPE(
+    None,
+    wintypes.HANDLE,
+    wintypes.DWORD,
+    wintypes.HWND,
+    wintypes.LONG,
+    wintypes.LONG,
+    wintypes.DWORD,
+    wintypes.DWORD
+)
+user32.SetWinEventHook.argtypes = [
+    wintypes.DWORD, wintypes.DWORD, wintypes.HMODULE,
+    WINEVENTPROC, wintypes.DWORD, wintypes.DWORD, wintypes.DWORD
+]
+user32.SetWinEventHook.restype = wintypes.HANDLE
+user32.UnhookWinEvent.argtypes = [wintypes.HANDLE]
+user32.UnhookWinEvent.restype = wintypes.BOOL
+
 # ════════════════════════════════════════════════════════════════
-# SILENCIADOR DE JANELAS DO AUDACITY
-# Impede que o splash ("O Audacity está iniciando..."), diálogos ou
-# a própria janela principal saltem na tela do usuário.
+# SILENCIADOR EM NÍVEL DE KERNEL/DWM DO AUDACITY
+# Intercepta eventos do Windows e neutraliza instantaneamente
+# qualquer janela (splash "O Audacity está iniciando...", diálogos de progresso, etc.)
+# antes mesmo que um único pixel possa ser renderizado no monitor do usuário.
 # ════════════════════════════════════════════════════════════════
+SWP_FLAGS = 0x0010 | 0x0001 | 0x0004 | 0x0080 # SWP_HIDEWINDOW | NOACTIVATE | NOSIZE | NOZORDER
+GWL_EXSTYLE = -20
+GWL_STYLE = -16
+WS_EX_LAYERED = 0x00080000
+WS_EX_TOOLWINDOW = 0x00000080
+WS_EX_APPWINDOW = 0x00040000
+LWA_ALPHA = 0x00000002
+
 _SILENCER_ACTIVE = False
 _SILENCER_THREAD = None
+_SILENCER_HOOK = None
+_SILENCER_HOOK_READY = threading.Event()
 _AUDACITY_PID_CACHE = {}
+_AUDACITY_PIDS = set()
+_CB_HOLDER = None
+
+def _atualizar_pids_audacity():
+    """Mantém a lista de PIDs do Audacity atualizada sem overhead de OpenProcess contínuo."""
+    global _AUDACITY_PIDS
+    try:
+        out = subprocess.run(['tasklist', '/FI', 'IMAGENAME eq Audacity.exe', '/FO', 'CSV', '/NH'], capture_output=True, text=True, timeout=2)
+        novos = set()
+        for line in out.stdout.strip().splitlines():
+            partes = line.replace('"', '').split(',')
+            if len(partes) >= 2 and 'audacity' in partes[0].lower():
+                pid_str = partes[1].strip()
+                if pid_str.isdigit():
+                    novos.add(int(pid_str))
+        if novos:
+            _AUDACITY_PIDS.update(novos)
+    except Exception:
+        pass
 
 def _is_audacity_pid(pid):
     if not pid:
         return False
+    if pid in _AUDACITY_PIDS:
+        return True
     cached = _AUDACITY_PID_CACHE.get(pid)
     if cached is not None:
         return cached
@@ -263,75 +349,149 @@ def _is_audacity_pid(pid):
         if kernel32.QueryFullProcessImageNameW(h, 0, buf, ctypes.byref(size)):
             res = 'audacity.exe' in os.path.basename(buf.value).lower()
             _AUDACITY_PID_CACHE[pid] = res
+            if res:
+                _AUDACITY_PIDS.add(pid)
             return res
     finally:
         kernel32.CloseHandle(h)
     return False
 
-def _silencer_worker():
-    global _SILENCER_ACTIVE
-    user32 = ctypes.windll.user32
-    # SWP_NOACTIVATE (0x0010) | SWP_NOSIZE (0x0001) | SWP_NOZORDER (0x0004)
-    SWP_FLAGS = 0x0010 | 0x0001 | 0x0004
+def neutralizar_janela_audacity(hwnd):
+    """
+    Torna a janela 100% invisível em nível de kernel/DWM:
+    1. Define Alpha = 0 (transparência total no DWM).
+    2. Define região de recorte nula (0x0 pixels visíveis).
+    3. Remove da Barra de Tarefas e do Alt-Tab (ToolWindow).
+    4. Move para coordenadas fora de qualquer monitor (-32000, -32000) e executa SW_HIDE.
+    """
+    try:
+        ex = GetWindowLongPtrW(hwnd, GWL_EXSTYLE)
+        SetWindowLongPtrW(hwnd, GWL_EXSTYLE, (ex | WS_EX_LAYERED | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW)
+        user32.SetLayeredWindowAttributes(hwnd, 0, 0, LWA_ALPHA)
+        
+        rgn = gdi32.CreateRectRgn(0, 0, 0, 0)
+        user32.SetWindowRgn(hwnd, rgn, 1)
+
+        user32.SetWindowPos(hwnd, 0, -32000, -32000, 0, 0, SWP_FLAGS)
+        user32.ShowWindow(hwnd, 0)
+        
+        st = GetWindowLongPtrW(hwnd, GWL_STYLE)
+        if st & 0x10000000: # WS_VISIBLE
+            SetWindowLongPtrW(hwnd, GWL_STYLE, st & ~0x10000000)
+    except Exception:
+        pass
+
+def _silencer_worker(target_pid=0):
+    global _SILENCER_ACTIVE, _SILENCER_HOOK, _CB_HOLDER
+    
+    def _hook_cb(hWinEventHook, event, hwnd, idObject, idChild, dwEventThread, dwmsEventTime):
+        if hwnd and idObject == 0:
+            p = wintypes.DWORD()
+            user32.GetWindowThreadProcessId(hwnd, ctypes.byref(p))
+            pid = p.value
+            if pid and (pid in _AUDACITY_PIDS or (target_pid > 0 and pid == target_pid)):
+                _AUDACITY_PIDS.add(pid)
+                neutralizar_janela_audacity(hwnd)
+            elif pid:
+                cls = ctypes.create_unicode_buffer(256)
+                user32.GetClassNameW(hwnd, cls, 256)
+                if 'wxWindowNR' in cls.value:
+                    buf = ctypes.create_unicode_buffer(512)
+                    user32.GetWindowTextW(hwnd, buf, 512)
+                    t = buf.value.lower()
+                    if 'audacity' in t or 'iniciando' in t or not t:
+                        _AUDACITY_PIDS.add(pid)
+                        neutralizar_janela_audacity(hwnd)
+
+    _CB_HOLDER = WINEVENTPROC(_hook_cb)
+    # Intercepta toda a faixa de eventos do sistema operacional
+    _SILENCER_HOOK = user32.SetWinEventHook(
+        0x0001,
+        0x7FFFFFFF,
+        0,
+        _CB_HOLDER,
+        target_pid if target_pid > 0 else 0,
+        0,
+        0
+    )
+    _SILENCER_HOOK_READY.set()
+    
+    ensure_audacity_hidden()
+
+    msg = wintypes.MSG()
+    ciclos = 0
     while _SILENCER_ACTIVE:
         try:
-            def enum_cb(hwnd, lparam):
-                try:
-                    pid = wintypes.DWORD()
-                    user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
-                    if pid.value and _is_audacity_pid(pid.value):
-                        length = user32.GetWindowTextLengthW(hwnd)
-                        title = ''
-                        if length > 0:
-                            buf = ctypes.create_unicode_buffer(length + 1)
-                            user32.GetWindowTextW(hwnd, buf, length + 1)
-                            title = buf.value
+            while user32.PeekMessageW(ctypes.byref(msg), 0, 0, 0, 1):
+                user32.TranslateMessage(ctypes.byref(msg))
+                user32.DispatchMessageW(ctypes.byref(msg))
 
-                        t_lower = title.lower()
-                        # Diálogos de splash, inicialização ("O Audacity está iniciando..."), recuperação ou avisos:
-                        # Move fisicamente para fora do monitor e oculta com SW_HIDE (0)
-                        if not title or any(w in t_lower for w in ['iniciando', 'starting', 'recupera', 'recovery', 'splash', 'welcome', 'ajuda', 'help', 'aviso', 'notice']):
-                            user32.SetWindowPos(hwnd, 0, -32000, -32000, 0, 0, SWP_FLAGS | 0x0080) # SWP_HIDEWINDOW
-                            user32.ShowWindow(hwnd, 0) # SW_HIDE
-                        else:
-                            # Janela principal do Audacity: move para fora do monitor e minimiza na barra
-                            if user32.IsWindowVisible(hwnd):
-                                user32.SetWindowPos(hwnd, 0, -32000, -32000, 0, 0, SWP_FLAGS)
-                                user32.ShowWindow(hwnd, 6) # SW_MINIMIZE
-                except Exception:
-                    pass
-                return True
-
-            EnumProc = ctypes.WINFUNCTYPE(ctypes.c_bool, wintypes.HWND, wintypes.LPARAM)
-            user32.EnumWindows(EnumProc(enum_cb), 0)
+            ciclos += 1
+            if ciclos % 25 == 0:
+                ensure_audacity_hidden()
         except Exception:
             pass
-        time.sleep(0.04)
+        time.sleep(0.001)
 
-def start_audacity_silencer():
-    """Inicia thread sentinela que oculta instantaneamente qualquer tela do Audacity."""
-    global _SILENCER_ACTIVE, _SILENCER_THREAD
-    if not _SILENCER_ACTIVE:
-        _SILENCER_ACTIVE = True
-        _SILENCER_THREAD = threading.Thread(target=_silencer_worker, daemon=True)
-        _SILENCER_THREAD.start()
+    if _SILENCER_HOOK:
+        try:
+            user32.UnhookWinEvent(_SILENCER_HOOK)
+        except Exception:
+            pass
+        _SILENCER_HOOK = None
+
+def ensure_audacity_hidden():
+    """Varredura imediata para forçar neutralização em qualquer janela existente do Audacity."""
+    _atualizar_pids_audacity()
+    if not _AUDACITY_PIDS:
+        return
+    try:
+        def enum_cb(hwnd, lparam):
+            try:
+                pid = wintypes.DWORD()
+                user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+                p = pid.value
+                if p and p in _AUDACITY_PIDS:
+                    neutralizar_janela_audacity(hwnd)
+            except Exception:
+                pass
+            return True
+        EnumProc = ctypes.WINFUNCTYPE(ctypes.c_bool, wintypes.HWND, wintypes.LPARAM)
+        user32.EnumWindows(EnumProc(enum_cb), 0)
+    except Exception:
+        pass
+
+def start_audacity_silencer(target_pid=0):
+    """Inicia thread sentinela que intercepta e neutraliza instantaneamente qualquer tela do Audacity."""
+    global _SILENCER_ACTIVE, _SILENCER_THREAD, _SILENCER_HOOK_READY
+    if _SILENCER_ACTIVE and _SILENCER_HOOK:
+        ensure_audacity_hidden()
+        return
+    
+    stop_audacity_silencer()
+    _SILENCER_HOOK_READY.clear()
+    _SILENCER_ACTIVE = True
+    _SILENCER_THREAD = threading.Thread(target=_silencer_worker, args=(target_pid,), daemon=True)
+    _SILENCER_THREAD.start()
+    # Aguarda o gancho estar 100% instalado e ativo no Windows antes de prosseguir
+    _SILENCER_HOOK_READY.wait(timeout=1.0)
 
 def stop_audacity_silencer():
     """Interrompe a thread sentinela."""
-    global _SILENCER_ACTIVE
+    global _SILENCER_ACTIVE, _SILENCER_THREAD
     _SILENCER_ACTIVE = False
+    if _SILENCER_THREAD and _SILENCER_THREAD.is_alive():
+        _SILENCER_THREAD.join(timeout=0.3)
+    _SILENCER_THREAD = None
 
 def minimize_audacity():
-    """Garante que a janela do Audacity fique minimizada e não salte na tela."""
+    """Garante que a janela do Audacity fique oculta em segundo plano."""
     start_audacity_silencer()
+    ensure_audacity_hidden()
 
 def launch_audacity():
-    """Inicia o Audacity 100% invisível/minimizado em segundo plano, sem nenhuma intro ou janela na tela."""
-    global AUDACITY_INICIADO_POR_NOS
-    if is_audacity_running():
-        sys.stderr.write('[Audacity] Audacity já estava em execução no sistema. Mantendo instância existente silenciosa.\n')
-        start_audacity_silencer()
-        return
+    """Inicia o Audacity 100% invisível em segundo plano (SW_HIDE), sem nenhuma intro, splash ou janela na tela."""
+    global AUDACITY_INICIADO_POR_NOS, _AUDACITY_PIDS
 
     audacity_exe = find_audacity_exe()
     if not audacity_exe:
@@ -341,21 +501,72 @@ def launch_audacity():
             'para que o estúdio possa masterizar seus áudios.'
         )
 
-    AUDACITY_INICIADO_POR_NOS = True
     clean_audacity_sessions()
     ensure_audacity_cfg()
+
+    if is_audacity_running():
+        _atualizar_pids_audacity()
+        # Testa se a instância existente responde ao mod-script-pipe
+        c = PipeClient()
+        if c.connect(timeout=2.0):
+            sys.stderr.write('[Audacity] Audacity já em execução e respondendo ao pipe. Ocultando em background.\n')
+            start_audacity_silencer()
+            ensure_audacity_hidden()
+            boost_audacity_priority()
+            return
+        else:
+            # Instância zumbi ou travada — mata e reinicia limpa para nunca travar
+            sys.stderr.write('[Audacity] Instância anterior estava travada ou sem pipe. Reiniciando limpa...\n')
+            close_audacity(force=True)
+            time.sleep(0.4)
+
+    AUDACITY_INICIADO_POR_NOS = True
+
+    # 1. Ativa o sentinela interceptador no Windows ANTES de disparar o executável
     start_audacity_silencer()
 
-    subprocess.Popen(['cmd.exe', '/c', 'start', '/min', '', audacity_exe])
+    si = subprocess.STARTUPINFO()
+    si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    si.wShowWindow = 0 # SW_HIDE (100% invisível em background)
+
+    proc = None
+    try:
+        proc = subprocess.Popen([audacity_exe], startupinfo=si)
+    except Exception:
+        proc = subprocess.Popen([audacity_exe])
+
+    if proc and proc.pid:
+        _AUDACITY_PIDS.add(proc.pid)
+
+    # 2. Varredura imediata para suprimir a criação da janela antes do primeiro frame
+    ensure_audacity_hidden()
+    boost_audacity_priority()
+
+def boost_audacity_priority():
+    """Garante prioridade acima do normal para o Audacity e impede estrangulamento por EcoQoS do Windows."""
+    try:
+        out = subprocess.run(['powershell', '-NoProfile', '-Command', '(Get-Process -Name Audacity -ErrorAction SilentlyContinue).Id'], capture_output=True, text=True, timeout=3)
+        for line in out.stdout.strip().splitlines():
+            if line.strip().isdigit():
+                pid = int(line.strip())
+                h = kernel32.OpenProcess(0x0200 | 0x0400, False, pid)
+                if h:
+                    try:
+                        kernel32.SetPriorityClass(h, 0x00008000) # ABOVE_NORMAL_PRIORITY_CLASS
+                    finally:
+                        kernel32.CloseHandle(h)
+    except Exception:
+        pass
 
 def close_audacity(force=False):
     """
-    Encerra o Audacity se ele foi iniciado pelo estúdio ou se force=True.
-    Se já estava aberto antes pelo usuário, NÃO fecha para não interferir em seus trabalhos.
+    Encerra o Audacity.
+    Se force=True ou foi iniciado pelo estúdio, fecha educadamente via pipe e garante término do processo.
     """
-    global AUDACITY_INICIADO_POR_NOS, _AUDACITY_PID_CACHE
+    global AUDACITY_INICIADO_POR_NOS, _AUDACITY_PID_CACHE, _AUDACITY_PIDS
     stop_audacity_silencer()
     _AUDACITY_PID_CACHE.clear()
+    _AUDACITY_PIDS.clear()
 
     if not is_audacity_running():
         AUDACITY_INICIADO_POR_NOS = False
@@ -366,15 +577,29 @@ def close_audacity(force=False):
         sys.stderr.write('[Audacity] Preservando Audacity aberto (foi iniciado previamente pelo usuário).\n')
         return
 
-    sys.stderr.write('[Audacity] Encerrando o Audacity iniciado pelo estúdio...\n')
-    subprocess.run(['taskkill', '/IM', 'Audacity.exe'], capture_output=True, text=True)
-    time.sleep(1.0)
+    sys.stderr.write('[Audacity] Encerrando o Audacity em segundo plano...\n')
+
+    # 1. Tentativa graciosa instantânea via comando 'Exit:' do mod-script-pipe (sem aguardar resposta de processo em terminação)
+    try:
+        c = PipeClient()
+        if c.connect(timeout=1.0):
+            c.send_no_wait('Exit:')
+            c.close()
+            time.sleep(0.3)
+    except Exception:
+        pass
+
+    # 2. Termina processo caso ainda persista
     if is_audacity_running():
-        subprocess.run(['taskkill', '/F', '/IM', 'Audacity.exe'], capture_output=True, text=True)
-        time.sleep(0.5)
+        subprocess.run(['taskkill', '/IM', 'Audacity.exe'], capture_output=True, text=True)
+        time.sleep(0.4)
+        if is_audacity_running():
+            subprocess.run(['taskkill', '/F', '/IM', 'Audacity.exe'], capture_output=True, text=True)
+            time.sleep(0.3)
+
     AUDACITY_INICIADO_POR_NOS = False
     clean_audacity_sessions()
-    sys.stderr.write('[Audacity] Processo do Audacity finalizado.\n')
+    sys.stderr.write('[Audacity] Processo do Audacity finalizado com sucesso.\n')
 
 class PipeClient:
     def __init__(self):
@@ -421,6 +646,17 @@ class PipeClient:
 
         return ''.join(res).strip()
 
+    def send_no_wait(self, cmd):
+        """Envia um comando pelo pipe sem bloquear aguardando resposta (ideal para comandos como 'Exit:')."""
+        if not self.h_to or self.h_to == INVALID_HANDLE:
+            return
+        try:
+            cmd_bytes = (cmd.strip() + '\n').encode('utf-8')
+            written = wintypes.DWORD()
+            kernel32.WriteFile(self.h_to, cmd_bytes, len(cmd_bytes), ctypes.byref(written), None)
+        except Exception:
+            pass
+
     def close(self):
         if self.h_to:
             try: kernel32.CloseHandle(self.h_to)
@@ -464,6 +700,10 @@ def executar_processamento_audacity(itens_audio, juntar=True, macro_path=None, p
         if not connected:
             close_audacity()
             return {'success': False, 'error': 'Não foi possível conectar ao Audacity via mod-script-pipe.'}
+
+        # Aguarda estabilização da engine gráfica e de áudio do Audacity
+        time.sleep(1.0)
+        boost_audacity_priority()
 
         try:
             # Carrega as linhas da macro, se fornecida
@@ -514,7 +754,7 @@ def executar_processamento_audacity(itens_audio, juntar=True, macro_path=None, p
                     for l in linhas_macro:
                         nome_cmd = l.split(':')[0]
                         report(f'Aplicando efeito: {nome_cmd}...')
-                        client.send(l, timeout=60.0)
+                        client.send(l, timeout=180.0)
                         time.sleep(0.2)
 
                 # ════════════════════════════════════════════════════════
@@ -526,7 +766,7 @@ def executar_processamento_audacity(itens_audio, juntar=True, macro_path=None, p
 
                 report('Exportando áudio final masterizado...')
                 client.send('SelectAll:', timeout=3.0)
-                client.send(f'Export2: Filename="{saida_norm}" NumChannels=1', timeout=30.0)
+                client.send(f'Export2: Filename="{saida_norm}" NumChannels=1', timeout=120.0)
                 time.sleep(0.5)
 
                 # Limpa projeto
@@ -561,11 +801,13 @@ def executar_processamento_audacity(itens_audio, juntar=True, macro_path=None, p
                         client.send('SelectAll:', timeout=3.0)
                         for l in linhas_macro:
                             nome_cmd = l.split(':')[0]
-                            client.send(l, timeout=45.0)
+                            report(f'Bloco {idx}/{len(itens_audio)}: {nome} — Aplicando {nome_cmd}...')
+                            client.send(l, timeout=180.0)
                             time.sleep(0.15)
 
+                    report(f'Bloco {idx}/{len(itens_audio)}: {nome} — Exportando áudio masterizado...')
                     client.send('SelectAll:', timeout=3.0)
-                    client.send(f'Export2: Filename="{saida_norm}" NumChannels=1', timeout=20.0)
+                    client.send(f'Export2: Filename="{saida_norm}" NumChannels=1', timeout=60.0)
                     time.sleep(0.3)
 
                     limpar_todas_faixas(client)
@@ -586,14 +828,15 @@ def executar_processamento_audacity(itens_audio, juntar=True, macro_path=None, p
             return {'success': False, 'error': str(e)}
 
         finally:
-            # Garante que o projeto do Audacity fique 100% limpo para o próximo lote
+            # Garante que o projeto do Audacity fique 100% limpo
             try:
                 limpar_todas_faixas(client)
             except:
                 pass
-            # Fecha apenas a conexão dos pipes
             client.close()
-            report('Projeto liberado. Audacity mantido em prontidão para novos lotes.')
+            # Encerra o Audacity imediatamente após a conclusão para nunca ficar órfão em segundo plano
+            close_audacity(force=True)
+            report('Audacity finalizado e recursos liberados com sucesso.')
 
 def gerar_comando_truncate_silence(duracao="1,3", compressao="30", limiar="-35", descartar="0,5"):
     """Gera o comando TruncateSilence com os parâmetros informados, formatados para o Audacity."""
@@ -634,6 +877,9 @@ def executar_travar_silencio(caminho_wav, duracao="1,3", compressao="30", limiar
             close_audacity()
             return {'success': False, 'error': 'Não foi possível conectar ao Audacity via mod-script-pipe.'}
 
+        time.sleep(0.5)
+        boost_audacity_priority()
+
         try:
             report('Garantindo projeto limpo no Audacity...')
             limpar_todas_faixas(client)
@@ -647,12 +893,12 @@ def executar_travar_silencio(caminho_wav, duracao="1,3", compressao="30", limiar
 
             report(f'Selecionando áudio e aplicando TruncateSilence ({duracao}s / {compressao}%)...')
             client.send('SelectAll:', timeout=3.0)
-            client.send(cmd_truncate, timeout=45.0)
+            client.send(cmd_truncate, timeout=120.0)
             time.sleep(0.2)
 
             report('Exportando áudio com silêncio ajustado...')
             client.send('SelectAll:', timeout=3.0)
-            client.send(f'Export2: Filename="{caminho_temp}" NumChannels=1', timeout=30.0)
+            client.send(f'Export2: Filename="{caminho_temp}" NumChannels=1', timeout=60.0)
             time.sleep(0.3)
 
             # Limpa o projeto no Audacity antes de mover o arquivo para liberar locks do Windows
@@ -676,3 +922,5 @@ def executar_travar_silencio(caminho_wav, duracao="1,3", compressao="30", limiar
             except:
                 pass
             client.close()
+            close_audacity(force=True)
+            report('Silêncio ajustado e Audacity liberado.')

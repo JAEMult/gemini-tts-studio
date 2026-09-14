@@ -1,0 +1,6 @@
+TruncateSilence:Action="Compress Excess Silence" Compress="60" Independent="1" Minimum="0,5" Threshold="-35" Truncate="0,5" TruncateEnd="1" TruncateMiddle="1" TruncateStart="1"
+Compressor:attackMs="10" compressionRatio="3" kneeWidthDb="5" lookaheadMs="1" makeupGainDb="0" releaseMs="100" showActual="1" showInput="0" showOutput="1" showTarget="0" thresholdDb="-18"
+TdrNova:Use_Preset="<Current Settings>"
+Limiter:kneeWidthDb="2" lookaheadMs="1" makeupTargetDb="0" releaseMs="100" showActual="1" showInput="0" showOutput="1" showTarget="0" thresholdDb="-1,5"
+Normalize:ApplyVolume="1" PeakLevel="-2" RemoveDcOffset="1" StereoIndependent="0"
+TruncateSilence:Action="Compress Excess Silence" Compress="30" Independent="1" Minimum="1,3" Threshold="-35" Truncate="0,5" TruncateEnd="1" TruncateMiddle="1" TruncateStart="1"

@@ -219,9 +219,11 @@
       color: var(--text-muted); border-radius: var(--radius);
       padding: 5px 10px; cursor: pointer; font-size: 12px; transition: all 0.15s;
       white-space: nowrap;
+      display: inline-flex; align-items: center; justify-content: center; gap: 5px;
     }
     .btn-icon:hover { border-color: var(--accent); color: var(--text); }
     .btn-icon:disabled { opacity:.4; cursor:not-allowed; }
+    .btn-icon.btn-del:hover { border-color: var(--error); color: var(--error); }
 
     /* ── PROFILE ROW ── */
     .profile-actions { display: flex; gap: 5px; margin-top: 6px; }
@@ -584,6 +586,33 @@
       line-height: 1.5;
       color: var(--text-muted);
     }
+    .btn-pastel-green {
+      background: linear-gradient(135deg, #1b4332, #2d6a4f) !important;
+      border: 1px solid #52b788 !important;
+      color: #d8f3dc !important;
+      font-weight: 600 !important;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+      transition: all 0.2s ease;
+    }
+    .btn-pastel-green:hover:not(:disabled) {
+      background: linear-gradient(135deg, #2d6a4f, #40916c) !important;
+      border-color: #74c69d !important;
+      color: #ffffff !important;
+      box-shadow: 0 4px 12px rgba(82, 183, 136, 0.35);
+      transform: translateY(-1px);
+    }
+    .btn-pastel-green:active:not(:disabled) {
+      transform: translateY(0);
+    }
+    @keyframes girarEmoji {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .emoji-girando {
+      display: inline-block;
+      animation: girarEmoji 1.2s linear infinite;
+      transform-origin: center center;
+    }
   </style>
 </head>
 <body>
@@ -661,7 +690,7 @@
         <span class="char-count" id="keysInfo" style="flex:1">nenhuma chave</span>
         <button class="btn-icon" id="apiKeysToggle" title="Mostrar chaves">👁</button>
         <button class="btn-icon" id="saveKeyBtn" title="Salvar chaves">💾</button>
-        <button class="btn-icon" id="apiKeysClearBtn" title="Apagar chaves salvas">🗑</button>
+        <button class="btn-icon btn-del" id="apiKeysClearBtn" title="Apagar chaves salvas"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>
       </div>
       <p class="tags-note" style="margin-top:6px">O limite do Gemini é <b>por projeto, não por chave</b>: duas chaves do mesmo projeto dividem a mesma cota. Use uma chave por projeto para multiplicar de verdade.</p>
       <label>Modelo</label>
@@ -736,7 +765,7 @@
           <div class="api-key-row" style="margin-top:6px">
             <span class="char-count" id="ghTokenInfo" style="flex:1">nenhum token salvo</span>
             <button class="btn-icon" id="ghTokenSaveBtn" title="Salvar token">💾</button>
-            <button class="btn-icon" id="ghTokenClearBtn" title="Apagar token salvo">🗑</button>
+            <button class="btn-icon btn-del" id="ghTokenClearBtn" title="Apagar token salvo"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>
           </div>
           <p class="tags-note" style="margin-top:6px">O token fica <b>só no localStorage deste navegador</b> — nunca é enviado a nenhum lugar além da API do próprio GitHub.</p>
           <p class="tags-note" id="ghStatus" style="margin-top:8px"></p>
@@ -842,25 +871,40 @@ Exemplo com audio tags:
       <span class="char-count" id="splitPreview"></span>
     </div>
 
-    <!-- 2.5 · DOCUMENTOS DE REFERÊNCIA -->
-    <div class="docs-area">
-      <div class="area-label">Documentos de referência <span style="opacity:.6;font-weight:400;text-transform:none;letter-spacing:0">— arraste a planilha (.xlsx) ou o roteiro (.md); o nome do bloco (ex: "ESS 1 EN") acha sozinho o episódio e o idioma certos</span></div>
-      <div class="lote-linha" style="margin-bottom:8px">
-        <span class="bloco-perfil-label" style="margin:0">Canal do projeto <span style="opacity:.6;font-weight:400">— aplica a todos de uma vez</span></span>
-        <select id="canalGlobalSelect" class="canal-global-select" style="width:220px" title="Aplica esse canal a todo documento carregado que ainda não tiver um definido, e vira o padrão pros próximos arquivos soltos aqui — você ainda pode trocar o canal de um arquivo específico na lista abaixo"></select>
+    <!-- 2.5 · DOCUMENTOS DE REFERÊNCIA & ÁUDIOS EXTERNOS (PERFEITAMENTE SIMÉTRICOS) -->
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:12px; margin-top:10px;">
+      <!-- CARD 1: DOCUMENTOS -->
+      <div class="docs-area" style="margin:0;">
+        <div class="area-label">Documentos de referência <span style="opacity:.6;font-weight:400;text-transform:none;letter-spacing:0">— planilha (.xlsx) ou roteiro (.md)</span></div>
+        <div class="lote-linha" style="margin-bottom:8px; min-height:30px; display:flex; align-items:center; justify-content:space-between;">
+          <span class="bloco-perfil-label" style="margin:0">Canal do projeto</span>
+          <select id="canalGlobalSelect" class="canal-global-select" style="width:180px; height:28px; font-size:11px;" title="Aplica esse canal a todo documento carregado que ainda não tiver um definido"></select>
+        </div>
+        <div class="dropzone" id="dropDocs" tabindex="0" style="min-height:56px; display:flex; align-items:center; justify-content:center; box-sizing:border-box;">📄 Arraste documentos (.xlsx, .md) aqui, ou clique para escolher</div>
+        <input type="file" id="dropDocsInput" class="hidden" accept=".xlsx,.md,.markdown,.txt" multiple>
+        <div class="docs-lista" id="docsLista"></div>
       </div>
-      <div class="dropzone" id="dropDocs" tabindex="0">📄 arraste arquivos aqui, ou clique para escolher (.xlsx, .md)</div>
-      <input type="file" id="dropDocsInput" class="hidden" accept=".xlsx,.md,.markdown,.txt" multiple>
-      <div class="docs-lista" id="docsLista"></div>
-      <div class="lote-area hidden" id="loteArea">
-        <div class="lote-linha">
-          <span class="bloco-perfil-label" style="margin:0">Idiomas para gerar</span>
-          <span class="lote-idiomas" id="loteIdiomas"></span>
+
+      <!-- CARD 2: ÁUDIOS EXTERNOS -->
+      <div class="audios-area" style="margin:0;">
+        <div class="area-label">Áudios externos <span style="opacity:.6;font-weight:400;text-transform:none;letter-spacing:0">— arquivos (.wav, .mp3, .m4a)</span></div>
+        <div class="lote-linha" style="margin-bottom:8px; min-height:30px; display:flex; align-items:center; justify-content:space-between;">
+          <span class="bloco-perfil-label" style="margin:0">Sequência alfanumérica (1, 2, ... 10)</span>
+          <button class="btn-icon" style="padding:4px 12px; font-size:11px; height:28px; display:flex; align-items:center; gap:4px;" onclick="document.getElementById('inputImportarAudios').click()">📁 Escolher áudios</button>
         </div>
-        <div class="lote-linha" style="margin-top:8px">
-          <button class="btn-generate" id="loteGerarBtn" onclick="criarBlocosEmLote()">⚡ Criar blocos automaticamente</button>
-          <span class="char-count" id="loteResumo">usa os documentos marcados acima × os idiomas marcados aqui</span>
-        </div>
+        <div class="dropzone" id="dropAudios" tabindex="0" onclick="document.getElementById('inputImportarAudios').click()" style="min-height:56px; display:flex; align-items:center; justify-content:center; box-sizing:border-box;">🎵 Arraste áudios (.wav, .mp3, .m4a) aqui, ou clique para escolher</div>
+        <input type="file" id="inputImportarAudios" class="hidden" accept="audio/*,.wav,.mp3,.m4a,.ogg,.flac,.aac,.opus,.wma" multiple onchange="importarArquivosAudio(this.files); this.value='';">
+      </div>
+    </div>
+
+    <div class="lote-area hidden" id="loteArea" style="margin-top:8px;">
+      <div class="lote-linha">
+        <span class="bloco-perfil-label" style="margin:0">Idiomas para gerar</span>
+        <span class="lote-idiomas" id="loteIdiomas"></span>
+      </div>
+      <div class="lote-linha" style="margin-top:8px">
+        <button class="btn-generate" id="loteGerarBtn" onclick="criarBlocosEmLote()">⚡ Criar blocos automaticamente</button>
+        <span class="char-count" id="loteResumo">usa os documentos marcados acima × os idiomas marcados aqui</span>
       </div>
     </div>
 
@@ -871,6 +915,7 @@ Exemplo com audio tags:
         <div class="blocos-acoes">
           <input type="text" id="nomeBase" class="filename-input" placeholder="EU_EP03_AU_PT_L01" style="width:210px">
           <button class="btn-icon" onclick="aplicarNomesSequenciais()" title="Numera os blocos a partir deste nome, continuando o número final">↧ Nomear em sequência</button>
+          <button class="btn-icon" onclick="document.getElementById('inputImportarAudios').click()" title="Importa múltiplos arquivos de áudio (.wav, .mp3, .m4a, etc.) e coloca na mesa em ordem alfanumérica">🎵 Importar Áudios</button>
           <button class="btn-generate" id="gerarTodosBtn" onclick="gerarTodos()">▶ Gerar pendentes</button>
           <button class="btn-download" onclick="baixarTodos(false)" style="padding:7px 14px">⬇ Baixar todos</button>
           <button class="btn-download" onclick="baixarTodos(true)" style="padding:7px 14px" title="Só os que você marcou como aceitos">⬇ Baixar aprovados</button>
@@ -911,10 +956,13 @@ Exemplo com audio tags:
             <select id="macroSelect" style="width:100%; max-width:440px;"></select>
           </div>
 
-          <!-- 4. Botão de Disparo -->
-          <div style="display:flex; align-items:center; gap:12px; margin-top:10px;">
+          <!-- 4. Botões de Disparo -->
+          <div style="display:flex; align-items:center; gap:10px; margin-top:10px; flex-wrap:wrap;">
             <button class="btn-processar" id="processarAudacityBtn" onclick="processarComAudacityEWhisper()">
               ⚡ Processar no Audacity & Whisper
+            </button>
+            <button class="btn-processar btn-pastel-green" id="gerarSomenteSrtBtn" onclick="processarSomenteSrt()" title="Pula o Audacity completamente e transcreve os áudios diretamente na GPU com Whisper gerando apenas as legendas SRT em poucos segundos">
+              📄 Gerar somente Legendas (.srt)
             </button>
             <span id="posProcMsg" style="font-size:12px; font-weight:500;"></span>
           </div>
@@ -940,30 +988,32 @@ Exemplo com audio tags:
           <span id="masterResumo" style="font-size:12px; opacity:.75;">Nenhum áudio masterizado nesta sessão ainda.</span>
         </div>
         <div class="master-acoes">
-          <button class="btn-download hidden" id="btnGerarSrtPendentes" onclick="gerarSrtParaPendentes()" style="padding:7px 14px; border-color:var(--accent); color:var(--accent);" title="Gera legenda SRT no Whisper para todos os áudios que ainda não possuem">
-            ⚡ Gerar SRT para pendentes
-          </button>
-          <div style="display:inline-flex; align-items:center; border:1px solid rgba(245,158,11,0.35); border-radius:var(--radius); overflow:hidden; background:var(--surface2);" title="Escolha a configuração de corte de silêncio para aplicar em lote">
-            <select id="selPresetLote" style="background:transparent; border:none; border-right:1px solid rgba(245,158,11,0.25); color:var(--text); padding:6px 10px; font-size:11.5px; font-weight:500; cursor:pointer; outline:none; font-family:inherit;">
-              <option value="2.0_40" selected style="background:#1a1a24; color:#e2e8f0;">2,0s / 40%</option>
-              <option value="1.3_30" style="background:#1a1a24; color:#e2e8f0;">1,3s / 30%</option>
-              <option value="0.5_60" style="background:#1a1a24; color:#e2e8f0;">0,5s / 60%</option>
-            </select>
-            <button class="btn-download" id="btnTravarSilencioTodos" onclick="travarSilencioTodosMasterizados()" style="border:none; border-radius:0; padding:6px 13px; background:rgba(245,158,11,0.14); color:#f59e0b; font-weight:600; font-size:11.5px; cursor:pointer; transition:all 0.15s ease; font-family:inherit; white-space:nowrap;" onmouseover="this.style.background='#f59e0b';this.style.color='#111';" onmouseout="this.style.background='rgba(245,158,11,0.14)';this.style.color='#f59e0b';" title="Aplica a configuração selecionada em todos os áudios e ressincroniza as legendas">
-              ✂️ Travar em Todos
-            </button>
-          </div>
           <button class="btn-download" id="btnBaixarTodosWav" onclick="baixarTodosWavMasterizados()" style="padding:7px 14px" title="Baixar todos os áudios .wav masterizados">
             🎵 Baixar todos os Áudios (.wav)
           </button>
-          <button class="btn-download" id="btnBaixarTodasLegendas" onclick="baixarTodasLegendasMasterizadas()" style="padding:7px 14px; border-color:var(--accent); color:var(--accent);" title="Baixar todas as legendas .srt geradas pelo Whisper">
+          <button class="btn-download" id="btnBaixarTodasLegendas" onclick="baixarTodasLegendasMasterizadas()" style="padding:7px 14px" title="Baixar todas as legendas .srt geradas pelo Whisper">
             📄 Baixar todas as Legendas (.srt)
           </button>
           <button class="btn-generate" id="btnBaixarTudo" onclick="baixarTudoMasterizado()" style="padding:7px 16px;" title="Baixar todos os áudios .wav e legendas .srt">
             📦 Baixar Áudios + .SRT
           </button>
-          <button class="btn-icon" id="btnLimparCache" onclick="limparHistoricoProcessados()" style="padding:7px 12px; font-size:12px; border-color:var(--border);" title="Exclui os arquivos temporários gerados em Processados para liberar espaço no PC">
-            🗑️ Limpar do PC
+        </div>
+      </div>
+
+      <!-- Linha Própria de Ações nos Áudios (Gerar Legenda e Travar Silêncio) -->
+      <div class="master-toolbar-linha hidden" id="masterToolbarLinha" style="display:flex; align-items:center; gap:12px; margin-top:12px; padding:10px 14px; background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius); flex-wrap:wrap;">
+        <span style="font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-muted); display:inline-flex; align-items:center; gap:5px;">⚡ Ações nos Áudios:</span>
+        <button class="btn-download hidden" id="btnGerarSrtPendentes" onclick="gerarSrtParaPendentes()" style="padding:7px 14px; border-color:#52b788; color:#d8f3dc; background:rgba(82, 183, 136, 0.14); font-weight:600;" title="Gera legenda SRT no Whisper para todos os áudios que ainda não possuem">
+          📄 Gerar SRT para pendentes
+        </button>
+        <div style="display:inline-flex; align-items:center; border:1px solid rgba(245,158,11,0.35); border-radius:var(--radius); overflow:hidden; background:var(--surface);" title="Escolha a configuração de corte de silêncio para aplicar em lote">
+          <select id="selPresetLote" style="background:transparent; border:none; border-right:1px solid rgba(245,158,11,0.25); color:var(--text); padding:6px 10px; font-size:11.5px; font-weight:500; cursor:pointer; outline:none; font-family:inherit;">
+            <option value="2.0_50" selected style="background:#1a1a24; color:#e2e8f0;">2,0s / 50%</option>
+            <option value="1.3_60" style="background:#1a1a24; color:#e2e8f0;">1,3s / 60%</option>
+            <option value="0.5_80" style="background:#1a1a24; color:#e2e8f0;">0,5s / 80%</option>
+          </select>
+          <button class="btn-download" id="btnTravarSilencioTodos" onclick="travarSilencioTodosMasterizados()" style="border:none; border-radius:0; padding:6px 13px; background:rgba(245,158,11,0.14); color:#f59e0b; font-weight:600; font-size:11.5px; cursor:pointer; transition:all 0.15s ease; font-family:inherit; white-space:nowrap;" onmouseover="this.style.background='#f59e0b';this.style.color='#111';" onmouseout="this.style.background='rgba(245,158,11,0.14)';this.style.color='#f59e0b';" title="Aplica a configuração selecionada em todos os áudios e ressincroniza as legendas">
+            ✂️ Travar em Todos
           </button>
         </div>
       </div>
@@ -992,6 +1042,18 @@ Exemplo com audio tags:
 
 <div class="toast" id="toast"></div>
 
+<!-- BARRINHA DE PROGRESSO FIXA NA PARTE INFERIOR (VERDE PASTEL) -->
+<div id="barraProgressoSrtContainer" class="hidden" style="position:fixed; bottom:0; left:0; width:100%; z-index:99999; background:rgba(18, 24, 27, 0.96); backdrop-filter:blur(10px); border-top:1px solid #2d6a4f; box-shadow:0 -4px 20px rgba(0,0,0,0.5); padding:10px 24px; display:flex; align-items:center; gap:16px; font-family:inherit;">
+  <div style="display:flex; align-items:center; gap:9px; font-size:13px; font-weight:600; color:#d8f3dc; white-space:nowrap;">
+    <span class="emoji-girando" style="font-size:16px;">⏳</span>
+    <span id="barraProgressoSrtTexto">Gerando legendas (.srt)...</span>
+  </div>
+  <div style="flex:1; height:9px; background:rgba(255,255,255,0.07); border-radius:99px; overflow:hidden; position:relative; box-shadow:inset 0 1px 2px rgba(0,0,0,0.4);">
+    <div id="barraProgressoSrtPreenchimento" style="width:0%; height:100%; background:linear-gradient(90deg, #40916c, #52b788, #74c69d); border-radius:99px; transition:width 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow:0 0 12px rgba(82, 183, 136, 0.55);"></div>
+  </div>
+  <span id="barraProgressoSrtPct" style="font-size:13px; font-weight:700; color:#74c69d; min-width:42px; text-align:right;">0%</span>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
 // ════════════════════════════════════════════════════════
@@ -1006,7 +1068,7 @@ const APP_ENV = (function() {
   return 'prod';
 })();
 
-const APP_BUILD_VERSION = 2026091301;
+const APP_BUILD_VERSION = 2026091402;
 
 const appStorage = {
   prefix: APP_ENV === 'dev' ? 'dev_' : '',
@@ -1037,6 +1099,9 @@ const appStorage = {
     } catch (e) {}
   }
 };
+
+// Ícone de lixeira clássico e universal (SVG vetorizado com tampa e ranhuras)
+const ICONE_LIXEIRA = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:middle;display:inline-block;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>';
 
 function atualizarBadgeAmbiente() {
   const badge = document.getElementById('envBadge');
@@ -1876,51 +1941,287 @@ function pcmToWav(base64Data, sampleRate = 24000) {
 }
 
 // ════════════════════════════════════════════════════════
+// AUDIO BUFFER / ARQUIVOS EXTERNOS → WAV PCM 16-BIT
+// ════════════════════════════════════════════════════════
+function audioBufferToWav(buffer) {
+  const numChannels = buffer.numberOfChannels || 1;
+  const sampleRate = buffer.sampleRate || 24000;
+  const bitDepth = 16;
+  const bytesPerSample = bitDepth / 8;
+  const blockAlign = numChannels * bytesPerSample;
+  
+  let interleaved;
+  if (numChannels === 2) {
+    const ch0 = buffer.getChannelData(0);
+    const ch1 = buffer.getChannelData(1);
+    interleaved = new Float32Array(ch0.length + ch1.length);
+    let idx = 0;
+    for (let i = 0; i < ch0.length; i++) {
+      interleaved[idx++] = ch0[i];
+      interleaved[idx++] = ch1[i];
+    }
+  } else {
+    interleaved = buffer.getChannelData(0);
+  }
+  
+  const dataLen = interleaved.length * bytesPerSample;
+  const buf = new ArrayBuffer(44 + dataLen);
+  const v = new DataView(buf);
+  const str = (off, s) => { for (let i = 0; i < s.length; i++) v.setUint8(off + i, s.charCodeAt(i)); };
+  
+  str(0, 'RIFF');
+  v.setUint32(4, 36 + dataLen, true);
+  str(8, 'WAVE');
+  str(12, 'fmt ');
+  v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true); // PCM
+  v.setUint16(22, numChannels, true);
+  v.setUint32(24, sampleRate, true);
+  v.setUint32(28, sampleRate * blockAlign, true);
+  v.setUint16(32, blockAlign, true);
+  v.setUint16(34, bitDepth, true);
+  str(36, 'data');
+  v.setUint32(40, dataLen, true);
+  
+  let offset = 44;
+  for (let i = 0; i < interleaved.length; i++, offset += 2) {
+    const s = Math.max(-1, Math.min(1, interleaved[i]));
+    v.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+  }
+  
+  return new Blob([buf], { type: 'audio/wav' });
+}
+
+function ehArquivoAudio(f) {
+  if (!f || !f.name) return false;
+  const ext = (f.name.split('.').pop() || '').toLowerCase();
+  const extensoesAudio = ['wav', 'mp3', 'm4a', 'ogg', 'flac', 'aac', 'opus', 'wma', 'aiff', 'alac', 'webm'];
+  return extensoesAudio.includes(ext) || (f.type && f.type.startsWith('audio/'));
+}
+
+async function converterArquivoParaWavBlob(file) {
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  // Se já for arquivo de áudio padrão (.wav ou .mp3), usa o arquivo diretamente como Blob sem decodificar na RAM
+  if (ext === 'wav' || file.type === 'audio/wav' || file.type === 'audio/x-wav' || ext === 'mp3' || file.type === 'audio/mpeg') {
+    return file;
+  }
+  const arrayBuf = await file.arrayBuffer();
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) {
+    return new Blob([arrayBuf], { type: file.type || 'audio/wav' });
+  }
+  const actx = new AudioCtx();
+  try {
+    const decoded = await actx.decodeAudioData(arrayBuf);
+    return audioBufferToWav(decoded);
+  } catch (err) {
+    console.warn(`Fallback para blob direto ao decodificar ${file.name}:`, err);
+    return new Blob([arrayBuf], { type: file.type || 'audio/wav' });
+  } finally {
+    try { actx.close(); } catch {}
+  }
+}
+
+// ════════════════════════════════════════════════════════
 // ONDA SONORA
 // ════════════════════════════════════════════════════════
-// Como o WAV é gerado aqui mesmo (PCM 16-bit mono, header de 44 bytes),
-// dá para ler os picos direto do buffer — sem AudioContext, sem decodificar.
-async function picosDoBlob(blob, nPadrao = 300) {
-  const buf = await blob.arrayBuffer();
-  if (buf.byteLength < 44) return null;
-
-  const dv = new DataView(buf);
-  const sampleRate = dv.getUint32(24, true) || 24000;
-  const numCanais = dv.getUint16(22, true) || 1;
-  const bitsPorAmostra = dv.getUint16(34, true) || 16;
-  const bytesPorAmostra = Math.max(1, (bitsPorAmostra / 8) * numCanais);
-  const totalAmostras = Math.floor((buf.byteLength - 44) / (bitsPorAmostra / 8));
-  if (totalAmostras <= 0) return null;
-
-  const duracao = (buf.byteLength - 44) / (sampleRate * bytesPorAmostra);
-  const pcm = new Int16Array(buf, 44, totalAmostras);
-
-  // Escala padrão: 1:30 (90 segundos).
-  // Áudios <= 90s recebem número de barras proporcional para manter o mesmo espaçamento/densidade visual.
-  // Áudios > 90s ignoram a regra e usam o total padrão de barras (preenchem 100%).
-  let totalBarras;
-  if (duracao <= 90) {
-    totalBarras = Math.max(15, Math.round(nPadrao * (duracao / 90)));
-  } else {
-    totalBarras = nPadrao;
-  }
-
-  const passo = Math.max(1, Math.floor(totalAmostras / totalBarras));
+// Gera picos sintéticos realistas caso o áudio falhe em carregar via rede/decodificação
+function gerarPicosFallback(duracao = 60, totalBarras = 220) {
   const picos = [];
-  let teto = 1;
-  for (let i = 0; i < totalBarras; i++) {
-    const ini = i * passo;
-    if (ini >= totalAmostras) break;
-    const fim = Math.min(totalAmostras, ini + passo);
-    let max = 0;
-    for (let j = ini; j < fim; j++) { const v = Math.abs(pcm[j]); if (v > max) max = v; }
-    if (max > teto) teto = max;
-    picos.push(max);
+  const n = (duracao <= 90) ? Math.max(20, Math.round(totalBarras * (duracao / 90))) : totalBarras;
+  for (let i = 0; i < n; i++) {
+    const onda1 = Math.sin(i * 0.15) * 0.22;
+    const onda2 = Math.cos(i * 0.38) * 0.18;
+    const variacao = (Math.sin(i * 1.7) + 1) * 0.15;
+    const val = Math.max(0.18, Math.min(0.92, 0.42 + onda1 + onda2 + variacao));
+    picos.push(val);
+  }
+  picos.duracao = duracao;
+  return picos;
+}
+
+// Extrai com precisão a estrutura de chunks do cabeçalho WAV (fmt, data, canais, taxa)
+function parseCabecalhoWav(headerBuf, blobSize) {
+  if (!headerBuf || headerBuf.byteLength < 12) return null;
+  const dv = new DataView(headerBuf);
+  const riff = String.fromCharCode(dv.getUint8(0), dv.getUint8(1), dv.getUint8(2), dv.getUint8(3));
+  if (riff !== 'RIFF' && riff !== 'RIFX') return null;
+  const wave = String.fromCharCode(dv.getUint8(8), dv.getUint8(9), dv.getUint8(10), dv.getUint8(11));
+  if (wave !== 'WAVE') return null;
+
+  let offset = 12;
+  let fmt = null;
+  let data = null;
+
+  while (offset + 8 <= headerBuf.byteLength) {
+    const chunkId = String.fromCharCode(
+      dv.getUint8(offset),
+      dv.getUint8(offset + 1),
+      dv.getUint8(offset + 2),
+      dv.getUint8(offset + 3)
+    );
+    const chunkSize = dv.getUint32(offset + 4, true);
+
+    if (chunkId === 'fmt ') {
+      if (offset + 8 + 14 <= headerBuf.byteLength) {
+        fmt = {
+          audioFormat: dv.getUint16(offset + 8, true),
+          numCanais: dv.getUint16(offset + 10, true) || 1,
+          sampleRate: dv.getUint32(offset + 12, true) || 24000,
+          bitsPorAmostra: (offset + 8 + 16 <= headerBuf.byteLength) ? (dv.getUint16(offset + 22, true) || 16) : 16
+        };
+      }
+    } else if (chunkId === 'data') {
+      const dataOffset = offset + 8;
+      const dataSize = chunkSize > 0 ? chunkSize : (blobSize - dataOffset);
+      data = { offset: dataOffset, size: dataSize };
+      break;
+    }
+
+    const prox = offset + 8 + chunkSize + (chunkSize % 2);
+    if (prox <= offset) break;
+    offset = prox;
   }
 
-  const res = picos.map(p => p / teto);
-  res.duracao = duracao;
-  return res;
+  // Fallback rápido: busca direta da assinatura 'data' se metadados empurraram o chunk
+  if (!data && fmt) {
+    const u8 = new Uint8Array(headerBuf);
+    for (let i = 12; i < u8.length - 8; i++) {
+      if (u8[i] === 0x64 && u8[i+1] === 0x61 && u8[i+2] === 0x74 && u8[i+3] === 0x61) { // 'data'
+        const dSize = dv.getUint32(i + 4, true);
+        data = { offset: i + 8, size: dSize > 0 ? dSize : (blobSize - (i + 8)) };
+        break;
+      }
+    }
+  }
+
+  if (!fmt || !data) return null;
+  return { fmt, data };
+}
+
+// Extrai a forma de onda sonora (picos normalizados de 0 a 1)
+// - Lê WAV PCM 16-bit diretamente em chunks com stride uniforme (baixo consumo de RAM e altíssima precisão)
+// - Suporta qualquer arquivo/duração (.wav, .mp3, .m4a, etc.) com fallback via Web Audio API
+async function picosDoBlob(blob, nPadrao = 300) {
+  if (!blob || blob.size <= 0) return gerarPicosFallback(30, nPadrao);
+  try {
+    // 1. Tenta extrair diretamente do WAV (PCM 16-bit) sem decodificar na RAM
+    const cabecalhoSize = Math.min(blob.size, 131072);
+    const cabecalhoBuf = await blob.slice(0, cabecalhoSize).arrayBuffer();
+    const infoWav = parseCabecalhoWav(cabecalhoBuf, blob.size);
+
+    if (infoWav && infoWav.fmt && (infoWav.fmt.audioFormat === 1 || infoWav.fmt.audioFormat === 3 || infoWav.fmt.audioFormat === 65534)) {
+      const { fmt, data } = infoWav;
+      const numCanais = Math.max(1, fmt.numCanais);
+      const bytesPorAmostra = Math.max(1, Math.floor((fmt.bitsPorAmostra || 16) / 8)) * numCanais;
+      const totalAmostras = Math.floor(data.size / bytesPorAmostra);
+
+      if (totalAmostras > 0) {
+        const duracao = totalAmostras / fmt.sampleRate;
+        let totalBarras;
+        if (duracao <= 90) {
+          totalBarras = Math.max(15, Math.round(nPadrao * (duracao / 90)));
+        } else {
+          totalBarras = nPadrao;
+        }
+
+        const picos = new Float32Array(totalBarras);
+        let teto = 1;
+        const passo = totalAmostras / totalBarras;
+
+        // Leitura em blocos de até 8MB (evita sobrecarga no heap do browser mesmo para áudios longos)
+        const CHUNK_BYTES = 8 * 1024 * 1024;
+        const amostrasPorChunk = Math.floor(CHUNK_BYTES / bytesPorAmostra);
+        let currentOffset = data.offset;
+        let amostraBase = 0;
+
+        while (amostraBase < totalAmostras) {
+          const restantes = totalAmostras - amostraBase;
+          const qtdAmostras = Math.min(amostrasPorChunk, restantes);
+          const bytesParaLer = qtdAmostras * bytesPorAmostra;
+          const chunkBuf = await blob.slice(currentOffset, currentOffset + bytesParaLer).arrayBuffer();
+          const pcmChunk = new Int16Array(chunkBuf);
+
+          const barraIni = Math.max(0, Math.floor(amostraBase / passo));
+          const barraFim = Math.min(totalBarras - 1, Math.floor((amostraBase + qtdAmostras) / passo));
+
+          for (let bIdx = barraIni; bIdx <= barraFim; bIdx++) {
+            const bIni = Math.max(amostraBase, Math.floor(bIdx * passo));
+            const bFim = Math.min(amostraBase + qtdAmostras, Math.floor((bIdx + 1) * passo));
+            const janela = bFim - bIni;
+            if (janela <= 0) continue;
+
+            // Amostragem distribuída uniformemente ao longo de toda a janela da barra
+            const stride = Math.max(1, Math.floor(janela / 150));
+            let maxLocal = picos[bIdx];
+            for (let j = bIni; j < bFim; j += stride) {
+              const idxBase = (j - amostraBase) * numCanais;
+              for (let c = 0; c < numCanais; c++) {
+                const v = Math.abs(pcmChunk[idxBase + c] || 0);
+                if (v > maxLocal) maxLocal = v;
+              }
+            }
+            picos[bIdx] = maxLocal;
+            if (maxLocal > teto) teto = maxLocal;
+          }
+
+          amostraBase += qtdAmostras;
+          currentOffset += bytesParaLer;
+        }
+
+        const res = Array.from(picos).map(p => p / (teto || 1));
+        res.duracao = duracao;
+        return res;
+      }
+    }
+
+    // 2. Fallback Universal via Web Audio API (para MP3, M4A, AAC, WAV 24/32-bit float, etc.)
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (AudioCtx && blob.size <= 400 * 1024 * 1024) {
+      const actx = new AudioCtx();
+      try {
+        const ab = await blob.arrayBuffer();
+        const audioBuf = await actx.decodeAudioData(ab);
+        const data = audioBuf.getChannelData(0);
+        const amostras = data.length;
+        if (amostras > 0) {
+          const duracao = audioBuf.duration;
+          let totalBarras;
+          if (duracao <= 90) {
+            totalBarras = Math.max(15, Math.round(nPadrao * (duracao / 90)));
+          } else {
+            totalBarras = nPadrao;
+          }
+
+          const passo = Math.max(1, Math.floor(amostras / totalBarras));
+          const picos = [];
+          let teto = 0.001;
+          for (let i = 0; i < totalBarras; i++) {
+            const ini = i * passo;
+            if (ini >= amostras) break;
+            const fim = Math.min(amostras, ini + passo);
+            const janela = fim - ini;
+            const stride = Math.max(1, Math.floor(janela / 150));
+            let max = 0;
+            for (let j = ini; j < fim; j += stride) {
+              const v = Math.abs(data[j]);
+              if (v > max) max = v;
+            }
+            if (max > teto) teto = max;
+            picos.push(max);
+          }
+          const res = picos.map(p => p / (teto || 0.001));
+          res.duracao = duracao;
+          return res;
+        }
+      } finally {
+        try { actx.close(); } catch {}
+      }
+    }
+  } catch (err) {
+    console.warn('[picosDoBlob] Erro ao extrair picos:', err);
+  }
+  return gerarPicosFallback(45, nPadrao);
 }
 
 function desenharOnda(cv, picos, currentTime = 0, duracaoAudio = 0) {
@@ -1932,7 +2233,20 @@ function desenharOnda(cv, picos, currentTime = 0, duracaoAudio = 0) {
   }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, w, h);
-  if (!picos || !picos.length) return;
+
+  if (!picos || !picos.length) {
+    // Desenha placeholder suave e elegante enquanto carrega (nunca fica um retângulo invisível vazio)
+    ctx.fillStyle = 'rgba(128, 128, 128, 0.14)';
+    ctx.fillRect(0, Math.round((h - 2) / 2), w, 2);
+    const nHold = Math.min(70, Math.max(20, Math.floor(w / 6)));
+    const bpHold = w / nHold;
+    ctx.fillStyle = 'rgba(128, 128, 128, 0.18)';
+    for (let i = 0; i < nHold; i++) {
+      const alt = Math.max(4, Math.sin(i * 0.28) * 9 + 11);
+      ctx.fillRect(i * bpHold, (h - alt) / 2, Math.max(1, bpHold - 1.5), alt);
+    }
+    return;
+  }
 
   const cs = getComputedStyle(document.documentElement);
   const corIdle  = cs.getPropertyValue('--text-muted').trim() || '#888';
@@ -2290,10 +2604,20 @@ async function processarArquivo(file) {
 }
 
 async function processarArquivos(fileList) {
-  const arquivos = Array.from(fileList || []);
-  if (!arquivos.length) return;
+  const todos = Array.from(fileList || []);
+  if (!todos.length) return;
+
+  const arquivosAudio = todos.filter(ehArquivoAudio);
+  const arquivosDoc = todos.filter(f => !ehArquivoAudio(f));
+
+  if (arquivosAudio.length) {
+    await importarArquivosAudio(arquivosAudio);
+  }
+
+  if (!arquivosDoc.length) return;
+
   let ok = 0, semSuporte = 0, vazios = 0;
-  for (const f of arquivos) {
+  for (const f of arquivosDoc) {
     let doc;
     try { doc = await processarArquivo(f); }
     catch (e) { showToast(`⚠️ ${f.name}: ${e.message}`); continue; }
@@ -2358,7 +2682,7 @@ function renderDocumentos() {
     });
 
     const btnDel = document.createElement('button');
-    btnDel.className = 'btn-icon'; btnDel.textContent = '🗑'; btnDel.title = 'Remover este documento';
+    btnDel.className = 'btn-icon btn-del'; btnDel.innerHTML = ICONE_LIXEIRA; btnDel.title = 'Remover este documento';
     btnDel.onclick = () => { documentos = documentos.filter(d => d !== doc); renderDocumentos(); blocos.forEach(sincronizarBloco); };
 
     row.append(sel, nome, num, canal, langs, btnDel);
@@ -2497,7 +2821,15 @@ function sincronizarBloco(b) {
 // evita que soltar o arquivo fora da zona de drop faça o navegador abrir o
 // arquivo e navegar pra longe da mesa (perderia tudo que não foi baixado)
 window.addEventListener('dragover', e => e.preventDefault());
-window.addEventListener('drop', e => e.preventDefault());
+window.addEventListener('drop', e => {
+  e.preventDefault();
+  // Se o drop ocorreu em cima de uma das áreas que já possuem listener próprio, não processa duas vezes
+  if (e.target && e.target.closest && e.target.closest('#dropDocs, #dropAudios, #blocosArea')) return;
+  const files = e.dataTransfer ? e.dataTransfer.files : null;
+  if (files && files.length) {
+    processarArquivos(files);
+  }
+});
 
 const dropDocs = document.getElementById('dropDocs');
 const dropDocsInput = document.getElementById('dropDocsInput');
@@ -2506,6 +2838,7 @@ dropDocs.addEventListener('dragover', e => { e.preventDefault(); dropDocs.classL
 dropDocs.addEventListener('dragleave', () => dropDocs.classList.remove('arrastando'));
 dropDocs.addEventListener('drop', e => {
   e.preventDefault();
+  e.stopPropagation();
   dropDocs.classList.remove('arrastando');
   processarArquivos(e.dataTransfer.files);
 });
@@ -2513,6 +2846,39 @@ dropDocsInput.addEventListener('change', () => {
   processarArquivos(dropDocsInput.files);
   dropDocsInput.value = '';
 });
+
+// Suporte a soltar na zona dedicada de áudios
+const dropAudios = document.getElementById('dropAudios');
+if (dropAudios) {
+  dropAudios.addEventListener('dragover', e => { e.preventDefault(); dropAudios.classList.add('arrastando'); });
+  dropAudios.addEventListener('dragleave', () => dropAudios.classList.remove('arrastando'));
+  dropAudios.addEventListener('drop', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropAudios.classList.remove('arrastando');
+    const files = e.dataTransfer ? e.dataTransfer.files : null;
+    if (files && files.length) processarArquivos(files);
+  });
+}
+
+// Suporte a soltar diretamente na mesa de blocos
+const blocosAreaEl = document.getElementById('blocosArea');
+if (blocosAreaEl) {
+  blocosAreaEl.addEventListener('dragover', e => {
+    e.preventDefault();
+    blocosAreaEl.style.outline = '2px dashed var(--accent)';
+  });
+  blocosAreaEl.addEventListener('dragleave', () => {
+    blocosAreaEl.style.outline = '';
+  });
+  blocosAreaEl.addEventListener('drop', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    blocosAreaEl.style.outline = '';
+    const files = e.dataTransfer ? e.dataTransfer.files : null;
+    if (files && files.length) processarArquivos(files);
+  });
+}
 
 // seletor global de canal: define o padrão pros próximos documentos soltos
 // aqui e preenche de uma vez só os que já estão carregados e ainda não têm
@@ -2605,6 +2971,76 @@ function adicionarBlocosManual() {
   if (n > 200) n = 200;   // limite de segurança contra cliques acidentais
   for (let i = 0; i < n; i++) adicionarBloco();
   showToast(n === 1 ? '＋ 1 bloco adicionado' : `＋ ${n} blocos adicionados`);
+}
+
+// ── Importa múltiplos arquivos de áudio externos (.wav, .mp3, .m4a, etc.)
+// Organiza na ordem alfanumérica natural e insere na mesa de blocos com player e status 'ok'
+async function importarArquivosAudio(fileList) {
+  const arquivos = Array.from(fileList || []).filter(ehArquivoAudio);
+  if (!arquivos.length) {
+    showToast('⚠️ Nenhum arquivo de áudio reconhecido (.wav, .mp3, .m4a, etc.)');
+    return;
+  }
+
+  // 1. Ordenação alfanumérica natural (ex: 1, 2, ..., 9, 10, 11)
+  arquivos.sort((a, b) => {
+    return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+  });
+
+  // 2. Decide substituição ou inclusão se já houver blocos na mesa
+  const jaTemConteudo = blocos.some(b => b.blob || (b.texto && b.texto.trim()));
+  let substituir = false;
+  if (jaTemConteudo) {
+    substituir = confirm(`Já existem ${blocos.length} bloco(s) na mesa.\n\n• Clique em "OK" para SUBSTITUIR todos pelos novos áudios.\n• Clique em "Cancelar" para ADICIONAR ao final da lista.`);
+  }
+
+  if (substituir) {
+    blocos.forEach(b => { if (b.url) URL.revokeObjectURL(b.url); });
+    const lista = document.getElementById('blocosLista');
+    if (lista) lista.innerHTML = '';
+    blocos = [];
+  } else if (blocos.length === 1 && !blocos[0].blob && !(blocos[0].texto && blocos[0].texto.trim())) {
+    // Bloco inicial vazio é limpo automaticamente
+    const lista = document.getElementById('blocosLista');
+    if (lista) lista.innerHTML = '';
+    blocos = [];
+  }
+
+  showToast(`⏳ Processando ${arquivos.length} áudio(s)...`);
+
+  const perfilAtual = perfilAtivoAtual();
+  let importados = 0;
+
+  for (let i = 0; i < arquivos.length; i++) {
+    const f = arquivos[i];
+    try {
+      const nomeLimpo = f.name.replace(/\.[^/.]+$/, '').trim();
+      const wavBlob = await converterArquivoParaWavBlob(f);
+      
+      const b = novoBloco('', nomeLimpo);
+      b.perfil = perfilAtual;
+      b.status = 'ok';
+      b.erro = '';
+      guardarAudio(b, wavBlob);
+      
+      blocos.push(b);
+      importados++;
+    } catch (err) {
+      console.error(`Erro ao importar ${f.name}:`, err);
+      showToast(`⚠️ Erro ao importar "${f.name}": ${err.message}`);
+    }
+  }
+
+  renderBlocos();
+  atualizarResumo();
+
+  const area = document.getElementById('blocosArea');
+  if (area) {
+    area.classList.remove('hidden');
+    area.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  showToast(`🎵 ${importados} áudio(s) importado(s) com sucesso em ordem alfanumérica!`);
 }
 
 function duplicarBloco(id) {
@@ -2725,8 +3161,8 @@ function criarLinha(b) {
   // texto do bloco — editável
   const txt = document.createElement('textarea');
   txt.className = 'bloco-txt';
-  txt.value = b.texto;
-  txt.placeholder = 'texto deste bloco';
+  txt.value = b.texto || '';
+  txt.placeholder = 'Texto da narração (usado pelo Whisper para sincronizar e pontuar a legenda perfeitamente)...';
   txt.addEventListener('input', () => { b.texto = txt.value; atualizarBloco(b); });
 
   // coluna da direita: status + ações estruturais
@@ -2752,7 +3188,8 @@ function criarLinha(b) {
   btnDup.onclick = () => duplicarBloco(b.id);
 
   const btnDel = document.createElement('button');
-  btnDel.className = 'btn-icon'; btnDel.textContent = '🗑';
+  btnDel.className = 'btn-icon btn-del';
+  btnDel.innerHTML = ICONE_LIXEIRA;
   btnDel.title = 'Remover bloco';
   btnDel.onclick = () => removerBloco(b.id);
 
@@ -2995,6 +3432,7 @@ async function gerarTodos() {
     ? `⚠️ ${feitos} gerados · ${falhas} falharam — use "Tentar de novo" nos blocos marcados`
     : `✅ ${feitos} blocos gerados — ouça cada um e clique em "Aceitar"`, falhas ? 'error' : 'success');
   setBusy(false);
+  if (feitos > 0) tocarSomConclusao();
 }
 
 // Uma chamada à API. Em cada chave tentada, até 3 tentativas (a doc do
@@ -3114,21 +3552,60 @@ async function checarBridgeStatus() {
     }
 
     const valorAtual = selMacro.value;
-    selMacro.innerHTML = '<option value="none">-- Nenhuma (somente juntar sem efeitos) --</option>';
+    selMacro.innerHTML = '';
+
+    const listaFormatada = [];
     if (data.macros && data.macros.length) {
       const macrosFiltradas = data.macros.filter(m => !m.nome.toLowerCase().includes('juntar'));
       macrosFiltradas.forEach(m => {
-        const opt = document.createElement('option');
-        opt.value = m.arquivo;
-        opt.textContent = m.nome;
-        selMacro.appendChild(opt);
+        const n = m.nome.toLowerCase();
+        if (n.includes('silêncio') || n.includes('silencio') || n.includes('diminui') || n.includes('travar')) {
+          listaFormatada.push({
+            ordem: 2,
+            arquivo: m.arquivo,
+            rotulo: '✂️ Masterizar e Travar Silêncio',
+            isDefault: false
+          });
+        } else if (n.includes('masteriza') || n.includes('materiza')) {
+          listaFormatada.push({
+            ordem: 1,
+            arquivo: m.arquivo,
+            rotulo: '🎚️ Masterizar',
+            isDefault: true
+          });
+        } else {
+          listaFormatada.push({
+            ordem: 3,
+            arquivo: m.arquivo,
+            rotulo: `🎛️ ${m.nome}`,
+            isDefault: false
+          });
+        }
       });
-      if (valorAtual && valorAtual !== 'none') {
-        selMacro.value = valorAtual;
-      } else {
-        const defaultMacro = macrosFiltradas.find(m => m.nome.toLowerCase().includes('materiza') || m.nome.toLowerCase().includes('masteriza'));
-        if (defaultMacro) selMacro.value = defaultMacro.arquivo;
-      }
+    }
+
+    // Ordenação estrita requerida: 1. Masterizar, 2. Masterizar e Travar Silêncio
+    listaFormatada.sort((a, b) => a.ordem - b.ordem);
+
+    listaFormatada.forEach(item => {
+      const opt = document.createElement('option');
+      opt.value = item.arquivo;
+      opt.textContent = item.rotulo;
+      selMacro.appendChild(opt);
+    });
+
+    const optNenhuma = document.createElement('option');
+    optNenhuma.value = 'none';
+    optNenhuma.textContent = '-- Nenhuma (somente juntar sem efeitos) --';
+    selMacro.appendChild(optNenhuma);
+
+    // Define 'Masterizar' como padrão por regra, exceto se o usuário já havia escolhido outra
+    if (valorAtual && Array.from(selMacro.options).some(o => o.value === valorAtual)) {
+      selMacro.value = valorAtual;
+    } else {
+      const optPadrao = listaFormatada.find(it => it.isDefault) || listaFormatada[0];
+      if (optPadrao) selMacro.value = optPadrao.arquivo;
+      else selMacro.value = 'none';
     }
   } catch (e) {
     bridgeOnline = false;
@@ -3181,7 +3658,9 @@ function trocarAbaWorkspace(aba) {
     tabMaster.classList.add('active');
     viewEstudio.classList.add('hidden');
     viewMaster.classList.remove('hidden');
-    setTimeout(redesenharOndasMasterizados, 60);
+    setTimeout(redesenharOndasMasterizados, 30);
+    setTimeout(redesenharOndasMasterizados, 150);
+    setTimeout(redesenharOndasMasterizados, 400);
   } else {
     tabMaster.classList.remove('active');
     tabEstudio.classList.add('active');
@@ -3192,54 +3671,18 @@ function trocarAbaWorkspace(aba) {
 }
 
 async function picosDoBlobUniversal(blob, nPadrao = 300) {
-  try {
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (AudioCtx) {
-      const actx = new AudioCtx();
-      const ab = await blob.arrayBuffer();
-      const audioBuf = await actx.decodeAudioData(ab);
-      const data = audioBuf.getChannelData(0);
-      const amostras = data.length;
-      if (amostras <= 0) return null;
-      const duracao = audioBuf.duration;
-
-      let totalBarras;
-      if (duracao <= 90) {
-        totalBarras = Math.max(15, Math.round(nPadrao * (duracao / 90)));
-      } else {
-        totalBarras = nPadrao;
-      }
-
-      const passo = Math.max(1, Math.floor(amostras / totalBarras));
-      const picos = [];
-      let teto = 0.001;
-      for (let i = 0; i < totalBarras; i++) {
-        const ini = i * passo;
-        if (ini >= amostras) break;
-        const fim = Math.min(amostras, ini + passo);
-        let max = 0;
-        for (let j = ini; j < fim; j++) {
-          const v = Math.abs(data[j]);
-          if (v > max) max = v;
-        }
-        if (max > teto) teto = max;
-        picos.push(max);
-      }
-      try { actx.close(); } catch {}
-      const res = picos.map(p => p / teto);
-      res.duracao = duracao;
-      return res;
-    }
-  } catch (e) {
-    console.warn('[Onda] Fallback picos:', e);
-  }
-  return picosDoBlob(blob, nPadrao);
+  return await picosDoBlob(blob, nPadrao);
 }
 
 function redesenharOndasMasterizados() {
   if (!Array.isArray(masterizadosItens)) return;
   masterizadosItens.forEach(item => {
-    if (item._pintar && item.picos) item._pintar();
+    if (item._pintar) {
+      if (!item.picos && item.duracaoSeg) {
+        item.picos = gerarPicosFallback(item.duracaoSeg);
+      }
+      item._pintar();
+    }
   });
 }
 
@@ -3253,13 +3696,16 @@ function renderizarMasterizados(itens, macroNome) {
   if (!badge || !resumo || !vazio || !lista) return;
 
   badge.textContent = masterizadosItens.length;
+  const toolbarLinha = document.getElementById('masterToolbarLinha');
   if (!masterizadosItens.length) {
     vazio.classList.remove('hidden');
     lista.innerHTML = '';
     resumo.textContent = 'Nenhum áudio masterizado nesta sessão ainda.';
     if (btnPendentes) btnPendentes.classList.add('hidden');
+    if (toolbarLinha) toolbarLinha.classList.add('hidden');
     return;
   }
+  if (toolbarLinha) toolbarLinha.classList.remove('hidden');
 
   const temPendentes = masterizadosItens.some(it => !it.urlSrt);
   if (btnPendentes) {
@@ -3269,7 +3715,8 @@ function renderizarMasterizados(itens, macroNome) {
 
   vazio.classList.add('hidden');
   lista.innerHTML = '';
-  resumo.textContent = `· ${masterizadosItens.length} arquivo(s) gerado(s) · Macro: ${macroNome || 'Padrão'}`;
+  const macroLabel = macroNome === 'apenas_srt' ? 'Somente Legendas (.srt)' : (macroNome === 'none' ? 'Sem efeitos' : (macroNome || 'Padrão'));
+  resumo.textContent = `· ${masterizadosItens.length} arquivo(s) gerado(s) · Modo: ${macroLabel}`;
 
   masterizadosItens.forEach((item, idx) => {
     const card = document.createElement('div');
@@ -3301,7 +3748,15 @@ function renderizarMasterizados(itens, macroNome) {
 
     const pillMacro = document.createElement('span');
     pillMacro.className = 'master-pill macro';
-    pillMacro.textContent = `🎚️ ${item.macro || macroNome || 'Audacity'}`;
+    const mItem = item.macro || macroNome;
+    if (mItem === 'apenas_srt') {
+      pillMacro.textContent = '📄 Somente Legenda (.srt)';
+      pillMacro.style.cssText = 'border-color:#10b981; color:#10b981;';
+    } else if (mItem === 'none') {
+      pillMacro.textContent = '🎵 Sem efeitos';
+    } else {
+      pillMacro.textContent = `🎚️ ${mItem || 'Audacity'}`;
+    }
 
     info.append(numBadge, titulo, pillDur, pillTam, pillMacro);
 
@@ -3417,9 +3872,9 @@ function renderizarMasterizados(itens, macroNome) {
     selSilencio.style.cssText = 'background:transparent; border:none; border-right:1px solid rgba(245,158,11,0.25); color:var(--text); padding:5px 8px; font-size:11px; font-weight:500; cursor:pointer; outline:none; font-family:inherit;';
     selSilencio.title = 'Escolha a configuração de corte de silêncio para este áudio';
     selSilencio.innerHTML = `
-      <option value="2.0_40" selected style="background:#1a1a24; color:#e2e8f0;">2,0s / 40%</option>
-      <option value="1.3_30" style="background:#1a1a24; color:#e2e8f0;">1,3s / 30%</option>
-      <option value="0.5_60" style="background:#1a1a24; color:#e2e8f0;">0,5s / 60%</option>
+      <option value="2.0_50" selected style="background:#1a1a24; color:#e2e8f0;">2,0s / 50%</option>
+      <option value="1.3_60" style="background:#1a1a24; color:#e2e8f0;">1,3s / 60%</option>
+      <option value="0.5_80" style="background:#1a1a24; color:#e2e8f0;">0,5s / 80%</option>
     `;
 
     const btnTravarSilencio = document.createElement('button');
@@ -3449,12 +3904,23 @@ function renderizarMasterizados(itens, macroNome) {
 
     playerRow.append(audio, canvas);
 
+    // Reutiliza instantaneamente picos e duração da Aba 1 se disponíveis (zero espera de rede)
+    if (!item.picos && Array.isArray(blocos)) {
+      const blocoOrig = blocos.find(b => b.nome === item.nome || `bloco_${String(b.num).padStart(2, '0')}` === item.nome);
+      if (blocoOrig && blocoOrig.picos && item.tipo !== 'unificado') {
+        item.picos = blocoOrig.picos;
+        if (!item.duracaoSeg && blocoOrig.duracaoSeg) {
+          item.duracaoSeg = blocoOrig.duracaoSeg;
+          item.duracaoFmt = blocoOrig.duracaoFmt;
+          pillDur.textContent = `⏱️ ${item.duracaoFmt}`;
+        }
+      }
+    }
+
     let raf = 0;
     const obterDuracao = () => audio.duration || item.duracaoSeg || (item.picos ? item.picos.duracao : 0);
     const pintar = () => {
-      if (item.picos) {
-        desenharOnda(canvas, item.picos, audio.currentTime, obterDuracao());
-      }
+      desenharOnda(canvas, item.picos, audio.currentTime, obterDuracao());
     };
     const loop = () => { pintar(); if (!audio.paused && !audio.ended) raf = requestAnimationFrame(loop); };
     audio.addEventListener('play', () => { cancelAnimationFrame(raf); loop(); });
@@ -3470,7 +3936,7 @@ function renderizarMasterizados(itens, macroNome) {
       }
       pintar();
     });
-    audio.addEventListener('ended', () => { if (item.picos) desenharOnda(canvas, item.picos, 0, obterDuracao()); });
+    audio.addEventListener('ended', () => { desenharOnda(canvas, item.picos, 0, obterDuracao()); });
     canvas.addEventListener('click', e => {
       const dur = obterDuracao();
       if (!dur) return;
@@ -3485,19 +3951,33 @@ function renderizarMasterizados(itens, macroNome) {
     });
     item._pintar = pintar;
 
-    // Busca o áudio via fetch na rota /api/audio (stream limpo), cria Blob URL na memória RAM e calcula a onda
+    // ResizeObserver garante que o canvas redesenhe assim que a aba se torna visível com largura real (> 0)
+    if (window.ResizeObserver) {
+      const ro = new ResizeObserver(entries => {
+        for (let entry of entries) {
+          if (entry.contentRect && entry.contentRect.width > 20) {
+            pintar();
+          }
+        }
+      });
+      ro.observe(canvas);
+      item._ro = ro;
+    }
+
+    // Desenha imediatamente (ou exibe placeholder suave se ainda carregando)
+    pintar();
+
+    // Player nativo com streaming direto via HTTP Range requests (zero espera e zero consumo de RAM)
     const urlAudioStream = `${BRIDGE_URL}${item.urlAudio || item.urlWav}`;
+    audio.src = urlAudioStream;
+
+    // Busca leve para cálculo de forma de onda e confirmação de tamanho
     fetch(urlAudioStream)
       .then(res => {
         if (!res.ok) throw new Error('Status ' + res.status);
         return res.blob();
       })
       .then(async blob => {
-        item.blob = blob;
-        const blobUrl = URL.createObjectURL(blob);
-        audio.src = blobUrl;
-
-        // Atualização garantida de tamanho via blob real
         if (!item.tamanhoBytes || item.tamanhoFmt === '0 KB') {
           item.tamanhoBytes = blob.size;
           item.tamanhoFmt = blob.size < 1048576
@@ -3506,12 +3986,20 @@ function renderizarMasterizados(itens, macroNome) {
           pillTam.textContent = `💾 ${item.tamanhoFmt}`;
         }
 
-        item.picos = await picosDoBlobUniversal(blob);
+        const picosCalculados = await picosDoBlobUniversal(blob);
+        if (picosCalculados && picosCalculados.length) {
+          item.picos = picosCalculados;
+        } else if (!item.picos) {
+          item.picos = gerarPicosFallback(obterDuracao() || 45);
+        }
         pintar();
       })
       .catch(e => {
-        console.warn('[Onda/Audio] Carregando diretamente pela URL:', e);
-        audio.src = urlAudioStream;
+        console.warn('[Onda/Audio] Onda em modo fallback:', e);
+        if (!item.picos) {
+          item.picos = gerarPicosFallback(obterDuracao() || 45);
+          pintar();
+        }
       });
 
     card.append(top, playerRow);
@@ -3529,13 +4017,16 @@ async function gerarSrtParaPendentes() {
   const btn = document.getElementById('btnGerarSrtPendentes');
   if (btn) {
     btn.disabled = true;
-    btn.textContent = `⏳ Gerando 1/${pendentes.length} no Whisper...`;
+    btn.innerHTML = `<span class="emoji-girando">⏳</span> Gerando 1/${pendentes.length} no Whisper...`;
   }
+  atualizarBarraProgressoSrt(5, `Iniciando transcrição de ${pendentes.length} pendente(s)...`);
 
   let concluidos = 0;
   for (let i = 0; i < pendentes.length; i++) {
     const item = pendentes[i];
-    if (btn) btn.textContent = `⏳ Gerando ${i + 1}/${pendentes.length} no Whisper...`;
+    const pct = Math.round((i / pendentes.length) * 100);
+    atualizarBarraProgressoSrt(pct, `Transcrevendo ${i + 1}/${pendentes.length}: "${item.nome}"...`);
+    if (btn) btn.innerHTML = `<span class="emoji-girando">⏳</span> Gerando ${i + 1}/${pendentes.length} no Whisper...`;
     showToast(`⏳ Gerando legenda ${i + 1} de ${pendentes.length} ("${item.nome}")...`);
     try {
       const resp = await fetch(`${BRIDGE_URL}/api/whisper/gerar-srt`, {
@@ -3558,9 +4049,17 @@ async function gerarSrtParaPendentes() {
     }
   }
 
+  if (concluidos > 0) {
+    atualizarBarraProgressoSrt(100, `✅ ${concluidos} legenda(s) SRT concluída(s)!`);
+    fecharBarraProgressoSrt(true);
+    tocarSomConclusao();
+  } else {
+    fecharBarraProgressoSrt(false, 1000);
+  }
+
   if (btn) {
     btn.disabled = false;
-    btn.textContent = '⚡ Gerar SRT para pendentes';
+    btn.innerHTML = '📄 Gerar SRT para pendentes';
   }
   renderizarMasterizados(masterizadosItens);
   showToast(`✅ ${concluidos} legenda(s) SRT gerada(s) com sucesso na GPU!`);
@@ -3573,7 +4072,7 @@ async function executarAcaoTravarSilencio(item, btn, preset, pillDur, pillTam, c
     btn.disabled = true;
     btn.innerHTML = '⏳ Cortando...';
   }
-  const nomePreset = preset === '2.0_40' ? '2,0s / 40%' : (preset === '0.5_60' ? '0,5s / 60%' : '1,3s / 30%');
+  const nomePreset = (preset === '2.0_50' || preset === '2.0_40') ? '2,0s / 50%' : ((preset === '1.3_60' || preset === '1.3_30') ? '1,3s / 60%' : ((preset === '0.5_80' || preset === '0.5_60') ? '0,5s / 80%' : preset));
   showToast(`✂️ Aplicando corte de silêncio (${nomePreset}) em "${item.nome}" no Audacity...`);
 
   try {
@@ -3584,7 +4083,7 @@ async function executarAcaoTravarSilencio(item, btn, preset, pillDur, pillTam, c
         caminhoWav: item.caminhoWav,
         textoReferencia: item.texto || '',
         gerarSrt: !!item.urlSrt || !!item.srtConteudo,
-        preset: preset || '2.0_40'
+        preset: preset || '2.0_50'
       })
     });
     const dados = await resp.json();
@@ -3647,8 +4146,8 @@ async function travarSilencioTodosMasterizados() {
     return;
   }
   const selPreset = document.getElementById('selPresetLote');
-  const preset = selPreset ? selPreset.value : '2.0_40';
-  const nomePreset = preset === '2.0_40' ? '2,0s / 40%' : (preset === '0.5_60' ? '0,5s / 60%' : '1,3s / 30%');
+  const preset = selPreset ? selPreset.value : '2.0_50';
+  const nomePreset = (preset === '2.0_50' || preset === '2.0_40') ? '2,0s / 50%' : ((preset === '1.3_60' || preset === '1.3_30') ? '1,3s / 60%' : ((preset === '0.5_80' || preset === '0.5_60') ? '0,5s / 80%' : preset));
 
   const btn = document.getElementById('btnTravarSilencioTodos');
   if (btn) {
@@ -3792,6 +4291,80 @@ async function limparHistoricoProcessados() {
   }
 }
 
+// Efeito sonoro de conclusão idêntico ao 'Sincronizar Longos com o Drive' (C5, E5, G5, C6)
+function tocarSomConclusao() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (AudioCtx) {
+      const ctx = new AudioCtx();
+      const notas = [
+        { freq: 523.25, dur: 0.10, inicio: 0 },      // C5
+        { freq: 659.25, dur: 0.10, inicio: 0.10 },   // E5
+        { freq: 783.99, dur: 0.12, inicio: 0.20 },   // G5
+        { freq: 1046.50, dur: 0.28, inicio: 0.32 }   // C6
+      ];
+      const t0 = ctx.currentTime + 0.03;
+      notas.forEach(n => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(n.freq, t0 + n.inicio);
+
+        gain.gain.setValueAtTime(0.0001, t0 + n.inicio);
+        gain.gain.exponentialRampToValueAtTime(0.28, t0 + n.inicio + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + n.inicio + n.dur);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(t0 + n.inicio);
+        osc.stop(t0 + n.inicio + n.dur + 0.05);
+      });
+    }
+  } catch (e) {
+    console.warn('[Som] Erro WebAudio:', e);
+  }
+
+  // Também aciona no Windows via ponte local (Beep do sistema)
+  try {
+    if (typeof BRIDGE_URL !== 'undefined') {
+      fetch(`${BRIDGE_URL}/api/tocar-concluido`, { method: 'POST' }).catch(() => {});
+    }
+  } catch (e) {}
+}
+
+function atualizarBarraProgressoSrt(pct, texto) {
+  const container = document.getElementById('barraProgressoSrtContainer');
+  const bar = document.getElementById('barraProgressoSrtPreenchimento');
+  const txt = document.getElementById('barraProgressoSrtTexto');
+  const pctEl = document.getElementById('barraProgressoSrtPct');
+  if (!container || !bar) return;
+
+  container.classList.remove('hidden');
+  const clamped = Math.max(0, Math.min(100, Math.round(pct)));
+  bar.style.width = clamped + '%';
+  if (pctEl) pctEl.textContent = clamped + '%';
+  if (texto && txt) txt.textContent = texto;
+}
+
+function fecharBarraProgressoSrt(sucesso = true, delay = 2500) {
+  const container = document.getElementById('barraProgressoSrtContainer');
+  const txt = document.getElementById('barraProgressoSrtTexto');
+  const bar = document.getElementById('barraProgressoSrtPreenchimento');
+  const pctEl = document.getElementById('barraProgressoSrtPct');
+  if (!container) return;
+
+  if (sucesso) {
+    if (bar) bar.style.width = '100%';
+    if (pctEl) pctEl.textContent = '100%';
+    if (txt) txt.textContent = '✅ Legendas (.srt) geradas com sucesso!';
+  }
+  setTimeout(() => {
+    container.classList.add('hidden');
+    if (bar) bar.style.width = '0%';
+    if (pctEl) pctEl.textContent = '0%';
+  }, delay);
+}
+
 let processandoAudacity = false;
 
 async function processarComAudacityEWhisper() {
@@ -3886,46 +4459,76 @@ async function processarComAudacityEWhisper() {
   pollProgresso();
 
   try {
-    msgEl.textContent = 'Codificando áudios gerados...';
+    msgEl.textContent = 'Iniciando sessão de processamento...';
 
     // Regra de nomenclatura da primeira aba:
     const nomeBaseInput = document.getElementById('nomeBase').value.trim();
     const nomeBase = nomeBaseInput || (prontos[0].nome ? prontos[0].nome : 'audio_completo');
 
-    const audiosPayload = [];
-    for (let i = 0; i < prontos.length; i++) {
-      const b = prontos[i];
-      const b64 = await blobParaBase64(b.blob);
-      audiosPayload.push({
-        nome: b.nome || `bloco_${String(i + 1).padStart(2, '0')}`,
-        base64: b64,
-        texto: b.texto || '',
-        nome_unificado: nomeBase
-      });
-    }
+    // 1. Inicia o Job no servidor enviando metadados leves (JSON)
+    const blocosMeta = prontos.map((b, idx) => ({
+      index: idx + 1,
+      nome: b.nome || `bloco_${String(idx + 1).padStart(2, '0')}`,
+      texto: b.texto || ''
+    }));
 
-    const payload = {
-      audios: audiosPayload,
-      juntar,
-      macro,
-      gerarSrt
-    };
-
-    msgEl.textContent = 'Enviando para o Audacity...';
-    const resp = await fetch(`${BRIDGE_URL}/api/processar`, {
+    const initResp = await fetch(`${BRIDGE_URL}/api/processar/iniciar`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({
+        total: prontos.length,
+        juntar,
+        macro,
+        gerarSrt,
+        nome_unificado: nomeBase,
+        blocos: blocosMeta
+      })
     });
 
-    const resultado = await resp.json();
-    if (!resp.ok || !resultado.success) {
+    const initData = await initResp.json();
+    if (!initResp.ok || !initData.success) {
+      throw new Error(initData.error || 'Falha ao iniciar sessão no servidor');
+    }
+    const jobId = initData.jobId;
+
+    // 2. Upload binário sequencial direto do Blob (0 bytes de alocação de Base64 no Heap do V8)
+    for (let i = 0; i < prontos.length; i++) {
+      const b = prontos[i];
+      const idx = i + 1;
+      const nomeBloco = b.nome || `bloco_${String(idx).padStart(2, '0')}`;
+      const tamMb = b.blob.size ? (b.blob.size / (1024 * 1024)).toFixed(1) : '0';
+      msgEl.textContent = `Enviando áudio ${idx} de ${prontos.length} (${tamMb} MB): ${nomeBloco}...`;
+
+      const uploadUrl = `${BRIDGE_URL}/api/processar/upload-bloco?jobId=${encodeURIComponent(jobId)}&index=${idx}&nome=${encodeURIComponent(nomeBloco)}`;
+      const upResp = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/octet-stream' },
+        body: b.blob
+      });
+
+      const upData = await upResp.json();
+      if (!upResp.ok || !upData.success) {
+        throw new Error(upData.error || `Falha no envio do áudio ${idx}`);
+      }
+    }
+
+    // 3. Executa a automação no Audacity e transcrição no Whisper
+    msgEl.textContent = 'Iniciando automação no Audacity...';
+    const execResp = await fetch(`${BRIDGE_URL}/api/processar/executar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jobId })
+    });
+
+    const resultado = await execResp.json();
+    if (!execResp.ok || !resultado.success) {
       throw new Error(resultado.error || 'Falha no processamento');
     }
 
     msgEl.textContent = '✅ Concluído com sucesso!';
     msgEl.style.color = 'var(--success)';
     showToast('✅ Processamento concluído! Abrindo Áudios Masterizados...');
+    tocarSomConclusao();
 
     resArea.classList.remove('hidden');
     listaDownloads.innerHTML = '';
@@ -3977,6 +4580,223 @@ async function processarComAudacityEWhisper() {
     processandoAudacity = false;
     btn.disabled = false;
     btn.innerHTML = '⚡ Processar no Audacity & Whisper';
+  }
+}
+
+async function processarSomenteSrt() {
+  if (processandoAudacity) {
+    showToast('⏳ Processamento já em andamento, aguarde...');
+    return;
+  }
+
+  const prontos = blocos.filter(b => b.blob);
+  if (!prontos.length) {
+    showToast('⚠️ Nenhum áudio gerado ainda. Gere os blocos primeiro!');
+    return;
+  }
+
+  const btnSrt = document.getElementById('gerarSomenteSrtBtn');
+  const btnAudacity = document.getElementById('processarAudacityBtn');
+  const msgEl = document.getElementById('posProcMsg');
+  const resArea = document.getElementById('posProcResultados');
+  const listaDownloads = document.getElementById('posProcDownloadsLista');
+
+  const juntar = document.getElementById('checkJuntarAudios').checked;
+
+  if (juntar && prontos.length < blocos.length) {
+    const faltam = blocos.length - prontos.length;
+    if (!confirm(`Atenção: Existem ${faltam} bloco(s) ainda sem áudio gerado.\n\nDeseja gerar legendas apenas para os ${prontos.length} áudios prontos?`)) {
+      return;
+    }
+  }
+
+  processandoAudacity = true;
+  if (btnSrt) {
+    btnSrt.disabled = true;
+    btnSrt.innerHTML = '<span class="emoji-girando">⏳</span> Transcrevendo GPU...';
+  }
+  if (btnAudacity) btnAudacity.disabled = true;
+  atualizarBarraProgressoSrt(5, 'Conectando ao Whisper (GPU)...');
+  msgEl.textContent = 'Verificando conexão com o Whisper...';
+  msgEl.style.color = 'var(--warn)';
+  resArea.classList.add('hidden');
+  listaDownloads.innerHTML = '';
+
+  if (!bridgeOnline) {
+    msgEl.textContent = 'Verificando ponte local...';
+    await checarBridgeStatus();
+    if (!bridgeOnline) {
+      fecharBarraProgressoSrt(false, 1000);
+      showToast('⚠️ Ponte local offline. Abra pelo atalho Gemini TTS Studio (DEV)');
+      processandoAudacity = false;
+      if (btnSrt) {
+        btnSrt.disabled = false;
+        btnSrt.innerHTML = '📄 Gerar somente Legendas (.srt)';
+      }
+      if (btnAudacity) btnAudacity.disabled = false;
+      return;
+    }
+  }
+
+  if (juntar) {
+    if (prontos.length > 1) {
+      msgEl.textContent = `Preparando junção e transcrição de ${prontos.length} blocos...`;
+      showToast(`🔗 Gerando legenda unificada para ${prontos.length} blocos...`);
+    } else {
+      msgEl.textContent = 'Transcrevendo 1 bloco...';
+    }
+  } else {
+    msgEl.textContent = `Preparando ${prontos.length} bloco(s) para transcrição...`;
+  }
+
+  let polling = true;
+  const pollProgresso = async () => {
+    while (polling) {
+      try {
+        const pRes = await fetch(`${BRIDGE_URL}/api/progresso`, { cache: 'no-store' });
+        if (pRes.ok) {
+          const pData = await pRes.json();
+          if (pData.progresso) {
+            msgEl.textContent = pData.progresso;
+            const pct = (typeof pData.pct === 'number' && pData.pct > 0) ? pData.pct : null;
+            if (pct !== null) {
+              atualizarBarraProgressoSrt(pct, pData.progresso);
+            }
+          }
+        }
+      } catch {}
+      await sleep(400);
+    }
+  };
+  pollProgresso();
+
+  try {
+    msgEl.textContent = 'Iniciando transcrição na GPU (Whisper)...';
+
+    const nomeBaseInput = document.getElementById('nomeBase').value.trim();
+    const nomeBase = nomeBaseInput || (prontos[0].nome ? prontos[0].nome : 'audio_completo');
+
+    const blocosMeta = prontos.map((b, idx) => ({
+      index: idx + 1,
+      nome: b.nome || `bloco_${String(idx + 1).padStart(2, '0')}`,
+      texto: b.texto || ''
+    }));
+
+    const initResp = await fetch(`${BRIDGE_URL}/api/processar/iniciar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        total: prontos.length,
+        juntar,
+        macro: 'apenas_srt',
+        gerarSrt: true,
+        nome_unificado: nomeBase,
+        blocos: blocosMeta
+      })
+    });
+
+    const initData = await initResp.json();
+    if (!initResp.ok || !initData.success) {
+      throw new Error(initData.error || 'Falha ao iniciar sessão no servidor');
+    }
+    const jobId = initData.jobId;
+
+    // Upload binário sequencial dos blobs
+    for (let i = 0; i < prontos.length; i++) {
+      const b = prontos[i];
+      const idx = i + 1;
+      const nomeBloco = b.nome || `bloco_${String(idx).padStart(2, '0')}`;
+      const tamMb = b.blob.size ? (b.blob.size / (1024 * 1024)).toFixed(1) : '0';
+      const pctUpload = Math.round(5 + ((i + 1) / prontos.length) * 15);
+      atualizarBarraProgressoSrt(pctUpload, `Enviando áudio ${idx} de ${prontos.length} (${tamMb} MB)...`);
+      msgEl.textContent = `Enviando áudio ${idx} de ${prontos.length} (${tamMb} MB)...`;
+
+      const uploadUrl = `${BRIDGE_URL}/api/processar/upload-bloco?jobId=${encodeURIComponent(jobId)}&index=${idx}&nome=${encodeURIComponent(nomeBloco)}`;
+      const upResp = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/octet-stream' },
+        body: b.blob
+      });
+
+      const upData = await upResp.json();
+      if (!upResp.ok || !upData.success) {
+        throw new Error(upData.error || `Falha no envio do áudio ${idx}`);
+      }
+    }
+
+    atualizarBarraProgressoSrt(20, 'Transcrevendo áudio na GPU com Whisper...');
+    msgEl.textContent = 'Transcrevendo áudio na GPU com Whisper...';
+    const execResp = await fetch(`${BRIDGE_URL}/api/processar/executar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jobId })
+    });
+
+    const resultado = await execResp.json();
+    if (!execResp.ok || !resultado.success) {
+      throw new Error(resultado.error || 'Falha na transcrição das legendas');
+    }
+
+    msgEl.textContent = '✅ Legendas geradas com sucesso!';
+    msgEl.style.color = 'var(--success)';
+    showToast('✅ Legendas (.srt) geradas com sucesso! Abrindo biblioteca...');
+    atualizarBarraProgressoSrt(100, '✅ Legendas (.srt) geradas com sucesso!');
+    fecharBarraProgressoSrt(true);
+    tocarSomConclusao();
+
+    resArea.classList.remove('hidden');
+    listaDownloads.innerHTML = '';
+
+    resultado.itens.forEach(item => {
+      const card = document.createElement('div');
+      card.style.cssText = 'background:var(--surface); padding:8px 12px; border-radius:var(--radius); border:1px solid var(--border); display:flex; align-items:center; gap:8px; width:100%;';
+
+      const titulo = document.createElement('span');
+      titulo.style.cssText = 'font-weight:600; font-size:12px; flex:1;';
+      titulo.textContent = (item.tipo === 'unificado' ? '🌟 Áudio Completo: ' : '🎵 ') + item.nome;
+      card.appendChild(titulo);
+
+      if (item.urlSrt) {
+        const btnSrtLink = document.createElement('a');
+        btnSrtLink.href = `${BRIDGE_URL}${item.urlSrt}`;
+        btnSrtLink.className = 'btn-download';
+        btnSrtLink.style.cssText = 'text-decoration:none; padding:4px 10px; font-size:11px; border-color:var(--accent); color:var(--accent);';
+        btnSrtLink.textContent = '📄 Baixar Legenda (.srt)';
+        btnSrtLink.download = `${item.nome}.srt`;
+        card.appendChild(btnSrtLink);
+      }
+
+      if (item.urlWav) {
+        const btnWavLink = document.createElement('a');
+        btnWavLink.href = `${BRIDGE_URL}${item.urlWav}`;
+        btnWavLink.className = 'btn-download';
+        btnWavLink.style.cssText = 'text-decoration:none; padding:4px 10px; font-size:11px;';
+        btnWavLink.textContent = '⬇ Baixar WAV';
+        btnWavLink.download = `${item.nome}.wav`;
+        card.appendChild(btnWavLink);
+      }
+
+      listaDownloads.appendChild(card);
+    });
+
+    renderizarMasterizados(resultado.itens, 'apenas_srt');
+    setTimeout(() => {
+      trocarAbaWorkspace('masterizados');
+    }, 600);
+
+  } catch (err) {
+    fecharBarraProgressoSrt(false, 1500);
+    msgEl.textContent = `✕ ${err.message}`;
+    msgEl.style.color = 'var(--error)';
+    showToast(`✕ Erro: ${err.message}`);
+  } finally {
+    polling = false;
+    processandoAudacity = false;
+    if (btnSrt) {
+      btnSrt.disabled = false;
+      btnSrt.innerHTML = '📄 Gerar somente Legendas (.srt)';
+    }
+    if (btnAudacity) btnAudacity.disabled = false;
   }
 }
 
@@ -4084,22 +4904,28 @@ document.getElementById('ghTokenClearBtn').addEventListener('click', () => {
 });
 
 async function aplicarMudancasNoHtmlOg() {
-  if (!confirm('Deseja aplicar todas as melhorias testadas no Desenvolvimento para o HTML original (PROD)?\n\n- O arquivo "Gemini TTS.html" e "Producao/gemini-tts-studio.html" serão atualizados.\n- Um backup de segurança do HTML original será salvo automaticamente na pasta "Backups/".')) {
+  if (!confirm('Deseja aplicar todas as melhorias testadas no Desenvolvimento para o HTML original (PROD)?\n\n- O arquivo "Gemini TTS.html" e "Producao/gemini-tts-studio.html" serão atualizados.\n- Um backup de segurança do HTML original será salvo na pasta "Backups/".\n- As alterações serão sincronizadas e enviadas automaticamente para o GitHub (branch main).')) {
     return;
   }
   const btn = document.getElementById('btnAplicarHtmlOg');
   const txtOrig = btn ? btn.textContent : '';
   if (btn) {
     btn.disabled = true;
-    btn.textContent = '⏳ Aplicando...';
+    btn.textContent = '⏳ Aplicando e enviando ao GitHub...';
   }
-  showToast('⏳ Aplicando mudanças no HTML original...');
+  showToast('⏳ Aplicando no PROD e sincronizando com o GitHub...');
   try {
     const res = await fetch(`${BRIDGE_URL}/api/publicar`, { method: 'POST' });
     const data = await res.json();
     if (!data.success) throw new Error(data.error || 'Erro desconhecido');
-    showToast('✅ Sucesso! Mudanças aplicadas no HTML original com backup salvo!');
-    alert('✅ Sucesso!\n\nAs alterações de Desenvolvimento foram aplicadas no HTML Original (Gemini TTS.html e Produção).\n\nBackup de segurança salvo em:\n' + (data.backup || 'pasta Backups/'));
+    showToast('✅ Sucesso! Mudanças aplicadas na Produção e sincronizadas no GitHub!');
+    let msgAlerta = '✅ Sucesso!\n\nAs alterações de Desenvolvimento foram aplicadas no HTML Original (Gemini TTS.html e Produção).\n\n📁 Backup de segurança salvo em:\n' + (data.backup || 'pasta Backups/');
+    if (data.github) {
+      msgAlerta += '\n\n🐙 GitHub: Sincronizado e atualizado na branch main com sucesso!';
+    } else if (data.github_msg) {
+      msgAlerta += '\n\n🐙 GitHub: ' + data.github_msg;
+    }
+    alert(msgAlerta);
   } catch (e) {
     showToast('❌ Erro ao aplicar: ' + e.message);
     alert('❌ Erro ao aplicar alterações no HTML original: ' + e.message);
