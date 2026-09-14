@@ -321,12 +321,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
         elif caminho == '/api/publicar':
             try:
-                raiz = os.path.abspath(os.path.join(BASE_DIR, '..', '..'))
-                arquivo_dev = os.path.join(raiz, 'Desenvolvimento', 'gemini-tts-studio.html')
-                pasta_prod = os.path.join(raiz, 'Producao')
+                pasta_dev = r"C:\Projetos\Gemini TTS - DEV"
+                pasta_prod = r"C:\Projetos\Gemini TTS"
+                arquivo_dev = os.path.join(pasta_dev, 'gemini-tts-studio.html')
                 arquivo_prod = os.path.join(pasta_prod, 'gemini-tts-studio.html')
-                arquivo_raiz = os.path.join(raiz, 'Gemini TTS.html')
-                pasta_backup = os.path.join(raiz, 'Backups')
+                arquivo_raiz = os.path.join(pasta_prod, 'Gemini TTS.html')
+                pasta_backup = os.path.join(pasta_prod, 'Backups')
 
                 if not os.path.isfile(arquivo_dev) or os.path.getsize(arquivo_dev) < 10000:
                     return self.responder_json({'success': False, 'error': 'Arquivo DEV inválido ou não encontrado.'}, status=400)
@@ -348,20 +348,20 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 shutil.copy2(arquivo_dev, arquivo_raiz)
 
                 # Também sincroniza server e macros para a Produção
-                pasta_server_dev = os.path.join(raiz, 'Desenvolvimento', 'server')
-                pasta_server_prod = os.path.join(raiz, 'Producao', 'server')
-                pasta_macros_dev = os.path.join(raiz, 'Desenvolvimento', 'macros')
-                pasta_macros_prod = os.path.join(raiz, 'Producao', 'macros')
+                pasta_server_dev = os.path.join(pasta_dev, 'server')
+                pasta_server_prod = os.path.join(pasta_prod, 'server')
+                pasta_macros_dev = os.path.join(pasta_dev, 'macros')
+                pasta_macros_prod = os.path.join(pasta_prod, 'macros')
 
                 if os.path.isdir(pasta_server_dev):
                     shutil.copytree(pasta_server_dev, pasta_server_prod, dirs_exist_ok=True)
                 if os.path.isdir(pasta_macros_dev):
                     shutil.copytree(pasta_macros_dev, pasta_macros_prod, dirs_exist_ok=True)
 
-                set_progresso("Versão DEV aplicada com sucesso no HTML Original (PROD)!")
+                set_progresso("Versão DEV aplicada com sucesso na Produção!")
                 self.responder_json({
                     'success': True,
-                    'msg': 'Versão de Desenvolvimento aplicada com sucesso no HTML original (PROD)!',
+                    'msg': 'Versão de Desenvolvimento aplicada com sucesso na Produção!',
                     'backup': backup_path
                 })
             except Exception as e:
@@ -372,29 +372,36 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 set_progresso("Sincronizando com o GitHub...")
                 repo_dir = r"C:\Projetos\_repo_gemini_tts"
                 
+                # Detecta se está rodando no DEV ou no PROD
+                pasta_pai = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+                is_dev = 'desenvolvimento' in pasta_pai.lower()
+                branch_destino = 'dev' if is_dev else 'main'
+                
                 # Sincroniza os arquivos locais para a pasta do repositório git
-                arquivo_origem = os.path.join(os.path.dirname(__file__), '..', 'gemini-tts-studio.html')
+                arquivo_origem = os.path.join(pasta_pai, 'gemini-tts-studio.html')
                 if os.path.isfile(arquivo_origem):
                     shutil.copy2(arquivo_origem, os.path.join(repo_dir, 'gemini-tts-studio.html'))
                 
                 pasta_server = os.path.dirname(__file__)
                 shutil.copytree(pasta_server, os.path.join(repo_dir, 'server'), dirs_exist_ok=True, ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
                 
-                pasta_macros = os.path.join(os.path.dirname(__file__), '..', 'macros')
+                pasta_macros = os.path.join(pasta_pai, 'macros')
                 if os.path.isdir(pasta_macros):
                     shutil.copytree(pasta_macros, os.path.join(repo_dir, 'macros'), dirs_exist_ok=True)
                 
-                # Executa o git commit e git push usando as credenciais do sistema
+                # Garante checkout na branch correta antes de commitar e enviar
+                subprocess.run(['git', 'checkout', '-B', branch_destino], cwd=repo_dir, check=True)
                 subprocess.run(['git', 'add', 'gemini-tts-studio.html', 'macros', 'server'], cwd=repo_dir, check=True)
-                subprocess.run(['git', 'commit', '-m', f'Backup do app: {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}'], cwd=repo_dir)
-                res = subprocess.run(['git', 'push', 'origin', 'main'], cwd=repo_dir, capture_output=True, text=True)
+                subprocess.run(['git', 'commit', '-m', f'Backup ({branch_destino}): {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}'], cwd=repo_dir)
+                res = subprocess.run(['git', 'push', 'origin', branch_destino], cwd=repo_dir, capture_output=True, text=True)
                 if res.returncode != 0:
-                    raise Exception(res.stderr or 'Erro ao enviar para o GitHub')
+                    raise Exception(res.stderr or f'Erro ao enviar para a branch {branch_destino} no GitHub')
                 
-                set_progresso("Backup no GitHub concluído com sucesso!")
+                set_progresso(f"Backup na branch {branch_destino} concluído com sucesso!")
                 self.responder_json({
                     'success': True,
-                    'msg': 'Backup enviado e sincronizado no GitHub com sucesso!'
+                    'branch': branch_destino,
+                    'msg': f'Backup enviado e sincronizado na branch {branch_destino} do GitHub com sucesso!'
                 })
             except Exception as e:
                 set_progresso("Erro no backup do GitHub")
