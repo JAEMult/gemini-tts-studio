@@ -374,18 +374,33 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 
                 # Detecta se está rodando no DEV ou no PROD
                 pasta_pai = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-                is_dev = 'desenvolvimento' in pasta_pai.lower()
+                is_dev = ('desenvolvimento' in pasta_pai.lower()) or ('- dev' in pasta_pai.lower()) or ('-dev' in pasta_pai.lower())
+
+                try:
+                    tamanho = int(self.headers.get('Content-Length', 0)) if self.headers.get('Content-Length') else 0
+                    if tamanho > 0:
+                        corpo = json.loads(self.rfile.read(tamanho).decode('utf-8'))
+                        env_req = str(corpo.get('env', '')).lower()
+                        if env_req in ('dev', 'desenvolvimento'):
+                            is_dev = True
+                        elif env_req in ('prod', 'producao'):
+                            is_dev = False
+                except Exception:
+                    pass
+
                 branch_destino = 'dev' if is_dev else 'main'
+                pasta_origem = r"C:\Projetos\Gemini TTS - DEV" if is_dev else r"C:\Projetos\Gemini TTS"
                 
                 # Sincroniza os arquivos locais para a pasta do repositório git
-                arquivo_origem = os.path.join(pasta_pai, 'gemini-tts-studio.html')
+                arquivo_origem = os.path.join(pasta_origem, 'gemini-tts-studio.html')
                 if os.path.isfile(arquivo_origem):
                     shutil.copy2(arquivo_origem, os.path.join(repo_dir, 'gemini-tts-studio.html'))
                 
-                pasta_server = os.path.dirname(__file__)
-                shutil.copytree(pasta_server, os.path.join(repo_dir, 'server'), dirs_exist_ok=True, ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
+                pasta_server = os.path.join(pasta_origem, 'server')
+                if os.path.isdir(pasta_server):
+                    shutil.copytree(pasta_server, os.path.join(repo_dir, 'server'), dirs_exist_ok=True, ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
                 
-                pasta_macros = os.path.join(pasta_pai, 'macros')
+                pasta_macros = os.path.join(pasta_origem, 'macros')
                 if os.path.isdir(pasta_macros):
                     shutil.copytree(pasta_macros, os.path.join(repo_dir, 'macros'), dirs_exist_ok=True)
                 

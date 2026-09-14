@@ -999,8 +999,8 @@ Exemplo com audio tags:
 // ════════════════════════════════════════════════════════
 const APP_ENV = (function() {
   if (typeof window.__APP_ENV_OVERRIDE__ === 'string') return window.__APP_ENV_OVERRIDE__;
-  const href = window.location.href.toLowerCase();
-  if (href.includes('desenvolvimento') || href.includes('-dev') || href.includes('mode=dev')) {
+  const href = decodeURIComponent(window.location.href).toLowerCase();
+  if (href.includes('desenvolvimento') || href.includes('- dev') || href.includes('-dev') || href.includes('mode=dev')) {
     return 'dev';
   }
   return 'prod';
@@ -4144,55 +4144,65 @@ async function salvarBackupGitHub() {
   const btn = document.getElementById('backupGithubBtn');
   backupEmAndamento = true;
   btn.disabled = true;
-  const textoOriginalBtn = btn.textContent;
+  const textoOriginalBtn = btn.innerHTML;
   btn.innerHTML = '<span class="spinner"></span> Salvando...';
-  definirStatusBackup('⏳ Sincronizando com o GitHub...', 'loading');
+  definirStatusBackup('⏳ Sincronizando com o GitHub (pode levar 10-15s)...', 'loading');
 
-  // 1. Tenta salvar via Bridge Server local (utiliza o Git nativo do Windows com credenciais salvas)
   try {
-    const bridgeRes = await fetch(`${BRIDGE_URL}/api/github/backup`, { method: 'POST' });
-    const bData = await bridgeRes.json().catch(() => null);
-    if (bridgeRes.ok && bData && bData.success) {
-      definirStatusBackup(`✅ Backup salvo no GitHub (branch main) com sucesso! — ${new Date().toLocaleTimeString('pt-BR')}`, 'success');
-      showToast('✅ Backup salvo no GitHub com sucesso!');
-      return;
-    } else if (bData && bData.error) {
-      definirStatusBackup(`✕ Erro no Git local: ${bData.error}`, 'erro');
-      showToast(`✕ Erro no Git local: ${bData.error}`);
+    // 1. Tenta salvar via Bridge Server local (utiliza o Git nativo do Windows com credenciais salvas)
+    let salvouBridge = false;
+    try {
+      const bridgeRes = await fetch(`${BRIDGE_URL}/api/github/backup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ env: APP_ENV })
+      });
+      const bData = await bridgeRes.json().catch(() => null);
+      if (bridgeRes.ok && bData && bData.success) {
+        const branchNome = bData.branch || (APP_ENV === 'dev' ? 'dev' : 'main');
+        definirStatusBackup(`✅ Backup salvo no GitHub (branch ${branchNome}) com sucesso! — ${new Date().toLocaleTimeString('pt-BR')}`, 'success');
+        showToast(`✅ Backup salvo no GitHub (${branchNome}) com sucesso!`);
+        salvouBridge = true;
+        return;
+      } else if (bData && bData.error) {
+        definirStatusBackup(`✕ Erro no Git local: ${bData.error}`, 'erro');
+        showToast(`✕ Erro no Git local: ${bData.error}`);
+        salvouBridge = true;
+        return;
+      }
+    } catch (e) {
+      // Se o bridge_server não responder, segue para a API REST direta do GitHub
+    }
+
+    if (salvouBridge) return;
+
+    // 2. Fallback: API REST direta do GitHub via Token
+    const token = ghTokenInput.value.trim() || appStorage.getItem('gemini_tts_gh_token') || '';
+    if (!token) {
+      abrirConfigBackupGitHub();
+      definirStatusBackup('⚠️ Servidor local não respondeu. Cole seu token do GitHub aqui embaixo.', 'erro');
+      showToast('⚠️ Configure o token do GitHub primeiro');
       return;
     }
-  } catch (e) {
-    // Se o bridge_server não responder, segue para a API REST direta do GitHub
-  }
+    if (!window.SNAPSHOT_HTML) {
+      definirStatusBackup('⚠️ Recarregue a página (F5) antes de salvar o backup — o snapshot só é capturado no carregamento.', 'erro');
+      showToast('⚠️ Dê F5 na página antes de salvar o backup');
+      return;
+    }
 
-  // 2. Fallback: API REST direta do GitHub via Token
-  const token = ghTokenInput.value.trim() || appStorage.getItem('gemini_tts_gh_token') || '';
-  if (!token) {
-    abrirConfigBackupGitHub();
-    definirStatusBackup('⚠️ Servidor local não respondeu. Cole seu token do GitHub aqui embaixo.', 'erro');
-    showToast('⚠️ Configure o token do GitHub primeiro');
-    return;
-  }
-  if (!window.SNAPSHOT_HTML) {
-    definirStatusBackup('⚠️ Recarregue a página (F5) antes de salvar o backup — o snapshot só é capturado no carregamento.', 'erro');
-    showToast('⚠️ Dê F5 na página antes de salvar o backup');
-    return;
-  }
+    const owner = ghOwnerInput.value.trim() || GH_PADRAO.owner;
+    const repo = ghRepoInput.value.trim() || GH_PADRAO.repo;
+    let branch = ghBranchInput.value.trim() || (APP_ENV === 'dev' ? 'dev' : GH_PADRAO.branch);
+    if (!branch) {
+      branch = APP_ENV === 'dev' ? 'dev' : 'main';
+      ghBranchInput.value = branch;
+      appStorage.setItem('gemini_tts_gh_branch', branch);
+    }
+    const path = ghPathInput.value.trim() || GH_PADRAO.path;
+    const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path.split('/').map(encodeURIComponent).join('/')}`;
 
-  const owner = ghOwnerInput.value.trim() || GH_PADRAO.owner;
-  const repo = ghRepoInput.value.trim() || GH_PADRAO.repo;
-  let branch = ghBranchInput.value.trim() || GH_PADRAO.branch;
-  if (!branch || branch.toLowerCase() === 'dev') {
-    branch = 'main';
-    ghBranchInput.value = 'main';
-    appStorage.setItem('gemini_tts_gh_branch', 'main');
-  }
-  const path = ghPathInput.value.trim() || GH_PADRAO.path;
-  const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path.split('/').map(encodeURIComponent).join('/')}`;
+    definirStatusBackup('⏳ Verificando arquivo atual no repositório...', 'loading');
 
-  definirStatusBackup('⏳ Verificando arquivo atual no repositório...', 'loading');
-
-  try {
     let sha = null;
     const getRes = await fetch(`${apiUrl}?ref=${encodeURIComponent(branch)}`, {
       headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github+json' }
@@ -4280,12 +4290,12 @@ async function salvarBackupGitHub() {
       showToast(`✕ Falha ao salvar backup (${putRes.status})`);
     }
   } catch (e) {
-    definirStatusBackup(`✕ Erro de rede: ${e.message}`, 'erro');
-    showToast('✕ Erro de rede ao salvar backup');
+    definirStatusBackup(`✕ Erro: ${e.message}`, 'erro');
+    showToast('✕ Erro ao salvar backup');
   } finally {
     backupEmAndamento = false;
     btn.disabled = false;
-    btn.textContent = textoOriginalBtn;
+    btn.innerHTML = textoOriginalBtn;
   }
 }
 
