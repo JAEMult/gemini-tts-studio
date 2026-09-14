@@ -407,7 +407,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 # Garante checkout na branch correta antes de commitar e enviar
                 subprocess.run(['git', 'checkout', '-B', branch_destino], cwd=repo_dir, check=True)
                 subprocess.run(['git', 'add', 'gemini-tts-studio.html', 'macros', 'server'], cwd=repo_dir, check=True)
-                subprocess.run(['git', 'commit', '-m', f'Backup ({branch_destino}): {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}'], cwd=repo_dir)
+                subprocess.run(['git', 'commit', '--allow-empty', '-m', f'Backup ({branch_destino}): {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}'], cwd=repo_dir)
                 res = subprocess.run(['git', 'push', 'origin', branch_destino], cwd=repo_dir, capture_output=True, text=True)
                 if res.returncode != 0:
                     res = subprocess.run(['git', 'push', 'origin', branch_destino, '--force'], cwd=repo_dir, capture_output=True, text=True)
