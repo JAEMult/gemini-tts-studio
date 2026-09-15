@@ -598,6 +598,30 @@ def executar_pipeline_job(itens_processar, roteiro_completo, juntar, nome_macro,
         'itens': itens_finais
     }
 
+
+# Payload comprimido em base64 do som Liecio Minimalista (garante portabilidade em qualquer PC)
+SOM_SILENCIO_ZLIB_B64 = "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"
+
+def tocar_efeito_silencio_local():
+    try:
+        import winsound
+        wav_efeito = r"C:\Projetos\Efeitos Sonoros\liecio-menu_beep_short_snap-533778 Minimalista.wav"
+        if os.path.isfile(wav_efeito):
+            winsound.PlaySound(wav_efeito, winsound.SND_FILENAME | winsound.SND_ASYNC)
+            return
+    except Exception:
+        pass
+    try:
+        import winsound, zlib, base64
+        wav_raw = zlib.decompress(base64.b64decode(SOM_SILENCIO_ZLIB_B64))
+        winsound.PlaySound(wav_raw, winsound.SND_MEMORY | winsound.SND_ASYNC)
+    except Exception:
+        try:
+            import winsound
+            winsound.MessageBeep(winsound.MB_ICONASTERISK)
+        except Exception:
+            pass
+
 class BridgeHandler(BaseHTTPRequestHandler):
     def end_headers(self):
         self.send_header('Access-Control-Allow-Origin', '*')
@@ -674,18 +698,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
             self.responder_json({'success': True})
 
         elif caminho == '/api/tocar-som-silencio':
-            def _tocar_silencio():
-                try:
-                    wav_efeito = r"C:\Projetos\Efeitos Sonoros\liecio-menu_beep_short_snap-533778 Minimalista.wav"
-                    if os.path.isfile(wav_efeito):
-                        import winsound
-                        winsound.PlaySound(wav_efeito, winsound.SND_FILENAME | winsound.SND_ASYNC)
-                    else:
-                        import winsound
-                        winsound.MessageBeep(winsound.MB_ICONASTERISK)
-                except Exception:
-                    pass
-            threading.Thread(target=_tocar_silencio, daemon=True).start()
+            threading.Thread(target=tocar_efeito_silencio_local, daemon=True).start()
             self.responder_json({'success': True})
 
         elif caminho == '/api/audio':
@@ -832,18 +845,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
             self.responder_json({'success': True})
 
         elif caminho == '/api/tocar-som-silencio':
-            def _tocar_silencio():
-                try:
-                    wav_efeito = r"C:\Projetos\Efeitos Sonoros\liecio-menu_beep_short_snap-533778 Minimalista.wav"
-                    if os.path.isfile(wav_efeito):
-                        import winsound
-                        winsound.PlaySound(wav_efeito, winsound.SND_FILENAME | winsound.SND_ASYNC)
-                    else:
-                        import winsound
-                        winsound.MessageBeep(winsound.MB_ICONASTERISK)
-                except Exception:
-                    pass
-            threading.Thread(target=_tocar_silencio, daemon=True).start()
+            threading.Thread(target=tocar_efeito_silencio_local, daemon=True).start()
             self.responder_json({'success': True})
 
         elif caminho == '/api/audacity/travar-silencio':
