@@ -1,4 +1,4 @@
 Compressor:attackMs="10" compressionRatio="3" kneeWidthDb="5" lookaheadMs="1" makeupGainDb="0" releaseMs="100" showActual="1" showInput="0" showOutput="1" showTarget="0" thresholdDb="-18"
 TdrNova:Use_Preset="<Current Settings>"
+LoudnessNormalization:DualMono="1" LUFSLevel="-14" NormalizeTo="0" RemoveDcOffset="1"
 Limiter:kneeWidthDb="2" lookaheadMs="1" makeupTargetDb="0" releaseMs="100" showActual="1" showInput="0" showOutput="1" showTarget="0" thresholdDb="-1,5"
-Normalize:ApplyVolume="1" PeakLevel="-2" RemoveDcOffset="1" StereoIndependent="0"

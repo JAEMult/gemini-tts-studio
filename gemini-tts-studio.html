@@ -59,6 +59,7 @@
     .hidden { display: none !important; }
 
     /* mesa de blocos */
+    #blocosArea { outline: none !important; border: none !important; }
     .dist-bar { display:flex; align-items:flex-end; gap:12px; flex-wrap:wrap; margin-top:16px; }
     .blocos-head { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin:20px 0 8px; }
     .blocos-acoes { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
@@ -287,8 +288,12 @@
       text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 5px;
     }
     #mainText {
-      height: calc(100vh - 420px); min-height: 150px;
-      resize: vertical; font-size: 14px; line-height: 1.7;
+      height: 62px; min-height: 52px;
+      resize: vertical; font-size: 13.5px; line-height: 1.5;
+      transition: height 0.2s ease;
+    }
+    #mainText.expandido {
+      height: 240px;
     }
 
     /* ── OUTPUT ── */
@@ -435,6 +440,162 @@
       border: 1px solid rgba(245, 158, 11, 0.35);
     }
 
+    /* ── CONTAINER DO BLOCO UNIFICADO (QUANDO 'JUNTAR ÁUDIOS' ESTÁ ATIVO) ── */
+    .bloco-unificado-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--accent);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      margin: 12px 0 16px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+    }
+    .unificado-card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding-bottom: 10px;
+      margin-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .unificado-grid {
+      display: grid;
+      grid-template-columns: 1.15fr 1fr;
+      gap: 16px;
+      align-items: stretch;
+    }
+    @media (max-width: 960px) {
+      .unificado-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .unificado-col-audios {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+    }
+    .unificado-col-texto {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+    }
+    .unificado-section-label {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 2px;
+    }
+    .unificado-lista-audios {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 440px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+    .unificado-lista-audios::-webkit-scrollbar {
+      width: 6px;
+    }
+    .unificado-lista-audios::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+    .unificado-audio-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 8px 10px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .unificado-audio-item:hover {
+      border-color: rgba(124, 106, 247, 0.45);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    }
+    .unificado-audio-num {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent);
+      min-width: 22px;
+      text-align: center;
+    }
+    .unificado-audio-corpo {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .unificado-audio-topo {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .unificado-input-nome {
+      height: 28px;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: var(--radius);
+      width: 140px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--accent);
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .unificado-input-nome:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(124, 106, 247, 0.2);
+    }
+    .unificado-audio-nome-label {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 250px;
+      display: inline-block;
+    }
+    .unificado-textarea {
+      width: 100%;
+      flex: 1;
+      min-height: 290px;
+      resize: vertical;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      font-size: 12.5px;
+      line-height: 1.55;
+      color: var(--text);
+      font-family: inherit;
+      box-sizing: border-box;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .unificado-textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(124, 106, 247, 0.2);
+    }
+
     /* ── ABAS DO WORKSPACE ── */
     .workspace-tabs {
       display: flex;
@@ -549,6 +710,112 @@
       gap: 4px;
     }
     .master-pill.duracao { color: #38bdf8; border-color: rgba(56, 189, 248, 0.3); }
+    .master-pill.duracao.has-history {
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .master-pill.duracao.has-history:hover {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: #38bdf8;
+    }
+    .pill-dur-container {
+      position: relative;
+      display: inline-flex;
+    }
+    .hist-popover {
+      display: none;
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      z-index: 120;
+      min-width: 260px;
+      max-width: 340px;
+      background: #161622;
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7), 0 8px 10px -6px rgba(0, 0, 0, 0.7);
+      border-radius: 8px;
+      padding: 8px;
+      font-family: inherit;
+      color: var(--text);
+    }
+    .pill-dur-container:hover .hist-popover {
+      display: block;
+    }
+    .hist-popover-header {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #94a3b8;
+      padding: 2px 6px 6px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .hist-popover-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 6px;
+    }
+    .hist-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 6px 8px;
+      border-radius: 6px;
+      font-size: 11.5px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid transparent;
+      transition: all 0.15s ease;
+    }
+    .hist-item:hover {
+      background: rgba(56, 189, 248, 0.08);
+      border-color: rgba(56, 189, 248, 0.25);
+    }
+    .hist-item.active {
+      background: rgba(56, 189, 248, 0.12);
+      border-color: rgba(56, 189, 248, 0.35);
+      font-weight: 600;
+    }
+    .hist-item-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .hist-item-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #f1f5f9;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .hist-item-delta {
+      font-size: 10px;
+      color: #f59e0b;
+      font-weight: 600;
+    }
+    .hist-item-btn {
+      flex: none;
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      color: #38bdf8;
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-size: 10.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .hist-item-btn:hover {
+      background: #38bdf8;
+      color: #0f172a;
+    }
     .master-pill.tamanho { color: #34d399; border-color: rgba(52, 211, 153, 0.3); }
     .master-pill.macro { color: #a78bfa; border-color: rgba(167, 139, 250, 0.3); }
     .master-player-row {
@@ -888,14 +1155,13 @@
     <div id="viewEstudio">
       <!-- 1 · ROTEIRO COMPLETO -->
       <div>
-        <div class="area-label">① Roteiro completo</div>
-      <textarea id="mainText" placeholder="Cole aqui o roteiro inteiro — ele será distribuído em blocos.
-
-Exemplo com audio tags:
-[thoughtful] Em 4 de abril do ano 7 depois de Cristo...
-[whispers] O criador do universo. Aprendendo a fazer juntas."></textarea>
-      <div class="char-count" id="charCount">0 caracteres</div>
-    </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+          <div class="area-label" style="margin:0;">① Roteiro completo</div>
+          <button type="button" id="btnToggleExpandirRoteiro" class="btn-icon" style="font-size:11px; padding:2px 8px; height:22px; cursor:pointer;" onclick="alternarExpansaoRoteiro()" title="Alternar entre modo compacto (2 linhas) e expandido">⤢ Expandir</button>
+        </div>
+        <textarea id="mainText" placeholder="Cole aqui o roteiro inteiro — ele será distribuído em blocos. Ex: [thoughtful] Em 4 de abril... [whispers] O criador do universo."></textarea>
+        <div class="char-count" id="charCount">0 caracteres</div>
+      </div>
 
     <!-- 2 · DISTRIBUIÇÃO -->
     <div class="dist-bar">
@@ -949,13 +1215,66 @@ Exemplo com audio tags:
       </div>
     </div>
 
+    <!-- PAINEL AUDACITY & WHISPER (Pós-processamento) - ATIVO E VISÍVEL O TEMPO TODO -->
+    <div class="pos-proc-box" id="posProcBox" style="margin-top:14px; margin-bottom:14px;">
+      <div class="pos-proc-header">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:16px;">🎚</span>
+          <span style="font-weight:600; font-size:13px;">Pós-Processamento: Audacity & Whisper</span>
+          <span id="bridgeStatusBadge" class="bridge-badge checking">Verificando...</span>
+        </div>
+        <button class="btn-icon" id="fecharAudacityBtn" onclick="fecharAudacity()" title="Garante que o Audacity seja encerrado caso tenha ficado aberto" style="font-size:11px; padding:3px 8px;">✕ Fechar Audacity</button>
+      </div>
+
+      <div class="pos-proc-body">
+        <!-- 1. Juntar vários em um só -->
+        <div class="pos-proc-field">
+          <label class="checkbox-label" title="Executa o alinhamento de ponta a ponta no Audacity ANTES de aplicar qualquer macro e consolida o roteiro">
+            <input type="checkbox" id="checkJuntarAudios" onchange="atualizarInfoJuntar()">
+            <b>🔗 Juntar vários áudios em um só</b> <span style="font-size:11px; opacity:.75;">(Alinha no Audacity antes de masterizar e unifica visualmente os blocos)</span>
+          </label>
+        </div>
+
+        <!-- 2. Gerar Legenda SRT com Whisper -->
+        <div class="pos-proc-field">
+          <label class="checkbox-label" title="Transcreve o áudio na GPU com o Whisper e gera o arquivo .srt sincronizado">
+            <input type="checkbox" id="checkGerarSrt">
+            <b>📄 Gerar legenda SRT com Whisper</b> <span id="srtDescInfo" style="font-size:11px; opacity:.75;">(1 SRT para cada bloco individual)</span>
+          </label>
+        </div>
+
+        <!-- 3. Seleção de Macro do Audacity (abaixo das opções) -->
+        <div class="pos-proc-field" style="margin-top:4px;">
+          <label style="font-size:11px; opacity:.85; margin-bottom:4px; font-weight:600; display:block;">🎚️ Macro do Audacity (TDR Nova, Compressor, Limiter):</label>
+          <select id="macroSelect" style="width:100%; max-width:440px;"></select>
+        </div>
+
+        <!-- 4. Botões de Disparo -->
+        <div style="display:flex; align-items:center; gap:10px; margin-top:10px; flex-wrap:wrap;">
+          <button class="btn-processar" id="processarAudacityBtn" onclick="processarComAudacityEWhisper()">
+            ⚡ Processar no Audacity & Whisper
+          </button>
+          <button class="btn-processar btn-pastel-green" id="gerarSomenteSrtBtn" onclick="processarSomenteSrt()" title="Pula o Audacity completamente e transcreve os áudios diretamente na GPU com Whisper gerando apenas as legendas SRT em poucos segundos">
+            📄 Gerar somente Legendas (.srt)
+          </button>
+          <span id="posProcMsg" style="font-size:12px; font-weight:500;"></span>
+        </div>
+
+        <!-- Resultados e Downloads do Pós-Processamento -->
+        <div id="posProcResultados" class="hidden" style="margin-top:10px; padding:10px; background:var(--surface2); border-radius:var(--radius); border:1px solid var(--border);">
+          <div style="font-weight:600; font-size:12px; margin-bottom:8px; color:var(--success);">✅ Processamento concluído! Baixe os arquivos finais:</div>
+          <div id="posProcDownloadsLista" style="display:flex; flex-direction:column; gap:6px;"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- 3 · MESA DE BLOCOS -->
     <div class="hidden" id="blocosArea">
       <div class="blocos-head">
-        <div class="area-label" style="margin:0">③ Blocos <span id="blocosResumo" style="opacity:.7"></span></div>
+        <div class="area-label" style="margin:0" id="blocosAreaTitulo">③ Blocos <span id="blocosResumo" style="opacity:.7"></span></div>
         <div class="blocos-acoes">
           <input type="text" id="nomeBase" class="filename-input" placeholder="EU_EP03_AU_PT_L01" style="width:210px">
-          <button class="btn-icon" onclick="aplicarNomesSequenciais()" title="Numera os blocos a partir deste nome, continuando o número final">↧ Nomear em sequência</button>
+          <button class="btn-icon" id="btnNomearSeq" onclick="aplicarNomesSequenciais()" title="Numera os blocos a partir deste nome, continuando o número final">↧ Nomear em sequência</button>
           <button class="btn-icon" onclick="document.getElementById('inputImportarAudios').click()" title="Importa múltiplos arquivos de áudio (.wav, .mp3, .m4a, etc.) e coloca na mesa em ordem alfanumérica">🎵 Importar Áudios</button>
           <button class="btn-generate" id="gerarTodosBtn" onclick="gerarTodos()">▶ Gerar pendentes</button>
           <button class="btn-download" onclick="baixarTodos(false)" style="padding:7px 14px">⬇ Baixar todos</button>
@@ -963,70 +1282,12 @@ Exemplo com audio tags:
         </div>
       </div>
 
-      <!-- PAINEL AUDACITY & WHISPER (Pós-processamento) -->
-      <div class="pos-proc-box" id="posProcBox">
-        <div class="pos-proc-header">
-          <div style="display:flex; align-items:center; gap:8px;">
-            <span style="font-size:16px;">🎚</span>
-            <span style="font-weight:600; font-size:13px;">Pós-Processamento: Audacity & Whisper</span>
-            <span id="bridgeStatusBadge" class="bridge-badge checking">Verificando...</span>
-          </div>
-          <button class="btn-icon" id="fecharAudacityBtn" onclick="fecharAudacity()" title="Garante que o Audacity seja encerrado caso tenha ficado aberto" style="font-size:11px; padding:3px 8px;">✕ Fechar Audacity</button>
-        </div>
-
-        <div class="pos-proc-body">
-          <!-- 1. Juntar todos em um -->
-          <div class="pos-proc-field">
-            <label class="checkbox-label" title="Executa o alinhamento de ponta a ponta no Audacity ANTES de aplicar qualquer macro">
-              <input type="checkbox" id="checkJuntarAudios" onchange="atualizarInfoJuntar()">
-              <b>🔗 Juntar todos os áudios em um só</b> <span style="font-size:11px; opacity:.75;">(Alinha no Audacity antes de masterizar)</span>
-            </label>
-          </div>
-
-          <!-- Campo de Texto Único quando Juntar Áudios está ativado -->
-          <div id="campoTextoUnificado" class="pos-proc-field hidden" style="margin-top:6px; padding:10px 12px; background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius);">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-              <label for="textoUnificadoSrt" style="font-size:11.5px; font-weight:600; display:flex; align-items:center; gap:5px; color:var(--text); margin:0;">
-                <span>📝 Texto / Roteiro do Áudio Unificado:</span>
-              </label>
-              <span style="font-size:10.5px; opacity:.75;">(espaço único para o texto da narração que será sincronizado na legenda SRT)</span>
-            </div>
-            <textarea id="textoUnificadoSrt" style="width:100%; min-height:85px; font-family:inherit; font-size:12px; padding:8px 10px; border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); resize:vertical; box-sizing:border-box;" placeholder="Cole ou digite aqui o roteiro/texto completo correspondente aos áudios que serão juntados para guiar o Whisper na legenda SRT..."></textarea>
-          </div>
-
-          <!-- 2. Gerar Legenda SRT com Whisper -->
-          <div class="pos-proc-field">
-            <label class="checkbox-label" title="Transcreve o áudio na GPU com o Whisper e gera o arquivo .srt sincronizado">
-              <input type="checkbox" id="checkGerarSrt">
-              <b>📄 Gerar legenda SRT com Whisper</b> <span id="srtDescInfo" style="font-size:11px; opacity:.75;">(1 SRT para cada bloco individual)</span>
-            </label>
-          </div>
-
-          <!-- 3. Seleção de Macro do Audacity (abaixo das opções) -->
-          <div class="pos-proc-field" style="margin-top:4px;">
-            <label style="font-size:11px; opacity:.85; margin-bottom:4px; font-weight:600; display:block;">🎚️ Macro do Audacity (TDR Nova, Compressor, Limiter):</label>
-            <select id="macroSelect" style="width:100%; max-width:440px;"></select>
-          </div>
-
-          <!-- 4. Botões de Disparo -->
-          <div style="display:flex; align-items:center; gap:10px; margin-top:10px; flex-wrap:wrap;">
-            <button class="btn-processar" id="processarAudacityBtn" onclick="processarComAudacityEWhisper()">
-              ⚡ Processar no Audacity & Whisper
-            </button>
-            <button class="btn-processar btn-pastel-green" id="gerarSomenteSrtBtn" onclick="processarSomenteSrt()" title="Pula o Audacity completamente e transcreve os áudios diretamente na GPU com Whisper gerando apenas as legendas SRT em poucos segundos">
-              📄 Gerar somente Legendas (.srt)
-            </button>
-            <span id="posProcMsg" style="font-size:12px; font-weight:500;"></span>
-          </div>
-
-          <!-- Resultados e Downloads do Pós-Processamento -->
-          <div id="posProcResultados" class="hidden" style="margin-top:10px; padding:10px; background:var(--surface2); border-radius:var(--radius); border:1px solid var(--border);">
-            <div style="font-weight:600; font-size:12px; margin-bottom:8px; color:var(--success);">✅ Processamento concluído! Baixe os arquivos finais:</div>
-            <div id="posProcDownloadsLista" style="display:flex; flex-direction:column; gap:6px;"></div>
-          </div>
-        </div>
+      <!-- CONTAINER DO MODO UNIFICADO (BLOCOS DE ÁUDIO UNIFICADOS POR EPISÓDIO) -->
+      <div id="containerModoUnificado" class="hidden">
+        <div id="unificadosListaCards" style="display:flex; flex-direction:column; gap:16px;"></div>
       </div>
 
+      <!-- LISTA DE BLOCOS INDIVIDUAIS (QUANDO MODO JUNTAR ESTÁ DESATIVADO) -->
       <div id="blocosLista"></div>
     </div>
     </div> <!-- /#viewEstudio -->
@@ -1068,6 +1329,9 @@ Exemplo com audio tags:
             ✂️ Travar em Todos
           </button>
         </div>
+        <button class="btn-download hidden" id="btnRestaurarSilencioTodos" onclick="restaurarSilencioTodosMasterizados()" style="padding:6px 13px; border-color:rgba(148,163,184,0.35); color:#94a3b8; background:rgba(148,163,184,0.08); font-weight:600; font-size:11.5px; cursor:pointer; transition:all 0.15s ease; font-family:inherit; white-space:nowrap;" onmouseover="this.style.background='rgba(148,163,184,0.18)';this.style.color='#f1f5f9';" onmouseout="this.style.background='rgba(148,163,184,0.08)';this.style.color='#94a3b8';" title="Restaura todos os áudios modificados para a versão Original (desfazendo o corte de silêncio)">
+          ↩️ Desfazer Silêncio (Todos)
+        </button>
       </div>
 
       <!-- Estado vazio -->
@@ -1094,7 +1358,7 @@ Exemplo com audio tags:
 
 <div class="toast" id="toast"></div>
 
-<!-- BARRINHA DE PROGRESSO FIXA NA PARTE INFERIOR (VERDE PASTEL) -->
+<!-- BARRINHA DE PROGRESSO FIXA NA PARTE INFERIOR (VERDE PASTEL - LEGENDA SRT) -->
 <div id="barraProgressoSrtContainer" class="hidden" style="position:fixed; bottom:0; left:0; width:100%; z-index:99999; background:rgba(18, 24, 27, 0.96); backdrop-filter:blur(10px); border-top:1px solid #2d6a4f; box-shadow:0 -4px 20px rgba(0,0,0,0.5); padding:10px 24px; display:flex; align-items:center; gap:16px; font-family:inherit;">
   <div style="display:flex; align-items:center; gap:9px; font-size:13px; font-weight:600; color:#d8f3dc; white-space:nowrap;">
     <span class="emoji-girando" style="font-size:16px;">⏳</span>
@@ -1104,6 +1368,18 @@ Exemplo com audio tags:
     <div id="barraProgressoSrtPreenchimento" style="width:0%; height:100%; background:linear-gradient(90deg, #40916c, #52b788, #74c69d); border-radius:99px; transition:width 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow:0 0 12px rgba(82, 183, 136, 0.55);"></div>
   </div>
   <span id="barraProgressoSrtPct" style="font-size:13px; font-weight:700; color:#74c69d; min-width:42px; text-align:right;">0%</span>
+</div>
+
+<!-- BARRINHA DE PROGRESSO FIXA NA PARTE INFERIOR (AMARELO PASTEL - TRAVANDO SILÊNCIO) -->
+<div id="barraProgressoSilencioContainer" class="hidden" style="position:fixed; bottom:0; left:0; width:100%; z-index:99999; background:rgba(27, 24, 16, 0.96); backdrop-filter:blur(10px); border-top:1px solid #b5830d; box-shadow:0 -4px 20px rgba(0,0,0,0.5); padding:10px 24px; display:flex; align-items:center; gap:16px; font-family:inherit;">
+  <div style="display:flex; align-items:center; gap:9px; font-size:13px; font-weight:600; color:#fef3c7; white-space:nowrap;">
+    <span class="emoji-girando" style="font-size:16px;">✂️</span>
+    <span id="barraProgressoSilencioTexto">Travando silêncio...</span>
+  </div>
+  <div style="flex:1; height:9px; background:rgba(255,255,255,0.07); border-radius:99px; overflow:hidden; position:relative; box-shadow:inset 0 1px 2px rgba(0,0,0,0.4);">
+    <div id="barraProgressoSilencioPreenchimento" style="width:0%; height:100%; background:linear-gradient(90deg, #d97706, #f59e0b, #fde047); border-radius:99px; transition:width 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow:0 0 12px rgba(245, 158, 11, 0.55);"></div>
+  </div>
+  <span id="barraProgressoSilencioPct" style="font-size:13px; font-weight:700; color:#fbbf24; min-width:42px; text-align:right;">0%</span>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -1617,11 +1893,11 @@ const PROFILES = {
 // basta adicionar o grupo aqui (com sua entrada em PROFILES/VB) que ele
 // aparece sozinho no seletor "Canal do projeto" dos documentos.
 const GRUPOS_PERFIL_BLOCO = [
-  { grupo: 'O Código Joshua',            ids: ['cj_pt','cj_en','cj_es','cj_de','cj_fr'],   apelidos: ['CJ'] },
-  { grupo: 'Jesus Além dos Evangelhos',  ids: ['jae_pt','jae_en','jae_es','jae_de','jae_fr'], apelidos: ['JAE'] },
-  { grupo: 'Essência Única',             ids: ['eu_pt','eu_en','eu_es','eu_de','eu_fr'],   apelidos: ['ESS','EU'] },
-  { grupo: 'Estoy Siempre Con Dios',     ids: ['escd_pt','escd_en','escd_es','escd_de','escd_fr'], apelidos: ['ESCD'] },
-  { grupo: 'Plenitude Natural',          ids: ['pn_pt','pn_en','pn_es','pn_de','pn_fr'],   apelidos: ['PN'] },
+  { grupo: 'O Código Joshua',            ids: ['cj_pt','cj_en','cj_es','cj_de','cj_fr'],   apelidos: ['CJ', 'JOSHUA', 'CODIGO JOSHUA', 'CÓDIGO JOSHUA'] },
+  { grupo: 'Jesus Além dos Evangelhos',  ids: ['jae_pt','jae_en','jae_es','jae_de','jae_fr'], apelidos: ['JAE', 'UJAE', 'JESUS ALEM', 'JESUS ALÉM'] },
+  { grupo: 'Essência Única',             ids: ['eu_pt','eu_en','eu_es','eu_de','eu_fr'],   apelidos: ['EU', 'ESS', 'ESSENCIA', 'ESSÊNCIA', 'ESSENCIA UNICA', 'ESSÊNCIA ÚNICA'] },
+  { grupo: 'Estoy Siempre Con Dios',     ids: ['escd_pt','escd_en','escd_es','escd_de','escd_fr'], apelidos: ['ESCD', 'ESTOY SIEMPRE', 'ESTOY SIEMPRE CON DIOS', 'ESTOU SEMPRE', 'ESTOU SEMPRE COM DEUS'] },
+  { grupo: 'Plenitude Natural',          ids: ['pn_pt','pn_en','pn_es','pn_de','pn_fr'],   apelidos: ['PN', 'PLENITUDE', 'PLENITUDE NATURAL'] },
 ];
 
 function preencherSelectPerfilBloco(sel) {
@@ -1642,12 +1918,28 @@ function perfilParaGrupoIdioma(grupoNome, idioma) {
   return g.ids.find(id => id.endsWith(alvo)) || '';
 }
 
-// compara um token do nome do bloco/documento (ex: "ESS") contra os
-// apelidos conhecidos do canal — usado só pra desempatar episódios repetidos
+// compara um token do nome do bloco/documento (ex: "ESS", "UJAE") contra os
+// apelidos conhecidos do canal — usado pra desempatar episódios repetidos
 function grupoCombinaComToken(grupoNome, token) {
   if (!grupoNome || !token) return false;
   const g = GRUPOS_PERFIL_BLOCO.find(x => x.grupo === grupoNome);
-  return !!g && g.apelidos.includes(token);
+  if (!g) return false;
+  const tkNorm = token.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+  return g.apelidos.some(ap => ap.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase() === tkNorm);
+}
+
+// detecta automaticamente o canal do projeto pelo nome do arquivo/bloco caso contenha apelidos (ex: "ESCD", "CJ", "PN", "UJAE", "EU", "ESS")
+function extrairCanalGrupoDoNome(nome) {
+  if (!nome) return '';
+  const norm = nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+  for (const g of GRUPOS_PERFIL_BLOCO) {
+    for (const ap of g.apelidos) {
+      const apNorm = ap.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+      const re = new RegExp('(^|[^A-Z0-9])' + apNorm.replace(/\s+/g, '[_\\s-]+') + '([^A-Z0-9]|$)', 'i');
+      if (re.test(norm)) return g.grupo;
+    }
+  }
+  return '';
 }
 
 // preenche um <select> de "canal do projeto" com os grupos definidos em
@@ -1718,6 +2010,37 @@ function insertTagAtCursor(tag) {
   el.selectionStart = el.selectionEnd = s + tag.length + 1;
   el.focus();
   el.dispatchEvent(new Event('input'));
+}
+
+// Limpa completamente quaisquer tags de áudio, anotações de cena ou marcas para o Whisper e legendas SRT
+function limparTagsParaSrt(texto) {
+  if (!texto) return '';
+  return texto
+    .replace(/\[[\s\S]*?\]/g, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\((?:m[úu]sica|risos?|aplausos?|palmas?|som|tosse|suspiro|gasp|whisper\w*|laughter|applause|music|singing|pausa|sil[êe]ncio|barulho)\)/gi, ' ')
+    .replace(/[\[\]]/g, '')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\s+([,.:;!?…])/g, '$1')
+    .trim();
+}
+
+function limparTagsDeSrt(srt) {
+  if (!srt) return '';
+  const blocos = srt.split(/\r?\n\r?\n/);
+  const blocosLimpos = [];
+  let idxReal = 1;
+  for (const b of blocos) {
+    const linhas = b.trim().split(/\r?\n/);
+    if (linhas.length < 3) continue;
+    const tempo = linhas[1];
+    const textoCru = linhas.slice(2).join('\n');
+    const textoLimpo = limparTagsParaSrt(textoCru);
+    if (!textoLimpo) continue;
+    blocosLimpos.push(`${idxReal}\n${tempo}\n${textoLimpo}`);
+    idxReal++;
+  }
+  return blocosLimpos.join('\n\n') + (blocosLimpos.length ? '\n' : '');
 }
 
 // ════════════════════════════════════════════════════════
@@ -1971,6 +2294,16 @@ mainText.addEventListener('input', () => {
   charCount.className = 'char-count' + (n > 4000 ? ' warn' : '');
 });
 
+function alternarExpansaoRoteiro() {
+  const txt = document.getElementById('mainText');
+  const btn = document.getElementById('btnToggleExpandirRoteiro');
+  if (!txt) return;
+  txt.classList.toggle('expandido');
+  if (btn) {
+    btn.innerHTML = txt.classList.contains('expandido') ? '⤡ Recolher' : '⤢ Expandir';
+  }
+}
+
 // ════════════════════════════════════════════════════════
 // PCM → WAV
 // ════════════════════════════════════════════════════════
@@ -2047,7 +2380,7 @@ function audioBufferToWav(buffer) {
 function ehArquivoAudio(f) {
   if (!f || !f.name) return false;
   const ext = (f.name.split('.').pop() || '').toLowerCase();
-  const extensoesAudio = ['wav', 'mp3', 'm4a', 'ogg', 'flac', 'aac', 'opus', 'wma', 'aiff', 'alac', 'webm'];
+  const extensoesAudio = ['wav', 'mp3', 'm4a', 'ogg', 'flac', 'aac', 'opus', 'wma', 'aiff', 'alac', 'webm', 'mp4', 'm4b', 'mp2'];
   return extensoesAudio.includes(ext) || (f.type && f.type.startsWith('audio/'));
 }
 
@@ -2652,12 +2985,18 @@ async function processarArquivo(file) {
   } else {
     return null;
   }
-  return { nomeArquivo: file.name, numeroEpisodio: extrairNumeroEpisodio(file.name), idiomas, canalGrupo: canalGrupoPadrao, selecionado: true };
+  // Detecção pelo nome do arquivo SEMPRE tem prioridade máxima. Só se o arquivo não contiver indicação de canal é que recorre ao canal padrão global.
+  const detectado = extrairCanalGrupoDoNome(file.name);
+  const canalFinal = detectado || canalGrupoPadrao || '';
+  return { nomeArquivo: file.name, numeroEpisodio: extrairNumeroEpisodio(file.name), idiomas, canalGrupo: canalFinal, _canalManual: false, selecionado: true };
 }
 
 async function processarArquivos(fileList) {
   const todos = Array.from(fileList || []);
-  if (!todos.length) return;
+  if (!todos.length) {
+    showToast('⚠️ Nenhum arquivo foi detectado ao soltar.');
+    return;
+  }
 
   const arquivosAudio = todos.filter(ehArquivoAudio);
   const arquivosDoc = todos.filter(f => !ehArquivoAudio(f));
@@ -2666,24 +3005,26 @@ async function processarArquivos(fileList) {
     await importarArquivosAudio(arquivosAudio);
   }
 
-  if (!arquivosDoc.length) return;
-
-  let ok = 0, semSuporte = 0, vazios = 0;
-  for (const f of arquivosDoc) {
-    let doc;
-    try { doc = await processarArquivo(f); }
-    catch (e) { showToast(`⚠️ ${f.name}: ${e.message}`); continue; }
-    if (!doc) { semSuporte++; continue; }
-    if (!Object.keys(doc.idiomas).length) vazios++;
-    documentos.push(doc);
-    ok++;
+  if (arquivosDoc.length) {
+    let ok = 0, semSuporte = 0, vazios = 0;
+    for (const f of arquivosDoc) {
+      let doc;
+      try { doc = await processarArquivo(f); }
+      catch (e) { showToast(`⚠️ ${f.name}: ${e.message}`); continue; }
+      if (!doc) { semSuporte++; continue; }
+      if (!Object.keys(doc.idiomas).length) vazios++;
+      documentos.push(doc);
+      ok++;
+    }
+    renderDocumentos();
+    blocos.forEach(sincronizarBloco);
+    const partes = [`📄 ${ok} documento(s) carregado(s)`];
+    if (vazios) partes.push(`${vazios} sem narração reconhecida`);
+    if (semSuporte) partes.push(`${semSuporte} formato não suportado`);
+    showToast(partes.join(' · '));
+  } else if (!arquivosAudio.length) {
+    showToast(`⚠️ Nenhum áudio (.wav, .mp3, .m4a) ou documento (.docx, .xlsx, .txt) válido encontrado (${todos.length} arquivo(s) ignorado(s)).`);
   }
-  renderDocumentos();
-  blocos.forEach(sincronizarBloco);
-  const partes = [`📄 ${ok} documento(s) carregado(s)`];
-  if (vazios) partes.push(`${vazios} sem narração reconhecida`);
-  if (semSuporte) partes.push(`${semSuporte} formato não suportado`);
-  showToast(partes.join(' · '));
 }
 
 function renderDocumentos() {
@@ -2720,6 +3061,7 @@ function renderDocumentos() {
     canal.value = doc.canalGrupo || '';
     canal.addEventListener('change', () => {
       doc.canalGrupo = canal.value;
+      doc._canalManual = true;
       blocos.forEach(sincronizarBloco);
     });
 
@@ -2789,17 +3131,30 @@ function criarBlocosEmLote() {
     .forEach(doc => {
       if (doc.numeroEpisodio == null) { semEpisodio++; return; }
       const g = GRUPOS_PERFIL_BLOCO.find(x => x.grupo === doc.canalGrupo);
-      const prefixo = g ? g.apelidos[0] + ' ' : '';
-      idiomasAlvo.forEach(lang => {
-        if (!doc.idiomas[lang]) { semNarracao++; return; }
-        const nome = `${prefixo}${doc.numeroEpisodio} ${lang}`;
-        const b = adicionarBloco();
-        b.nome = nome;
-        if (b._el) b._el.nomeInput.value = nome;
-        sincronizarBloco(b);
-        criados++;
+      let apPrefixo = g ? g.apelidos[0] : '';
+      if (g && doc.nomeArquivo) {
+        const apMatch = g.apelidos.find(ap => {
+          const apNorm = ap.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+          return new RegExp('(^|[^A-Z0-9])' + apNorm + '([^A-Z0-9]|$)', 'i').test((doc.nomeArquivo || '').normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
+        });
+        if (apMatch) apPrefixo = apMatch;
+      }
+      const prefixo = apPrefixo ? apPrefixo + ' ' : '';
+        idiomasAlvo.forEach(lang => {
+          if (!doc.idiomas[lang]) { semNarracao++; return; }
+          const nome = `${prefixo}${doc.numeroEpisodio} ${lang}`;
+          const b = adicionarBloco();
+          b.nome = nome;
+          const canalDocCriacao = doc.canalGrupo || canalGrupoPadrao;
+          if (canalDocCriacao) {
+            const pDoc = perfilParaGrupoIdioma(canalDocCriacao, lang);
+            if (pDoc) b.perfil = pDoc;
+          }
+          if (b._el) b._el.nomeInput.value = nome;
+          sincronizarBloco(b);
+          criados++;
+        });
       });
-    });
 
   const partes = [criados ? `⚡ ${criados} bloco(s) criado(s)` : '⚠️ nenhum bloco criado'];
   if (semEpisodio) partes.push(`${semEpisodio} documento(s) sem episódio detectado, pulado(s)`);
@@ -2854,7 +3209,10 @@ function sincronizarBloco(b) {
   }
 
   const canalAtivo = document.getElementById('profileSelect') ? document.getElementById('profileSelect').value : '';
-  const perfilAuto = (canalAtivo !== MODO_LIVRE && doc.canalGrupo) ? perfilParaGrupoIdioma(doc.canalGrupo, idioma) : '';
+  const canalDoc = doc.canalGrupo || canalGrupoPadrao;
+  const perfilAuto = canalDoc
+    ? perfilParaGrupoIdioma(canalDoc, idioma)
+    : (canalAtivo && canalAtivo !== MODO_LIVRE ? canalAtivo : '');
   const podeSubstituirPerfil = !b._perfilManual;
   if (perfilAuto && podeSubstituirPerfil && b.perfil !== perfilAuto) {
     b.perfil = perfilAuto; mudou = true;
@@ -2870,14 +3228,130 @@ function sincronizarBloco(b) {
   if (mudou) { atualizarBloco(b); atualizarResumo(); }
 }
 
-// evita que soltar o arquivo fora da zona de drop faça o navegador abrir o
-// arquivo e navegar pra longe da mesa (perderia tudo que não foi baixado)
-window.addEventListener('dragover', e => e.preventDefault());
-window.addEventListener('drop', e => {
+// Extrai arquivos mesmo se forem pastas arrastadas no Chrome/Edge, sem perder o DataTransfer síncrono
+async function extrairArquivosDeDataTransfer(dt) {
+  if (!dt) return [];
+
+  // 1. CAPTURA SÍNCRONA IMEDIATA: dt.files é 100% válido no momento exato do evento drop
+  const syncFiles = Array.from(dt.files || []);
+
+  // 2. Verifica se há pastas arrastadas que necessitam de varredura assíncrona
+  let temDiretorio = false;
+  const dirEntries = [];
+
+  if (dt.items && dt.items.length) {
+    for (let i = 0; i < dt.items.length; i++) {
+      const item = dt.items[i];
+      if (item && item.kind === 'file' && item.webkitGetAsEntry) {
+        try {
+          const entry = item.webkitGetAsEntry();
+          if (entry && entry.isDirectory) {
+            temDiretorio = true;
+            dirEntries.push(entry);
+          }
+        } catch (_) {}
+      }
+    }
+  }
+
+  // Se não há pastas, retorna IMEDIATAMENTE os arquivos capturados sincronicamente!
+  // Isso evita qualquer problema de detachment (invalidação) do DataTransfer no Chromium.
+  if (!temDiretorio && syncFiles.length > 0) {
+    return syncFiles;
+  }
+
+  // Se há pastas arrastadas, faz a varredura recursiva das pastas
+  if (temDiretorio) {
+    const arquivosDaPasta = [];
+    const readEntriesPromise = (dirReader) => {
+      return new Promise((resolve) => {
+        dirReader.readEntries((entries) => resolve(entries || []), () => resolve([]));
+      });
+    };
+    const getFilePromise = (fileEntry) => {
+      return new Promise((resolve) => {
+        fileEntry.file((f) => resolve(f), () => resolve(null));
+      });
+    };
+    const scanEntry = async (entry) => {
+      if (!entry) return;
+      if (entry.isFile) {
+        const file = await getFilePromise(entry);
+        if (file) arquivosDaPasta.push(file);
+      } else if (entry.isDirectory) {
+        const dirReader = entry.createReader();
+        let batch;
+        do {
+          batch = await readEntriesPromise(dirReader);
+          for (const child of batch) {
+            await scanEntry(child);
+          }
+        } while (batch && batch.length > 0);
+      }
+    };
+
+    await Promise.all(dirEntries.map(scanEntry));
+
+    // Junta arquivos soltos já capturados sincronicamente com os extraídos das pastas
+    const todos = [...syncFiles.filter(f => f.size > 0), ...arquivosDaPasta];
+    if (todos.length > 0) return todos;
+  }
+
+  return syncFiles;
+}
+
+// Trava rigorosa de rolagem durante o arraste de arquivos para a tela nunca descer (permanece parada)
+let isDraggingFiles = false;
+let dragScrollLockedY = 0;
+let dragEnterCounter = 0;
+
+const obterScrollY = () => window.scrollY || document.documentElement.scrollTop || 0;
+
+window.addEventListener('dragenter', () => {
+  dragEnterCounter++;
+  if (!isDraggingFiles) {
+    isDraggingFiles = true;
+    dragScrollLockedY = obterScrollY();
+  }
+});
+
+window.addEventListener('dragover', e => {
   e.preventDefault();
-  // Se o drop ocorreu em cima de uma das áreas que já possuem listener próprio, não processa duas vezes
-  if (e.target && e.target.closest && e.target.closest('#dropDocs, #dropAudios, #blocosArea')) return;
-  const files = e.dataTransfer ? e.dataTransfer.files : null;
+  if (isDraggingFiles) {
+    const curY = obterScrollY();
+    if (curY !== dragScrollLockedY) {
+      window.scrollTo(0, dragScrollLockedY);
+    }
+  }
+});
+
+window.addEventListener('scroll', () => {
+  if (isDraggingFiles) {
+    window.scrollTo(0, dragScrollLockedY);
+  }
+}, { passive: false });
+
+const resetarTravaArrasto = () => {
+  dragEnterCounter = 0;
+  isDraggingFiles = false;
+};
+
+window.addEventListener('dragleave', () => {
+  dragEnterCounter--;
+  if (dragEnterCounter <= 0) {
+    resetarTravaArrasto();
+  }
+});
+
+window.addEventListener('dragend', resetarTravaArrasto);
+
+// Evita que soltar o arquivo fora da zona de drop faça o navegador abrir o
+// arquivo e navegar pra longe da mesa (perderia tudo que não foi baixado)
+window.addEventListener('drop', async e => {
+  e.preventDefault();
+  resetarTravaArrasto();
+  // Se o drop chegou até o window (nenhuma zona filha interceptou), processa os arquivos para nunca perder nada
+  const files = await extrairArquivosDeDataTransfer(e.dataTransfer);
   if (files && files.length) {
     processarArquivos(files);
   }
@@ -2888,63 +3362,59 @@ const dropDocsInput = document.getElementById('dropDocsInput');
 dropDocs.addEventListener('click', () => dropDocsInput.click());
 dropDocs.addEventListener('dragover', e => { e.preventDefault(); dropDocs.classList.add('arrastando'); });
 dropDocs.addEventListener('dragleave', () => dropDocs.classList.remove('arrastando'));
-dropDocs.addEventListener('drop', e => {
+dropDocs.addEventListener('drop', async e => {
   e.preventDefault();
   e.stopPropagation();
+  resetarTravaArrasto();
   dropDocs.classList.remove('arrastando');
-  processarArquivos(e.dataTransfer.files);
+  const files = await extrairArquivosDeDataTransfer(e.dataTransfer);
+  if (files && files.length) processarArquivos(files);
 });
 dropDocsInput.addEventListener('change', () => {
   processarArquivos(dropDocsInput.files);
   dropDocsInput.value = '';
 });
 
-// Suporte a soltar na zona dedicada de áudios
+// Zona oficial dedicada para arrastar ou escolher áudios externos
 const dropAudios = document.getElementById('dropAudios');
 if (dropAudios) {
   dropAudios.addEventListener('dragover', e => { e.preventDefault(); dropAudios.classList.add('arrastando'); });
   dropAudios.addEventListener('dragleave', () => dropAudios.classList.remove('arrastando'));
-  dropAudios.addEventListener('drop', e => {
+  dropAudios.addEventListener('drop', async e => {
     e.preventDefault();
     e.stopPropagation();
+    resetarTravaArrasto();
     dropAudios.classList.remove('arrastando');
-    const files = e.dataTransfer ? e.dataTransfer.files : null;
+    const files = await extrairArquivosDeDataTransfer(e.dataTransfer);
     if (files && files.length) processarArquivos(files);
   });
 }
 
-// Suporte a soltar diretamente na mesa de blocos
-const blocosAreaEl = document.getElementById('blocosArea');
-if (blocosAreaEl) {
-  blocosAreaEl.addEventListener('dragover', e => {
-    e.preventDefault();
-    blocosAreaEl.style.outline = '2px dashed var(--accent)';
-  });
-  blocosAreaEl.addEventListener('dragleave', () => {
-    blocosAreaEl.style.outline = '';
-  });
-  blocosAreaEl.addEventListener('drop', e => {
-    e.preventDefault();
-    e.stopPropagation();
-    blocosAreaEl.style.outline = '';
-    const files = e.dataTransfer ? e.dataTransfer.files : null;
-    if (files && files.length) processarArquivos(files);
-  });
-}
-
-// seletor global de canal: define o padrão pros próximos documentos soltos
-// aqui e preenche de uma vez só os que já estão carregados e ainda não têm
-// canal escolhido — nunca troca um canal que o usuário já definiu arquivo
-// por arquivo, pra não jogar fora uma escolha específica.
+// seletor global de canal: define o canal padrão do projeto e permite alterar
+// documentos já carregados (preservando apenas os que o usuário alterou manualmente na linha)
 const canalGlobalSelect = document.getElementById('canalGlobalSelect');
 preencherOpcoesCanal(canalGlobalSelect);
 canalGlobalSelect.addEventListener('change', () => {
   canalGrupoPadrao = canalGlobalSelect.value;
   let aplicados = 0;
-  documentos.forEach(d => { if (!d.canalGrupo && canalGrupoPadrao) { d.canalGrupo = canalGrupoPadrao; aplicados++; } });
+  documentos.forEach(d => {
+    if (!d._canalManual) {
+      if (canalGrupoPadrao) {
+        d.canalGrupo = canalGrupoPadrao;
+        aplicados++;
+      } else {
+        d.canalGrupo = extrairCanalGrupoDoNome(d.nomeArquivo) || '';
+        aplicados++;
+      }
+    }
+  });
   renderDocumentos();
   blocos.forEach(sincronizarBloco);
-  if (aplicados) showToast(`🌐 canal aplicado a ${aplicados} documento(s) sem canal definido`);
+  if (canalGrupoPadrao) {
+    showToast(`🌐 Canal do projeto "${canalGrupoPadrao}" aplicado (${aplicados} documento(s))`);
+  } else {
+    showToast(`🌐 Canal global em automático — detecção dos arquivos restaurada`);
+  }
 });
 
 // ════════════════════════════════════════════════════════
@@ -2994,6 +3464,7 @@ function distribuirBlocos() {
     return b;
   });
   renderBlocos();
+  blocos.forEach(sincronizarBloco);
   showToast(`⿻ ${blocos.length} blocos`);
 }
 
@@ -3025,8 +3496,40 @@ function adicionarBlocosManual() {
   showToast(n === 1 ? '＋ 1 bloco adicionado' : `＋ ${n} blocos adicionados`);
 }
 
+// ── Estrutura de Grupos Unificados (Juntar Áudios) ─────
+let gruposUnificados = [];
+
+function extrairNomeEpisodioAudio(nomeArquivo) {
+  if (!nomeArquivo) return '';
+  const limpo = nomeArquivo.replace(/\.[^/.]+$/, '').trim();
+
+  // 1. Padrões com EP/Episodio/Capitulo: ex "EP 15", "EP15", "EP05" -> "EP5"
+  const matchEp = limpo.match(/(?:EP|EPISODIO|EPISÓDIO|CAPITULO|CAPÍTULO)[_\s-]*(\d+)/i);
+  if (matchEp) {
+    const num = parseInt(matchEp[1], 10);
+    return `EP${num}`;
+  }
+
+  // 2. Número no início + letras/idioma opcionais: ex "01 EN_01" -> "1 EN", "2PT_01" -> "2PT"
+  const matchInicioNumTexto = limpo.match(/^(\d+)\s*([a-zA-Z]{1,4})(?:[_\s-]|$)/);
+  if (matchInicioNumTexto) {
+    const num = parseInt(matchInicioNumTexto[1], 10);
+    const txt = matchInicioNumTexto[2].trim();
+    return `${num} ${txt}`.trim();
+  }
+
+  // 3. Número no início: ex "01_01" -> "1", "05 - audio" -> "5"
+  const matchInicioNum = limpo.match(/^(\d+)/);
+  if (matchInicioNum) {
+    return String(parseInt(matchInicioNum[1], 10));
+  }
+
+  return '';
+}
+
 // ── Importa múltiplos arquivos de áudio externos (.wav, .mp3, .m4a, etc.)
-// Organiza na ordem alfanumérica natural e insere na mesa de blocos com player e status 'ok'
+// No modo "Juntar Áudios": forma um Bloco de Áudio Unificado para cada lista / episódio
+// No modo padrão: insere como blocos individuais normais
 async function importarArquivosAudio(fileList) {
   const arquivos = Array.from(fileList || []).filter(ehArquivoAudio);
   if (!arquivos.length) {
@@ -3034,12 +3537,136 @@ async function importarArquivosAudio(fileList) {
     return;
   }
 
-  // 1. Ordenação alfanumérica natural (ex: 1, 2, ..., 9, 10, 11)
-  arquivos.sort((a, b) => {
-    return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+  showToast(`⏳ Processando ${arquivos.length} áudio(s)...`);
+
+  const perfilAtual = perfilAtivoAtual();
+  const checkJuntar = document.getElementById('checkJuntarAudios');
+  const juntarAtivo = checkJuntar?.checked;
+
+  // Analisa os arquivos recebidos para detectar padrões de episódios ou capítulos
+  const arquivosInfo = arquivos.map(f => {
+    const limpo = f.name.replace(/\.[^/.]+$/, '').trim();
+    const mEp = limpo.match(/(?:EP|EPISODIO|EPISÓDIO|CAPITULO|CAPÍTULO)[_\s-]*(\d+)/i);
+    const mPrefixoNum = limpo.match(/^(\d+)\s*([a-zA-Z]{0,4})[_\s-]+(\d+)/);
+    const nums = limpo.match(/\d+/g) || [];
+    const textoSemNum = limpo.replace(/[\d_-]+.*$/, '').trim();
+
+    let epFormatado = null;
+    if (mEp) {
+      const num = parseInt(mEp[1], 10);
+      epFormatado = `EP${num}`;
+    }
+
+    let prefixoFormatado = null;
+    if (mPrefixoNum) {
+      const num = parseInt(mPrefixoNum[1], 10);
+      const letras = (mPrefixoNum[2] || '').trim();
+      prefixoFormatado = letras ? `${num} ${letras}` : String(num);
+    }
+
+    return {
+      file: f,
+      limpo: limpo,
+      mEp: epFormatado,
+      prefixoNum: prefixoFormatado,
+      nums: nums,
+      textoSemNum: textoSemNum
+    };
   });
 
-  // 2. Decide substituição ou inclusão se já houver blocos na mesa
+  const temMEp = arquivosInfo.some(a => a.mEp);
+  const temPrefixoNum = arquivosInfo.some(a => a.prefixoNum);
+
+  if (juntarAtivo || temMEp || temPrefixoNum) {
+    // Se ainda não estava marcado como juntar, ativa automaticamente
+    if (checkJuntar && !checkJuntar.checked) {
+      checkJuntar.checked = true;
+      atualizarInfoJuntar();
+    }
+
+    const gruposMapa = new Map();
+    if (temMEp) {
+      for (const a of arquivosInfo) {
+        const k = a.mEp || `Episódio ${gruposUnificados.length + 1}`;
+        if (!gruposMapa.has(k)) gruposMapa.set(k, []);
+        gruposMapa.get(k).push(a.file);
+      }
+    } else if (temPrefixoNum) {
+      for (const a of arquivosInfo) {
+        const k = a.prefixoNum || (a.nums.length ? String(parseInt(a.nums[0], 10)) : `Episódio ${gruposUnificados.length + 1}`);
+        if (!gruposMapa.has(k)) gruposMapa.set(k, []);
+        gruposMapa.get(k).push(a.file);
+      }
+    } else {
+      const textos = arquivosInfo.map(a => a.textoSemNum).filter(Boolean);
+      const nomeBloco = (textos.length === arquivosInfo.length && new Set(textos).size === 1 && textos[0])
+        ? textos[0]
+        : (gruposUnificados.length === 0 ? '1' : `Episódio ${gruposUnificados.length + 1}`);
+      gruposMapa.set(nomeBloco, arquivosInfo.map(a => a.file));
+    }
+
+    let totalCriados = 0;
+    for (const [epKey, files] of gruposMapa.entries()) {
+      files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+
+      const audiosDoGrupo = [];
+      for (const f of files) {
+        try {
+          const nomeLimpo = f.name.replace(/\.[^/.]+$/, '').trim();
+          const wavBlob = await converterArquivoParaWavBlob(f);
+          const aId = ++seqId;
+          const url = URL.createObjectURL(wavBlob);
+          audiosDoGrupo.push({
+            id: aId,
+            nome: nomeLimpo,
+            blob: wavBlob,
+            url: url,
+            duracao: ''
+          });
+        } catch (err) {
+          console.error(`Erro ao importar ${f.name}:`, err);
+          showToast(`⚠️ Erro ao importar "${f.name}": ${err.message}`);
+        }
+      }
+
+      if (audiosDoGrupo.length) {
+        // Se já existe um grupo com este mesmo nome (ex: EP4), adiciona os novos áudios sem duplicar ou apagar!
+        const grupoExistente = gruposUnificados.find(g => g.nome.toLowerCase() === epKey.toLowerCase());
+        if (grupoExistente) {
+          grupoExistente.audios.push(...audiosDoGrupo);
+          grupoExistente.audios.sort((a, b) => a.nome.localeCompare(b.nome, undefined, { numeric: true, sensitivity: 'base' }));
+        } else {
+          const novoGrupo = {
+            id: 'uni_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+            nome: epKey,
+            texto: '',
+            audios: audiosDoGrupo
+          };
+          gruposUnificados.push(novoGrupo);
+          totalCriados++;
+        }
+      }
+    }
+
+    renderBlocos();
+    atualizarResumo();
+
+    const area = document.getElementById('blocosArea');
+    if (area) {
+      area.classList.remove('hidden');
+    }
+
+    if (totalCriados === 0) {
+      showToast('⚠️ Nenhum áudio pôde ser carregado. Verifique os arquivos.');
+    } else {
+      showToast(`🎵 ${totalCriados} Bloco(s) de Áudio Unificado criado(s) com sucesso!`);
+    }
+    return;
+  }
+
+  // MODO PADRÃO (Sem juntar): blocos individuais normais
+  arquivos.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+
   const jaTemConteudo = blocos.some(b => b.blob || (b.texto && b.texto.trim()));
   let substituir = false;
   if (jaTemConteudo) {
@@ -3047,34 +3674,30 @@ async function importarArquivosAudio(fileList) {
   }
 
   if (substituir) {
-    blocos.forEach(b => { if (b.url) URL.revokeObjectURL(b.url); });
+    blocos.forEach(b => {
+      if (b.url) URL.revokeObjectURL(b.url);
+      if (b._el && b._el.row) b._el.row.remove();
+    });
     const lista = document.getElementById('blocosLista');
     if (lista) lista.innerHTML = '';
     blocos = [];
   } else if (blocos.length === 1 && !blocos[0].blob && !(blocos[0].texto && blocos[0].texto.trim())) {
-    // Bloco inicial vazio é limpo automaticamente
     const lista = document.getElementById('blocosLista');
     if (lista) lista.innerHTML = '';
     blocos = [];
   }
 
-  showToast(`⏳ Processando ${arquivos.length} áudio(s)...`);
-
-  const perfilAtual = perfilAtivoAtual();
   let importados = 0;
-
   for (let i = 0; i < arquivos.length; i++) {
     const f = arquivos[i];
     try {
       const nomeLimpo = f.name.replace(/\.[^/.]+$/, '').trim();
       const wavBlob = await converterArquivoParaWavBlob(f);
-      
       const b = novoBloco('', nomeLimpo);
       b.perfil = perfilAtual;
       b.status = 'ok';
       b.erro = '';
       guardarAudio(b, wavBlob);
-      
       blocos.push(b);
       importados++;
     } catch (err) {
@@ -3089,7 +3712,6 @@ async function importarArquivosAudio(fileList) {
   const area = document.getElementById('blocosArea');
   if (area) {
     area.classList.remove('hidden');
-    area.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   showToast(`🎵 ${importados} áudio(s) importado(s) com sucesso em ordem alfanumérica!`);
@@ -3100,7 +3722,7 @@ function duplicarBloco(id) {
   if (i < 0) return;
   const orig = blocos[i];
   const copia = novoBloco(orig.texto, '');
-  copia.perfil = orig.perfil;   // preserva o perfil escolhido ao duplicar
+  copia.perfil = orig.perfil;
   copia._perfilManual = orig._perfilManual;
   blocos.splice(i + 1, 0, copia);
   renderBlocos();
@@ -3113,7 +3735,7 @@ function removerBloco(id) {
   if (b.status === 'gerando') { showToast('⏳ Esse bloco está gerando agora'); return; }
   if ((b.blob || b.texto.trim()) && !confirm('Remover este bloco?')) return;
   if (b.url) URL.revokeObjectURL(b.url);
-  if (b._el) b._el.row.remove();
+  if (b._el && b._el.row) b._el.row.remove();
   blocos.splice(i, 1);
   renderBlocos();
 }
@@ -3135,40 +3757,351 @@ function aplicarNomesSequenciais() {
   showToast('↧ Nomes aplicados');
 }
 
+// ── Funções dos Blocos Unificados por Episódio ─────────
+function removerGrupoUnificado(grupoId) {
+  const i = gruposUnificados.findIndex(g => g.id === grupoId);
+  if (i < 0) return;
+  const g = gruposUnificados[i];
+  if (!confirm(`Remover o Bloco de Áudio Unificado "${g.nome}" (${g.audios.length} áudio(s))?`)) return;
+  g.audios.forEach(a => {
+    if (a.url) URL.revokeObjectURL(a.url);
+    if (a._elRow && a._elRow.row) a._elRow.row.remove();
+  });
+  const card = document.getElementById(`card_grupo_${grupoId}`);
+  if (card) card.remove();
+  gruposUnificados.splice(i, 1);
+  renderBlocos();
+  atualizarResumo();
+  showToast(`Bloco unificado "${g.nome}" removido.`);
+}
+
+function removerAudioDeGrupo(grupoId, audioId) {
+  const g = gruposUnificados.find(x => x.id === grupoId);
+  if (!g) return;
+  const aIdx = g.audios.findIndex(x => x.id === audioId);
+  if (aIdx < 0) return;
+  const a = g.audios[aIdx];
+  if (a.url) URL.revokeObjectURL(a.url);
+  if (a._elRow && a._elRow.row) a._elRow.row.remove();
+  g.audios.splice(aIdx, 1);
+  renderBlocos();
+}
+
+function criarItemAudioUnificado(g, a) {
+  const row = document.createElement('div');
+  row.className = 'unificado-audio-item';
+
+  const num = document.createElement('div');
+  num.className = 'unificado-audio-num';
+  num.textContent = '01';
+
+  const corpo = document.createElement('div');
+  corpo.className = 'unificado-audio-corpo';
+
+  const topo = document.createElement('div');
+  topo.className = 'unificado-audio-topo';
+
+  const nomeLbl = document.createElement('span');
+  nomeLbl.className = 'unificado-audio-nome-label';
+  nomeLbl.textContent = a.nome;
+  nomeLbl.title = a.nome;
+
+  const durSpan = document.createElement('span');
+  durSpan.className = 'unificado-audio-dur';
+  durSpan.style.cssText = 'font-size:11px; color:var(--text-muted); white-space:nowrap;';
+
+  topo.append(nomeLbl, durSpan);
+
+  const audio = document.createElement('audio');
+  audio.controls = true;
+  audio.preload = 'metadata';
+  audio.style.cssText = 'width:100%; height:30px; margin-top:3px;';
+  if (a.url) audio.src = a.url;
+
+  const atualizarDur = () => {
+    if (audio.duration && isFinite(audio.duration)) {
+      const min = Math.floor(audio.duration / 60);
+      const sec = Math.floor(audio.duration % 60);
+      durSpan.textContent = `⏱ ${min}:${String(sec).padStart(2, '0')}`;
+      a.duracao = durSpan.textContent;
+    }
+  };
+  audio.addEventListener('loadedmetadata', atualizarDur);
+  audio.addEventListener('durationchange', atualizarDur);
+  if (audio.duration && isFinite(audio.duration)) atualizarDur();
+
+  corpo.append(topo, audio);
+
+  const acoes = document.createElement('div');
+  acoes.className = 'unificado-audio-acoes';
+
+  const btnDel = document.createElement('button');
+  btnDel.className = 'btn-icon btn-del';
+  btnDel.innerHTML = ICONE_LIXEIRA;
+  btnDel.title = 'Remover este áudio do bloco';
+  btnDel.style.cssText = 'padding:3px 6px; font-size:11px;';
+  btnDel.onclick = () => removerAudioDeGrupo(g.id, a.id);
+
+  acoes.append(btnDel);
+
+  row.append(num, corpo, acoes);
+  return { row, num, nomeLbl, durSpan, audio, btnDel };
+}
+
+function criarCardGrupoUnificado(g) {
+  const card = document.createElement('div');
+  card.className = 'bloco-unificado-card';
+  card.id = `card_grupo_${g.id}`;
+  card.setAttribute('data-grupo-id', g.id);
+
+  // 1. Cabeçalho Clean & Prático
+  const head = document.createElement('div');
+  head.className = 'unificado-card-head';
+
+  const headEsq = document.createElement('div');
+  headEsq.style.cssText = 'display:flex; align-items:center; gap:10px; flex-wrap:wrap;';
+
+  const icon = document.createElement('span');
+  icon.style.fontSize = '18px';
+  icon.textContent = '🔗';
+
+  const tit = document.createElement('span');
+  tit.style.cssText = 'font-weight:700; font-size:13.5px; color:var(--text);';
+  tit.textContent = 'Bloco de Áudio Unificado';
+
+  const nomeWrap = document.createElement('div');
+  nomeWrap.style.cssText = 'display:flex; align-items:center; gap:6px;';
+
+  const nomeLbl = document.createElement('span');
+  nomeLbl.style.cssText = 'font-size:11.5px; color:var(--text-muted); font-weight:600;';
+  nomeLbl.textContent = 'Nome / Episódio:';
+
+  const inputNome = document.createElement('input');
+  inputNome.type = 'text';
+  inputNome.className = 'unificado-input-nome';
+  inputNome.value = g.nome || '';
+  inputNome.placeholder = 'ex: 1 ou EP01';
+  inputNome.title = 'Nome do arquivo unificado masterizado e da legenda SRT';
+  inputNome.addEventListener('input', () => {
+    g.nome = inputNome.value.trim();
+  });
+
+  nomeWrap.append(nomeLbl, inputNome);
+
+  const badgeQtd = document.createElement('span');
+  badgeQtd.className = 'bridge-badge ok';
+  badgeQtd.textContent = `${g.audios.length} áudio(s) na sequência`;
+
+  headEsq.append(icon, tit, nomeWrap, badgeQtd);
+
+  const headDir = document.createElement('div');
+  headDir.style.cssText = 'display:flex; align-items:center; gap:8px;';
+
+  const btnDel = document.createElement('button');
+  btnDel.className = 'btn-icon btn-del';
+  btnDel.title = 'Remover este bloco unificado e todos os seus áudios';
+  btnDel.innerHTML = ICONE_LIXEIRA + ' <span style="font-size:11px;">Remover bloco</span>';
+  btnDel.style.cssText = 'font-size:11px; padding:4px 8px; display:flex; align-items:center; gap:4px;';
+  btnDel.onclick = () => removerGrupoUnificado(g.id);
+
+  headDir.append(btnDel);
+  head.append(headEsq, headDir);
+
+  // 2. Grid de 2 colunas
+  const grid = document.createElement('div');
+  grid.className = 'unificado-grid';
+
+  // Coluna 1: Lista dos Áudios
+  const colAudios = document.createElement('div');
+  colAudios.className = 'unificado-col-audios';
+
+  const secLblAudios = document.createElement('div');
+  secLblAudios.className = 'unificado-section-label';
+  secLblAudios.innerHTML = '<span>🎵 Áudios em Sequência (Ordem Alfanumérica):</span>';
+
+  const listaAudios = document.createElement('div');
+  listaAudios.className = 'unificado-lista-audios';
+
+  colAudios.append(secLblAudios, listaAudios);
+
+  // Coluna 2: Espaço Único de Texto
+  const colTexto = document.createElement('div');
+  colTexto.className = 'unificado-col-texto';
+
+  const secLblTexto = document.createElement('div');
+  secLblTexto.className = 'unificado-section-label';
+  secLblTexto.style.cssText = 'display:flex; justify-content:space-between; align-items:center;';
+
+  const lblTxt = document.createElement('label');
+  lblTxt.style.cssText = 'margin:0; font-weight:600; cursor:pointer;';
+  lblTxt.textContent = '📝 Texto / Roteiro do Áudio Unificado:';
+
+  const countSpan = document.createElement('span');
+  countSpan.style.cssText = 'font-size:11px; opacity:.75; font-weight:400;';
+  countSpan.textContent = '0 caracteres · 0 palavras';
+
+  secLblTexto.append(lblTxt, countSpan);
+
+  const txtArea = document.createElement('textarea');
+  txtArea.className = 'unificado-textarea';
+  txtArea.value = g.texto || '';
+  txtArea.placeholder = `Cole ou digite aqui o roteiro/texto correspondente aos áudios deste episódio para guiar o Whisper na legenda SRT...`;
+  
+  const atualizarContador = () => {
+    g.texto = txtArea.value;
+    const val = txtArea.value || '';
+    const chars = val.length;
+    const words = val.trim() ? val.trim().split(/\s+/).length : 0;
+    countSpan.textContent = `${chars} caracteres · ${words} palavras`;
+  };
+  txtArea.addEventListener('input', atualizarContador);
+  atualizarContador();
+
+  const dica = document.createElement('div');
+  dica.style.cssText = 'font-size:10.5px; opacity:.75; line-height:1.4;';
+  dica.innerHTML = '💡 O Whisper usará este texto exato para pontuar, sincronizar e alinhar as falas com precisão cirúrgica na legenda SRT final deste episódio.';
+
+  colTexto.append(secLblTexto, txtArea, dica);
+
+  grid.append(colAudios, colTexto);
+  card.append(head, grid);
+
+  card._els = { inputNome, badgeQtd, listaAudios, txtArea, countSpan };
+  return card;
+}
+
+function atualizarCardGrupoUnificado(g, card, gIdx) {
+  const els = card._els;
+  if (!els) return;
+
+  if (document.activeElement !== els.inputNome && els.inputNome.value !== (g.nome || '')) {
+    els.inputNome.value = g.nome || '';
+  }
+  els.badgeQtd.textContent = `${g.audios.length} áudio(s) na sequência`;
+
+  const lista = els.listaAudios;
+  g.audios.forEach((a, aIdx) => {
+    if (!a._elRow) {
+      a._elRow = criarItemAudioUnificado(g, a);
+    }
+    a._elRow.num.textContent = String(aIdx + 1).padStart(2, '0');
+    if (lista.children[aIdx] !== a._elRow.row) {
+      lista.insertBefore(a._elRow.row, lista.children[aIdx] || null);
+    }
+  });
+
+  Array.from(lista.children).forEach(el => {
+    if (!g.audios.some(a => a._elRow && a._elRow.row === el)) {
+      el.remove();
+    }
+  });
+}
+
+function renderModoUnificado() {
+  const container = document.getElementById('unificadosListaCards');
+  if (!container) return;
+
+  if (gruposUnificados.length === 0) {
+    container.innerHTML = `
+      <div class="bloco-unificado-card" id="dropPlaceholderUnificado" style="text-align:center; padding:32px 24px; border:1px solid var(--border); border-left:4px solid var(--accent); background:var(--surface); border-radius:var(--radius);">
+        <div style="font-size:28px; margin-bottom:8px;">🔗</div>
+        <div style="font-weight:700; font-size:14px; color:var(--text); margin-bottom:5px;">Nenhum Bloco de Áudio Unificado carregado</div>
+        <div style="font-size:12px; color:var(--text-muted); margin-bottom:14px; max-width:480px; margin-left:auto; margin-right:auto; line-height:1.4;">
+          Arraste seus áudios (.wav, .mp3, .m4a) para o campo acima ou clique no botão abaixo para escolher seus arquivos.
+        </div>
+        <button class="btn-generate" type="button" style="padding:8px 18px; font-size:12.5px; font-weight:600; display:inline-flex; align-items:center; gap:7px; cursor:pointer;" onclick="document.getElementById('inputImportarAudios').click()">
+          📁 Escolher Arquivos de Áudio
+        </button>
+      </div>
+    `;
+    return;
+  }
+
+  const placeholder = container.querySelector('#dropPlaceholderUnificado');
+  if (placeholder) container.innerHTML = '';
+
+  gruposUnificados.forEach((g, gIdx) => {
+    let card = document.getElementById(`card_grupo_${g.id}`);
+    if (!card) {
+      card = criarCardGrupoUnificado(g);
+      container.appendChild(card);
+    }
+    atualizarCardGrupoUnificado(g, card, gIdx);
+  });
+
+  Array.from(container.children).forEach(child => {
+    const gid = child.getAttribute('data-grupo-id');
+    if (gid && !gruposUnificados.some(g => g.id === gid)) {
+      child.remove();
+    }
+  });
+}
+
 // ── render: reaproveita as linhas existentes ────────────
-// Reconstruir tudo a cada mudança de status mataria o áudio tocando e o
-// texto em edição. Aqui cada bloco tem sua linha fixa; o render só cria,
-// reordena e manda atualizar.
 function renderBlocos() {
   const area = document.getElementById('blocosArea');
   const lista = document.getElementById('blocosLista');
-  area.classList.toggle('hidden', blocos.length === 0);
-
+  const containerUnificado = document.getElementById('containerModoUnificado');
   const juntarAtivo = document.getElementById('checkJuntarAudios')?.checked;
-  if (juntarAtivo) area.classList.add('modo-juntar-ativo');
-  else area.classList.remove('modo-juntar-ativo');
 
-  blocos.forEach((b, i) => {
-    if (!b._el) criarLinha(b);
-    b._el.num.textContent = String(i + 1).padStart(2, '0');
-    if (lista.children[i] !== b._el.row) lista.insertBefore(b._el.row, lista.children[i] || null);
-    atualizarBloco(b);
-  });
+  const temItens = gruposUnificados.length > 0 || blocos.length > 0;
+  area.classList.toggle('hidden', !temItens);
 
-  // limpa linhas de blocos removidos
-  Array.from(lista.children).forEach(el => {
-    if (!blocos.some(b => b._el && b._el.row === el)) el.remove();
-  });
+  if (juntarAtivo) {
+    area.classList.add('modo-juntar-ativo');
+  } else {
+    area.classList.remove('modo-juntar-ativo');
+  }
+
+  // Se houver grupos unificados (ex: áudios externos arrastados), exibe o container deles
+  if (containerUnificado) {
+    if (gruposUnificados.length > 0) {
+      containerUnificado.classList.remove('hidden');
+      renderModoUnificado();
+    } else {
+      containerUnificado.classList.add('hidden');
+    }
+  }
+
+  // A lista de blocos do estúdio permanece sempre acessível quando há blocos na mesa
+  if (lista) {
+    if (blocos.length > 0) {
+      lista.classList.remove('hidden');
+      blocos.forEach((b, i) => {
+        if (!b._el) criarLinha(b);
+        b._el.num.textContent = String(i + 1).padStart(2, '0');
+        if (lista.children[i] !== b._el.row) lista.insertBefore(b._el.row, lista.children[i] || null);
+        atualizarBloco(b);
+      });
+
+      Array.from(lista.children).forEach(el => {
+        if (!blocos.some(b => b._el && b._el.row === el)) el.remove();
+      });
+    } else {
+      lista.classList.add('hidden');
+    }
+  }
 
   atualizarResumo();
 }
 
 function atualizarResumo() {
+  const juntarAtivo = document.getElementById('checkJuntarAudios')?.checked;
+  const resEl = document.getElementById('blocosResumo');
+  if (!resEl) return;
+
+  if (juntarAtivo) {
+    const totalGrupos = gruposUnificados.length;
+    const totalAudios = gruposUnificados.reduce((sum, g) => sum + (g.audios ? g.audios.length : 0), 0);
+    resEl.textContent = `· ${totalGrupos} bloco(s) unificado(s) · ${totalAudios} áudio(s) em sequência`;
+    return;
+  }
+
   const ok     = blocos.filter(b => b.status === 'ok').length;
   const ap     = blocos.filter(b => b.aprovado).length;
   const er     = blocos.filter(b => b.status === 'erro').length;
   const custom = blocos.filter(b => b.perfil).length;
-  document.getElementById('blocosResumo').textContent =
+  resEl.textContent =
     `· ${blocos.length} no total · ${ok} gerados · ${ap} aprovados${er ? ` · ${er} com erro` : ''}${custom ? ` · ${custom} com perfil próprio` : ''}`;
 }
 
@@ -3615,18 +4548,32 @@ async function checarBridgeStatus() {
       const macrosFiltradas = data.macros.filter(m => !m.nome.toLowerCase().includes('juntar'));
       macrosFiltradas.forEach(m => {
         const n = m.nome.toLowerCase();
-        if (n.includes('silêncio') || n.includes('silencio') || n.includes('diminui') || n.includes('travar')) {
+        if (n.includes('lufs') && (n.includes('silêncio') || n.includes('silencio') || n.includes('travar'))) {
+          listaFormatada.push({
+            ordem: 2.5,
+            arquivo: m.arquivo,
+            rotulo: '✂️ Masterizar e Travar Silêncio (LUFS -14dB)',
+            isDefault: false
+          });
+        } else if (n.includes('lufs')) {
+          listaFormatada.push({
+            ordem: 1.5,
+            arquivo: m.arquivo,
+            rotulo: '🎚️ Masterizar (LUFS -14dB)',
+            isDefault: false
+          });
+        } else if (n.includes('silêncio') || n.includes('silencio') || n.includes('diminui') || n.includes('travar')) {
           listaFormatada.push({
             ordem: 2,
             arquivo: m.arquivo,
-            rotulo: '✂️ Masterizar e Travar Silêncio',
+            rotulo: '✂️ Masterizar e Travar Silêncio (Padrão)',
             isDefault: false
           });
         } else if (n.includes('masteriza') || n.includes('materiza')) {
           listaFormatada.push({
             ordem: 1,
             arquivo: m.arquivo,
-            rotulo: '🎚️ Masterizar',
+            rotulo: '🎚️ Masterizar (Padrão)',
             isDefault: true
           });
         } else {
@@ -3640,10 +4587,18 @@ async function checarBridgeStatus() {
       });
     }
 
-    // Ordenação estrita requerida: 1. Masterizar, 2. Masterizar e Travar Silêncio
-    listaFormatada.sort((a, b) => a.ordem - b.ordem);
+    // Desduplica opções pelo rótulo para nunca exibir opções repetidas no menu
+    const rotulosVistos = new Set();
+    const listaUnica = listaFormatada.filter(it => {
+      if (rotulosVistos.has(it.rotulo)) return false;
+      rotulosVistos.add(it.rotulo);
+      return true;
+    });
 
-    listaFormatada.forEach(item => {
+    // Ordenação estrita: 1. Masterizar, 2. Masterizar e Travar Silêncio
+    listaUnica.sort((a, b) => a.ordem - b.ordem);
+
+    listaUnica.forEach(item => {
       const opt = document.createElement('option');
       opt.value = item.arquivo;
       opt.textContent = item.rotulo;
@@ -3659,7 +4614,7 @@ async function checarBridgeStatus() {
     if (valorAtual && Array.from(selMacro.options).some(o => o.value === valorAtual)) {
       selMacro.value = valorAtual;
     } else {
-      const optPadrao = listaFormatada.find(it => it.isDefault) || listaFormatada[0];
+      const optPadrao = listaUnica.find(it => it.isDefault) || listaUnica[0];
       if (optPadrao) selMacro.value = optPadrao.arquivo;
       else selMacro.value = 'none';
     }
@@ -3674,28 +4629,15 @@ async function checarBridgeStatus() {
 function atualizarInfoJuntar() {
   const check = document.getElementById('checkJuntarAudios');
   const srtInfo = document.getElementById('srtDescInfo');
-  const campoUnificado = document.getElementById('campoTextoUnificado');
-  const areaBlocos = document.getElementById('blocosArea');
   if (!check) return;
 
   if (check.checked) {
-    if (srtInfo) srtInfo.textContent = '(1 SRT único para o áudio juntado)';
-    if (campoUnificado) {
-      campoUnificado.classList.remove('hidden');
-      const txtArea = document.getElementById('textoUnificadoSrt');
-      if (txtArea && !txtArea.value.trim()) {
-        const textosDosBlocos = blocos.map(b => b.texto ? b.texto.trim() : '').filter(Boolean).join('\n\n');
-        const main = document.getElementById('mainText')?.value?.trim();
-        txtArea.value = textosDosBlocos || main || '';
-      }
-    }
-    // Oculta os campos individuais de texto de cada bloco para deixar APENAS 1 espaço pra texto
-    if (areaBlocos) areaBlocos.classList.add('modo-juntar-ativo');
+    if (srtInfo) srtInfo.textContent = '(1 SRT único para cada áudio unificado)';
   } else {
     if (srtInfo) srtInfo.textContent = '(1 SRT para cada bloco individual)';
-    if (campoUnificado) campoUnificado.classList.add('hidden');
-    if (areaBlocos) areaBlocos.classList.remove('modo-juntar-ativo');
   }
+  renderBlocos();
+  atualizarResumo();
 }
 
 async function fecharAudacity() {
@@ -3759,7 +4701,10 @@ function redesenharOndasMasterizados() {
 }
 
 function renderizarMasterizados(itens, macroNome) {
-  masterizadosItens = itens || [];
+  masterizadosItens = (itens || []).map(it => {
+    if (it.srtConteudo) it.srtConteudo = limparTagsDeSrt(it.srtConteudo);
+    return it;
+  });
   const badge = document.getElementById('badgeMasterizados');
   const resumo = document.getElementById('masterResumo');
   const vazio = document.getElementById('masterVazio');
@@ -3810,13 +4755,100 @@ function renderizarMasterizados(itens, macroNome) {
     titulo.style.cssText = 'font-weight:700; font-size:14px; letter-spacing:0.02em;';
     titulo.textContent = item.nome + '.wav';
 
+    const pillDurContainer = document.createElement('div');
+    pillDurContainer.className = 'pill-dur-container';
+
     const pillDur = document.createElement('span');
     pillDur.className = 'master-pill duracao';
-    pillDur.textContent = `⏱️ ${item.duracaoFmt || '00:00'}`;
 
     const pillTam = document.createElement('span');
     pillTam.className = 'master-pill tamanho';
     pillTam.textContent = `💾 ${item.tamanhoFmt || '0 KB'}`;
+
+    let audio, pintar, renderizarSecaoSrt, atualizarAcoesSrt;
+
+    const atualizarPillDurEHistorico = () => {
+      const hist = item.historico || [];
+      const temHistorico = hist.length > 1;
+      const versaoAtual = hist.find(h => h.isAtual) || (hist.length ? hist[hist.length - 1] : null);
+      const reducaoFmt = (versaoAtual && versaoAtual.reducaoFmt) ? versaoAtual.reducaoFmt : (item.reducaoFmt || '');
+
+      if (reducaoFmt && reducaoFmt !== '0s') {
+        pillDur.innerHTML = `⏱️ ${item.duracaoFmt || '00:00'} <span style="color:#f59e0b; font-weight:700; margin-left:3px;" title="Redução de tempo após corte de silêncio">✂️ ${reducaoFmt}</span>`;
+      } else {
+        pillDur.textContent = `⏱️ ${item.duracaoFmt || '00:00'}`;
+      }
+
+      if (temHistorico) {
+        pillDur.classList.add('has-history');
+        pillDur.title = 'Passe o mouse para ver o histórico de silêncio e restaurar versões anteriores';
+      } else {
+        pillDur.classList.remove('has-history');
+        pillDur.title = '';
+      }
+
+      const popAntigo = pillDurContainer.querySelector('.hist-popover');
+      if (popAntigo) popAntigo.remove();
+
+      if (temHistorico) {
+        const popover = document.createElement('div');
+        popover.className = 'hist-popover';
+
+        const popHeader = document.createElement('div');
+        popHeader.className = 'hist-popover-header';
+        popHeader.innerHTML = `<span>⏳ Histórico de Versões</span><span style="font-size:10px; opacity:0.8;">${hist.length} versões</span>`;
+
+        const popList = document.createElement('div');
+        popList.className = 'hist-popover-list';
+
+        hist.forEach(v => {
+          const row = document.createElement('div');
+          row.className = `hist-item ${v.isAtual ? 'active' : ''}`;
+
+          const infoDiv = document.createElement('div');
+          infoDiv.className = 'hist-item-info';
+
+          const titleDiv = document.createElement('div');
+          titleDiv.className = 'hist-item-title';
+          const icon = v.id === 0 ? '🎵' : '✂️';
+          titleDiv.innerHTML = `${icon} <span>${v.label || ('v' + v.id)}</span> <span style="color:#94a3b8; font-weight:400; font-size:10.5px;">(${v.duracaoFmt})</span>`;
+
+          if (v.reducaoFmt && v.id > 0) {
+            const deltaDiv = document.createElement('div');
+            deltaDiv.className = 'hist-item-delta';
+            deltaDiv.textContent = `✂️ Encurtou ${v.reducaoFmt}`;
+            infoDiv.append(titleDiv, deltaDiv);
+          } else {
+            infoDiv.append(titleDiv);
+          }
+
+          if (v.isAtual) {
+            const tagAtual = document.createElement('span');
+            tagAtual.style.cssText = 'font-size:10px; color:#38bdf8; font-weight:700; background:rgba(56,189,248,0.15); padding:2px 6px; border-radius:4px; white-space:nowrap;';
+            tagAtual.textContent = '✓ Atual';
+            row.append(infoDiv, tagAtual);
+          } else {
+            const btnRestaurar = document.createElement('button');
+            btnRestaurar.className = 'hist-item-btn';
+            btnRestaurar.innerHTML = '↩️ Restaurar';
+            btnRestaurar.title = `Restaurar para a versão ${v.label}`;
+            btnRestaurar.onclick = async (e) => {
+              e.stopPropagation();
+              await restaurarVersaoAudio(item, v.id, card, audio, pintar, renderizarSecaoSrt, atualizarAcoesSrt, atualizarPillDurEHistorico, pillTam);
+            };
+            row.append(infoDiv, btnRestaurar);
+          }
+
+          popList.appendChild(row);
+        });
+
+        popover.append(popHeader, popList);
+        pillDurContainer.appendChild(popover);
+      }
+    };
+
+    pillDurContainer.appendChild(pillDur);
+    atualizarPillDurEHistorico();
 
     const pillMacro = document.createElement('span');
     pillMacro.className = 'master-pill macro';
@@ -3830,7 +4862,7 @@ function renderizarMasterizados(itens, macroNome) {
       pillMacro.textContent = `🎚️ ${mItem || 'Audacity'}`;
     }
 
-    info.append(numBadge, titulo, pillDur, pillTam, pillMacro);
+    info.append(numBadge, titulo, pillDurContainer, pillTam, pillMacro);
 
     const acoes = document.createElement('div');
     acoes.style.cssText = 'display:flex; align-items:center; gap:8px; flex-wrap:wrap;';
@@ -3845,9 +4877,11 @@ function renderizarMasterizados(itens, macroNome) {
       acoes.appendChild(btnWav);
     }
 
-    const renderizarSecaoSrt = () => {
+    renderizarSecaoSrt = () => {
       const oldDetails = card.querySelector('.master-srt-details');
       if (oldDetails) oldDetails.remove();
+      const oldAviso = card.querySelector('.master-aviso-incompativel');
+      if (oldAviso) oldAviso.remove();
 
       if (item.srtConteudo) {
         const srtDetails = document.createElement('details');
@@ -3901,7 +4935,7 @@ function renderizarMasterizados(itens, macroNome) {
 
     areaTextoCard.append(headerTexto, txtSrtCard);
 
-    const atualizarAcoesSrt = () => {
+    atualizarAcoesSrt = () => {
       const antigos = acoes.querySelectorAll('.btn-srt-dinamico');
       antigos.forEach(b => b.remove());
 
@@ -3917,14 +4951,14 @@ function renderizarMasterizados(itens, macroNome) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               caminhoWav: item.caminhoWav,
-              textoReferencia: item.texto || ''
+              textoReferencia: limparTagsParaSrt(item.texto || '')
             })
           });
           const dadosSrt = await resp.json();
           if (!dadosSrt.success) throw new Error(dadosSrt.error || 'Falha ao transcrever');
           item.caminhoSrt = dadosSrt.caminhoSrt;
           item.urlSrt = dadosSrt.urlSrt;
-          item.srtConteudo = dadosSrt.srtConteudo;
+          item.srtConteudo = limparTagsDeSrt(dadosSrt.srtConteudo);
           atualizarAcoesSrt();
           renderizarSecaoSrt();
           const faltam = masterizadosItens.some(it => !it.urlSrt);
@@ -3985,12 +5019,12 @@ function renderizarMasterizados(itens, macroNome) {
     const btnTravarSilencio = document.createElement('button');
     btnTravarSilencio.style.cssText = 'border:none; border-radius:0; padding:5px 11px; background:rgba(245,158,11,0.14); color:#f59e0b; font-weight:600; font-size:11px; cursor:pointer; transition:all 0.15s ease; font-family:inherit; white-space:nowrap;';
     btnTravarSilencio.innerHTML = '✂️ Travar';
-    btnTravarSilencio.title = 'Aplica o corte de silêncio selecionado neste áudio e ressincroniza a legenda';
+    btnTravarSilencio.title = 'Aplica o corte de silêncio selecionado neste áudio instantaneamente';
     btnTravarSilencio.onmouseenter = () => { btnTravarSilencio.style.background = '#f59e0b'; btnTravarSilencio.style.color = '#111'; };
     btnTravarSilencio.onmouseleave = () => { btnTravarSilencio.style.background = 'rgba(245,158,11,0.14)'; btnTravarSilencio.style.color = '#f59e0b'; };
     btnTravarSilencio.onclick = () => {
       item.texto = txtSrtCard.value;
-      executarAcaoTravarSilencio(item, btnTravarSilencio, selSilencio.value, pillDur, pillTam, card, audio, pintar, renderizarSecaoSrt, atualizarAcoesSrt);
+      executarAcaoTravarSilencio(item, btnTravarSilencio, selSilencio.value, pillDur, pillTam, card, audio, pintar, renderizarSecaoSrt, atualizarAcoesSrt, atualizarPillDurEHistorico);
     };
 
     grupoSilencio.append(selSilencio, btnTravarSilencio);
@@ -4002,7 +5036,7 @@ function renderizarMasterizados(itens, macroNome) {
     const playerRow = document.createElement('div');
     playerRow.className = 'master-player-row';
 
-    const audio = document.createElement('audio');
+    audio = document.createElement('audio');
     audio.controls = true;
     audio.preload = 'metadata';
 
@@ -4020,14 +5054,14 @@ function renderizarMasterizados(itens, macroNome) {
         if (!item.duracaoSeg && blocoOrig.duracaoSeg) {
           item.duracaoSeg = blocoOrig.duracaoSeg;
           item.duracaoFmt = blocoOrig.duracaoFmt;
-          pillDur.textContent = `⏱️ ${item.duracaoFmt}`;
+          if (typeof atualizarPillDurEHistorico === 'function') atualizarPillDurEHistorico();
         }
       }
     }
 
     let raf = 0;
     const obterDuracao = () => audio.duration || item.duracaoSeg || (item.picos ? item.picos.duracao : 0);
-    const pintar = () => {
+    pintar = () => {
       desenharOnda(canvas, item.picos, audio.currentTime, obterDuracao());
     };
     const loop = () => { pintar(); if (!audio.paused && !audio.ended) raf = requestAnimationFrame(loop); };
@@ -4040,7 +5074,7 @@ function renderizarMasterizados(itens, macroNome) {
         const s = Math.floor(audio.duration % 60);
         item.duracaoFmt = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
         item.duracaoSeg = audio.duration;
-        pillDur.textContent = `⏱️ ${item.duracaoFmt}`;
+        if (typeof atualizarPillDurEHistorico === 'function') atualizarPillDurEHistorico();
       }
       pintar();
     });
@@ -4142,14 +5176,14 @@ async function gerarSrtParaPendentes() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           caminhoWav: item.caminhoWav,
-          textoReferencia: item.texto || ''
+          textoReferencia: limparTagsParaSrt(item.texto || '')
         })
       });
       const dados = await resp.json();
       if (dados.success) {
         item.caminhoSrt = dados.caminhoSrt;
         item.urlSrt = dados.urlSrt;
-        item.srtConteudo = dados.srtConteudo;
+        item.srtConteudo = limparTagsDeSrt(dados.srtConteudo);
         concluidos++;
       }
     } catch (e) {
@@ -4173,7 +5207,7 @@ async function gerarSrtParaPendentes() {
   showToast(`✅ ${concluidos} legenda(s) SRT gerada(s) com sucesso na GPU!`);
 }
 
-async function executarAcaoTravarSilencio(item, btn, preset, pillDur, pillTam, card, audio, pintar, renderizarSecaoSrt, atualizarAcoesSrt) {
+async function executarAcaoTravarSilencio(item, btn, preset, pillDur, pillTam, card, audio, pintar, renderizarSecaoSrt, atualizarAcoesSrt, atualizarPillDurEHistorico) {
   if (!item || !item.caminhoWav) return;
   const textoOriginal = btn ? btn.innerHTML : '';
   if (btn) {
@@ -4182,6 +5216,19 @@ async function executarAcaoTravarSilencio(item, btn, preset, pillDur, pillTam, c
   }
   const nomePreset = (preset === '2.0_50' || preset === '2.0_40') ? '2,0s / 50%' : ((preset === '1.3_60' || preset === '1.3_30') ? '1,3s / 60%' : ((preset === '0.5_80' || preset === '0.5_60') ? '0,5s / 80%' : preset));
   showToast(`✂️ Aplicando corte de silêncio (${nomePreset}) em "${item.nome}" no Audacity...`);
+  atualizarBarraProgressoSilencio(15, `Travando silêncio em "${item.nome}" (${nomePreset})...`);
+
+  let pollSilencio = setInterval(async () => {
+    try {
+      const respP = await fetch(`${BRIDGE_URL}/api/progresso`);
+      if (respP.ok) {
+        const dadosP = await respP.json();
+        if (dadosP && dadosP.progresso) {
+          atualizarBarraProgressoSilencio(dadosP.pct || 35, dadosP.progresso);
+        }
+      }
+    } catch (_) {}
+  }, 400);
 
   try {
     const resp = await fetch(`${BRIDGE_URL}/api/audacity/travar-silencio`, {
@@ -4189,13 +5236,14 @@ async function executarAcaoTravarSilencio(item, btn, preset, pillDur, pillTam, c
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         caminhoWav: item.caminhoWav,
-        textoReferencia: item.texto || '',
-        gerarSrt: !!item.urlSrt || !!item.srtConteudo,
+        textoReferencia: limparTagsParaSrt(item.texto || ''),
         preset: preset || '2.0_50'
       })
     });
     const dados = await resp.json();
     if (!dados.success) throw new Error(dados.error || 'Falha ao travar silêncio');
+
+    if (pollSilencio) { clearInterval(pollSilencio); pollSilencio = null; }
 
     // Atualiza dados do item com os novos valores pós-corte
     item.duracaoFmt = dados.duracaoFmt;
@@ -4204,15 +5252,17 @@ async function executarAcaoTravarSilencio(item, btn, preset, pillDur, pillTam, c
     item.tamanhoBytes = dados.tamanhoBytes;
     item.urlAudio = dados.urlAudio;
     item.urlWav = dados.urlWav;
+    item.reducaoFmt = dados.reducaoFmt || '';
+    item.historico = dados.historico || [];
 
     if (dados.caminhoSrt) {
       item.caminhoSrt = dados.caminhoSrt;
       item.urlSrt = dados.urlSrt;
-      item.srtConteudo = dados.srtConteudo;
+      item.srtConteudo = limparTagsDeSrt(dados.srtConteudo);
     }
 
-    if (pillDur) pillDur.textContent = `⏱️ ${item.duracaoFmt}`;
     if (pillTam) pillTam.textContent = `💾 ${item.tamanhoFmt}`;
+    if (typeof atualizarPillDurEHistorico === 'function') atualizarPillDurEHistorico();
 
     // Atualiza o link do botão de download do WAV se existir
     if (card) {
@@ -4237,14 +5287,91 @@ async function executarAcaoTravarSilencio(item, btn, preset, pillDur, pillTam, c
       console.warn('[Audio/Wave] Erro ao recarregar onda pós corte:', errAudio);
     }
 
-    showToast(`✅ Silêncio (${nomePreset}) aplicado em "${item.nome}" com sucesso! Nova duração: ${item.duracaoFmt}`);
+    atualizarBotaoDesfazerTodos();
+    const reducaoMsg = item.reducaoFmt ? ` (Encurtou ${item.reducaoFmt})` : '';
+    showToast(`✅ Silêncio (${nomePreset}) aplicado em "${item.nome}" com sucesso! Nova duração: ${item.duracaoFmt}${reducaoMsg}`);
+
+    atualizarBarraProgressoSilencio(100, `✅ Silêncio travado em "${item.nome}"!`);
+    fecharBarraProgressoSilencio(true, 2500);
+    tocarSomSilencioConcluido();
   } catch (err) {
+    if (pollSilencio) { clearInterval(pollSilencio); pollSilencio = null; }
+    fecharBarraProgressoSilencio(false, 1500);
     showToast(`❌ Erro ao travar silêncio: ${err.message}`);
   } finally {
+    if (pollSilencio) clearInterval(pollSilencio);
     if (btn) {
       btn.disabled = false;
       btn.innerHTML = textoOriginal || '✂️ Travar';
     }
+  }
+}
+
+async function restaurarVersaoAudio(item, versaoId, card, audio, pintar, renderizarSecaoSrt, atualizarAcoesSrt, atualizarPillDurEHistorico, pillTam) {
+  if (!item || !item.caminhoWav) return;
+  showToast(`⏳ Restaurando versão no áudio "${item.nome}"...`);
+
+  try {
+    const resp = await fetch(`${BRIDGE_URL}/api/audacity/restaurar-versao`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        caminhoWav: item.caminhoWav,
+        versaoId: versaoId
+      })
+    });
+    const dados = await resp.json();
+    if (!dados.success) throw new Error(dados.error || 'Falha ao restaurar versão');
+
+    // Atualiza o item em memória
+    item.duracaoFmt = dados.duracaoFmt;
+    item.duracaoSeg = dados.duracaoSeg;
+    item.tamanhoFmt = dados.tamanhoFmt;
+    item.tamanhoBytes = dados.tamanhoBytes;
+    item.reducaoFmt = dados.reducaoFmt || '';
+    item.historico = dados.historico || [];
+    item.urlAudio = dados.urlAudio;
+    item.urlWav = dados.urlWav;
+
+    if (dados.caminhoSrt) {
+      item.caminhoSrt = dados.caminhoSrt;
+      item.urlSrt = dados.urlSrt;
+      item.srtConteudo = dados.srtConteudo;
+    } else {
+      item.caminhoSrt = '';
+      item.urlSrt = '';
+      item.srtConteudo = dados.srtConteudo || '';
+    }
+
+    if (pillTam) pillTam.textContent = `💾 ${item.tamanhoFmt}`;
+    if (typeof atualizarPillDurEHistorico === 'function') atualizarPillDurEHistorico();
+
+    if (card) {
+      const linkWav = card.querySelector('a.btn-download');
+      if (linkWav) linkWav.href = `${BRIDGE_URL}${item.urlWav}`;
+    }
+
+    if (typeof atualizarAcoesSrt === 'function') atualizarAcoesSrt();
+    if (typeof renderizarSecaoSrt === 'function') renderizarSecaoSrt();
+
+    try {
+      const resAudio = await fetch(`${BRIDGE_URL}${item.urlAudio}`);
+      if (resAudio.ok) {
+        const blob = await resAudio.blob();
+        item.blob = blob;
+        if (audio) audio.src = URL.createObjectURL(blob);
+        item.picos = await picosDoBlobUniversal(blob);
+        if (typeof pintar === 'function') pintar();
+      }
+    } catch (errAudio) {
+      console.warn('[Audio/Wave] Erro ao recarregar onda pós restauração:', errAudio);
+    }
+
+    atualizarBotaoDesfazerTodos();
+    const vNome = (item.historico.find(h => h.id === versaoId) || {}).label || `v${versaoId}`;
+    showToast(`✅ "${item.nome}" restaurado com sucesso para a versão ${vNome}! Duração: ${item.duracaoFmt}`);
+  } catch (err) {
+    showToast(`❌ Erro ao restaurar versão: ${err.message}`);
   }
 }
 
@@ -4263,13 +5390,25 @@ async function travarSilencioTodosMasterizados() {
     btn.innerHTML = '<span class="emoji-girando">⏳</span> Cortando silêncio em lote...';
   }
   showToast(`✂️ Iniciando corte de silêncio (${nomePreset}) em lote para ${masterizadosItens.length} áudio(s)...`);
+  atualizarBarraProgressoSilencio(5, `Iniciando corte de silêncio (${nomePreset}) em ${masterizadosItens.length} áudio(s)...`);
+
+  let pollSilencioLote = setInterval(async () => {
+    try {
+      const respP = await fetch(`${BRIDGE_URL}/api/progresso`);
+      if (respP.ok) {
+        const dadosP = await respP.json();
+        if (dadosP && dadosP.progresso) {
+          atualizarBarraProgressoSilencio(dadosP.pct || 15, dadosP.progresso);
+        }
+      }
+    } catch (_) {}
+  }, 400);
 
   try {
     const listaPayload = masterizadosItens.map(it => ({
       caminhoWav: it.caminhoWav,
       nome: it.nome,
-      textoReferencia: it.texto || '',
-      gerarSrt: !!it.urlSrt || !!it.srtConteudo
+      textoReferencia: limparTagsParaSrt(it.texto || '')
     }));
 
     const resp = await fetch(`${BRIDGE_URL}/api/audacity/travar-silencio-lote`, {
@@ -4285,6 +5424,8 @@ async function travarSilencioTodosMasterizados() {
       throw new Error(dados.error || 'Falha ao processar lote no Audacity');
     }
 
+    if (pollSilencioLote) { clearInterval(pollSilencioLote); pollSilencioLote = null; }
+
     let atualizadosCount = 0;
     if (Array.isArray(dados.itens)) {
       dados.itens.forEach(ret => {
@@ -4294,12 +5435,14 @@ async function travarSilencioTodosMasterizados() {
           original.duracaoSeg = ret.duracaoSeg;
           original.tamanhoFmt = ret.tamanhoFmt;
           original.tamanhoBytes = ret.tamanhoBytes;
+          original.reducaoFmt = ret.reducaoFmt || '';
+          original.historico = ret.historico || [];
           original.urlAudio = ret.urlAudio;
           original.urlWav = ret.urlWav;
           if (ret.caminhoSrt) {
             original.caminhoSrt = ret.caminhoSrt;
             original.urlSrt = ret.urlSrt;
-            original.srtConteudo = ret.srtConteudo;
+            original.srtConteudo = limparTagsDeSrt(ret.srtConteudo);
           }
           delete original.picos;
           atualizadosCount++;
@@ -4308,15 +5451,116 @@ async function travarSilencioTodosMasterizados() {
     }
 
     renderizarMasterizados(masterizadosItens);
+    if (atualizadosCount > 0) {
+      atualizarBarraProgressoSilencio(100, `✅ Silêncio travado em ${atualizadosCount} áudio(s)!`);
+      fecharBarraProgressoSilencio(true, 3000);
+      tocarSomSilencioConcluido();
+    } else {
+      fecharBarraProgressoSilencio(false, 1500);
+    }
     showToast(`✅ Silêncio (${nomePreset}) travado com sucesso em ${atualizadosCount} áudio(s)!`);
   } catch (e) {
+    if (pollSilencioLote) { clearInterval(pollSilencioLote); pollSilencioLote = null; }
+    fecharBarraProgressoSilencio(false, 1500);
     console.error('[TravarSilencioLote] Erro:', e);
     showToast(`❌ Erro ao travar silêncio em lote: ${e.message}`);
   } finally {
+    if (pollSilencioLote) clearInterval(pollSilencioLote);
     if (btn) {
       btn.disabled = false;
       btn.textContent = '✂️ Travar em Todos';
     }
+    fetch(`${BRIDGE_URL}/api/audacity/fechar`, { method: 'POST' }).catch(() => {});
+  }
+}
+
+async function restaurarSilencioTodosMasterizados() {
+  if (!masterizadosItens.length) return;
+  const itensModificados = masterizadosItens.filter(it => {
+    if (!it.historico || it.historico.length <= 1) return false;
+    const vAtual = it.historico.find(h => h.isAtual);
+    return vAtual && vAtual.id > 0;
+  });
+
+  if (!itensModificados.length) {
+    showToast('ℹ️ Nenhum áudio modificado para restaurar.');
+    return;
+  }
+
+  const btn = document.getElementById('btnRestaurarSilencioTodos');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="emoji-girando">⏳</span> Desfazendo silêncio...';
+  }
+  showToast(`⏳ Restaurando ${itensModificados.length} áudio(s) para a versão Original...`);
+
+  try {
+    const listaPayload = itensModificados.map(it => ({
+      caminhoWav: it.caminhoWav,
+      nome: it.nome
+    }));
+
+    const resp = await fetch(`${BRIDGE_URL}/api/audacity/restaurar-lote`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        itens: listaPayload,
+        versaoId: 0
+      })
+    });
+    const dados = await resp.json();
+    if (!dados.success) {
+      throw new Error(dados.error || 'Falha ao restaurar lote');
+    }
+
+    if (Array.isArray(dados.itens)) {
+      dados.itens.forEach(ret => {
+        const original = masterizadosItens.find(it => it.caminhoWav === ret.caminhoWav || it.nome === ret.nome);
+        if (original && ret.success) {
+          original.duracaoFmt = ret.duracaoFmt;
+          original.duracaoSeg = ret.duracaoSeg;
+          original.tamanhoFmt = ret.tamanhoFmt;
+          original.tamanhoBytes = ret.tamanhoBytes;
+          original.reducaoFmt = ret.reducaoFmt || '';
+          original.historico = ret.historico || [];
+          original.urlAudio = ret.urlAudio;
+          original.urlWav = ret.urlWav;
+          if (ret.caminhoSrt) {
+            original.caminhoSrt = ret.caminhoSrt;
+            original.urlSrt = ret.urlSrt;
+            original.srtConteudo = ret.srtConteudo;
+          }
+          delete original.picos;
+        }
+      });
+    }
+
+    renderizarMasterizados(masterizadosItens);
+    showToast(`✅ Todos os ${dados.itens.length} áudio(s) foram restaurados para a versão Original!`);
+  } catch (e) {
+    console.error('[RestaurarLote] Erro:', e);
+    showToast(`❌ Erro ao desfazer silêncio em lote: ${e.message}`);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '↩️ Desfazer Silêncio (Todos)';
+    }
+    atualizarBotaoDesfazerTodos();
+  }
+}
+
+function atualizarBotaoDesfazerTodos() {
+  const btn = document.getElementById('btnRestaurarSilencioTodos');
+  if (!btn) return;
+  const temModificado = masterizadosItens.some(it => {
+    if (!it.historico || it.historico.length <= 1) return false;
+    const vAtual = it.historico.find(h => h.isAtual);
+    return vAtual && vAtual.id > 0;
+  });
+  if (temModificado) {
+    btn.classList.remove('hidden');
+  } else {
+    btn.classList.add('hidden');
   }
 }
 
@@ -4485,17 +5729,94 @@ function fecharBarraProgressoSrt(sucesso = true, delay = 2500) {
   }, delay);
 }
 
+function atualizarBarraProgressoSilencio(pct, texto) {
+  const container = document.getElementById('barraProgressoSilencioContainer');
+  const bar = document.getElementById('barraProgressoSilencioPreenchimento');
+  const txt = document.getElementById('barraProgressoSilencioTexto');
+  const pctEl = document.getElementById('barraProgressoSilencioPct');
+  if (!container || !bar) return;
+
+  container.classList.remove('hidden');
+  const clamped = Math.max(0, Math.min(100, Math.round(pct)));
+  bar.style.width = clamped + '%';
+  if (pctEl) pctEl.textContent = clamped + '%';
+  if (texto && txt) txt.textContent = texto;
+}
+
+function fecharBarraProgressoSilencio(sucesso = true, delay = 2500) {
+  const container = document.getElementById('barraProgressoSilencioContainer');
+  const txt = document.getElementById('barraProgressoSilencioTexto');
+  const bar = document.getElementById('barraProgressoSilencioPreenchimento');
+  const pctEl = document.getElementById('barraProgressoSilencioPct');
+  if (!container) return;
+
+  if (sucesso) {
+    if (bar) bar.style.width = '100%';
+    if (pctEl) pctEl.textContent = '100%';
+    if (txt) txt.textContent = '✅ Silêncio travado com sucesso!';
+  }
+  setTimeout(() => {
+    container.classList.add('hidden');
+    if (bar) bar.style.width = '0%';
+    if (pctEl) pctEl.textContent = '0%';
+  }, delay);
+}
+
+function tocarSomSilencioConcluido() {
+  // 1. Toca no navegador via streaming de áudio
+  try {
+    const audioPath = "C:\\Projetos\\Efeitos Sonoros\\liecio-menu_beep_short_snap-533778 Minimalista.mp3";
+    const audioUrl = `${BRIDGE_URL}/api/audio?path=${encodeURIComponent(audioPath)}`;
+    const snd = new Audio(audioUrl);
+    snd.volume = 0.9;
+    const p = snd.play();
+    if (p && typeof p.catch === 'function') {
+      p.catch(err => {
+        console.warn('[Audio] Reprodução direta bloqueada pelo navegador:', err);
+      });
+    }
+  } catch (e) {
+    console.warn('[Audio] Erro ao instanciar áudio:', e);
+  }
+
+  // 2. Dispara fallback imediato no backend Python (winsound toca no Windows mesmo com navegador em segundo plano)
+  try {
+    if (typeof BRIDGE_URL !== 'undefined') {
+      fetch(`${BRIDGE_URL}/api/tocar-som-silencio`, { method: 'POST' }).catch(() => {});
+    }
+  } catch (e) {}
+}
+
 let processandoAudacity = false;
+
+async function uploadBlocoComRetry(uploadUrl, blob, maxTentativas = 3) {
+  let ultErro = null;
+  for (let tentativa = 1; tentativa <= maxTentativas; tentativa++) {
+    try {
+      const upResp = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/octet-stream' },
+        body: blob
+      });
+      if (upResp.ok) {
+        const upData = await upResp.json();
+        if (upData && upData.success) return upData;
+        throw new Error(upData?.error || 'Erro reportado pelo servidor');
+      }
+      throw new Error(`HTTP ${upResp.status}`);
+    } catch (err) {
+      ultErro = err;
+      if (tentativa < maxTentativas) {
+        await sleep(350 * tentativa);
+      }
+    }
+  }
+  throw ultErro || new Error('Falha no upload do bloco de áudio');
+}
 
 async function processarComAudacityEWhisper() {
   if (processandoAudacity) {
     showToast('⏳ Processamento no Audacity já em andamento, aguarde...');
-    return;
-  }
-
-  const prontos = blocos.filter(b => b.blob);
-  if (!prontos.length) {
-    showToast('⚠️ Nenhum áudio gerado ainda. Gere os blocos primeiro!');
     return;
   }
 
@@ -4504,13 +5825,27 @@ async function processarComAudacityEWhisper() {
   const resArea = document.getElementById('posProcResultados');
   const listaDownloads = document.getElementById('posProcDownloadsLista');
 
-  const juntar = document.getElementById('checkJuntarAudios').checked;
+  const juntar = document.getElementById('checkJuntarAudios')?.checked;
   const macro = document.getElementById('macroSelect').value;
   const gerarSrt = document.getElementById('checkGerarSrt').checked;
 
-  if (juntar && prontos.length < blocos.length) {
-    const faltam = blocos.length - prontos.length;
-    if (!confirm(`Atenção: Existem ${faltam} bloco(s) ainda sem áudio gerado.\n\nDeseja juntar apenas os ${prontos.length} áudios prontos na ordem da tela?`)) {
+  const gruposValidos = juntar ? gruposUnificados.filter(g => g.audios && g.audios.length > 0) : [];
+  const prontos = blocos.filter(b => b.blob);
+
+  if (juntar) {
+    if (gruposValidos.length === 0 && prontos.length === 0) {
+      showToast('⚠️ Nenhum áudio carregado ou gerado ainda!');
+      return;
+    }
+    if (gruposValidos.length === 0 && prontos.length < blocos.length) {
+      const faltam = blocos.length - prontos.length;
+      if (!confirm(`Atenção: Existem ${faltam} bloco(s) ainda sem áudio gerado.\n\nDeseja juntar apenas os ${prontos.length} áudios prontos na ordem da tela?`)) {
+        return;
+      }
+    }
+  } else {
+    if (!prontos.length) {
+      showToast('⚠️ Nenhum áudio gerado ainda. Gere os blocos primeiro!');
       return;
     }
   }
@@ -4552,7 +5887,10 @@ async function processarComAudacityEWhisper() {
     }
   } catch (e) {}
 
-  if (juntar) {
+  if (juntar && gruposValidos.length > 0) {
+    msgEl.textContent = `Preparando ${gruposValidos.length} Bloco(s) de Áudio Unificado...`;
+    showToast(`🔗 Processando ${gruposValidos.length} bloco(s) unificado(s)...`);
+  } else if (juntar) {
     if (prontos.length > 1) {
       msgEl.textContent = `Preparando junção de ${prontos.length} blocos em ordem...`;
       showToast(`🔗 Juntando ${prontos.length} blocos na ordem da tela...`);
@@ -4563,7 +5901,7 @@ async function processarComAudacityEWhisper() {
     msgEl.textContent = `Preparando ${prontos.length} bloco(s)...`;
   }
 
-  let polling = true;
+  let polling = false;
   const pollProgresso = async () => {
     while (polling) {
       try {
@@ -4576,74 +5914,182 @@ async function processarComAudacityEWhisper() {
       await sleep(500);
     }
   };
-  pollProgresso();
 
   try {
-    msgEl.textContent = 'Iniciando sessão de processamento...';
+    const todosItensFinais = [];
 
-    // Regra de nomenclatura da primeira aba:
-    const nomeBaseInput = document.getElementById('nomeBase').value.trim();
-    const nomeBase = nomeBaseInput || (prontos[0].nome ? prontos[0].nome : 'audio_completo');
+    // Se gruposValidos está vazio, mas o usuário marcou juntar e há blocos prontos que pertencem a múltiplos episódios:
+    let listaGruposParaProcessar = gruposValidos;
+    if (juntar && listaGruposParaProcessar.length === 0 && prontos.length > 0) {
+      const mapaEp = new Map();
+      prontos.forEach(b => {
+        const limpo = (b.nome || '').replace(/\.[^/.]+$/, '').trim();
+        const mEp = limpo.match(/(?:EP|EPISODIO|EPISÓDIO|CAPITULO|CAPÍTULO)[_\s-]*(\d+)/i);
+        const mPrefixoNum = limpo.match(/^(\d+)\s*([a-zA-Z]{0,4})[_\s-]+(\d+)/);
+        let k = null;
+        if (mEp) k = `EP${parseInt(mEp[1], 10)}`;
+        else if (mPrefixoNum) k = mPrefixoNum[2] ? `${parseInt(mPrefixoNum[1], 10)} ${mPrefixoNum[2].trim()}` : String(parseInt(mPrefixoNum[1], 10));
 
-    // 1. Inicia o Job no servidor enviando metadados leves (JSON)
-    const blocosMeta = prontos.map((b, idx) => ({
-      index: idx + 1,
-      nome: b.nome || `bloco_${String(idx + 1).padStart(2, '0')}`,
-      texto: b.texto || ''
-    }));
-
-    const initResp = await fetch(`${BRIDGE_URL}/api/processar/iniciar`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        total: prontos.length,
-        juntar,
-        macro,
-        gerarSrt,
-        nome_unificado: nomeBase,
-        texto_unificado: document.getElementById('textoUnificadoSrt')?.value?.trim() || '',
-        blocos: blocosMeta
-      })
-    });
-
-    const initData = await initResp.json();
-    if (!initResp.ok || !initData.success) {
-      throw new Error(initData.error || 'Falha ao iniciar sessão no servidor');
-    }
-    const jobId = initData.jobId;
-
-    // 2. Upload binário sequencial direto do Blob (0 bytes de alocação de Base64 no Heap do V8)
-    for (let i = 0; i < prontos.length; i++) {
-      const b = prontos[i];
-      const idx = i + 1;
-      const nomeBloco = b.nome || `bloco_${String(idx).padStart(2, '0')}`;
-      const tamMb = b.blob.size ? (b.blob.size / (1024 * 1024)).toFixed(1) : '0';
-      msgEl.textContent = `Enviando áudio ${idx} de ${prontos.length} (${tamMb} MB): ${nomeBloco}...`;
-
-      const uploadUrl = `${BRIDGE_URL}/api/processar/upload-bloco?jobId=${encodeURIComponent(jobId)}&index=${idx}&nome=${encodeURIComponent(nomeBloco)}`;
-      const upResp = await fetch(uploadUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/octet-stream' },
-        body: b.blob
+        if (k) {
+          if (!mapaEp.has(k)) mapaEp.set(k, []);
+          mapaEp.get(k).push(b);
+        }
       });
 
-      const upData = await upResp.json();
-      if (!upResp.ok || !upData.success) {
-        throw new Error(upData.error || `Falha no envio do áudio ${idx}`);
+      if (mapaEp.size > 1) {
+        listaGruposParaProcessar = Array.from(mapaEp.entries()).map(([k, bs]) => ({
+          id: 'auto_' + k,
+          nome: k,
+          texto: bs.map(b => b.texto || '').filter(Boolean).join('\n\n'),
+          audios: bs.map(b => ({
+            id: b.id,
+            nome: b.nome,
+            blob: b.blob
+          }))
+        }));
       }
     }
 
-    // 3. Executa a automação no Audacity e transcrição no Whisper
-    msgEl.textContent = 'Iniciando automação no Audacity...';
-    const execResp = await fetch(`${BRIDGE_URL}/api/processar/executar`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jobId })
-    });
+    if (juntar && listaGruposParaProcessar.length > 0) {
+      const gruposMeta = listaGruposParaProcessar.map((g, gIdx) => {
+        const cardEl = document.getElementById(`card_grupo_${g.id}`);
+        const nomeFinal = cardEl?._els?.inputNome?.value?.trim() || (g.nome || '').trim() || `Episódio ${gIdx + 1}`;
+        const textoFinal = limparTagsParaSrt(cardEl?._els?.txtArea?.value?.trim() ?? (g.texto || '').trim());
+        return {
+          id: g.id,
+          nome: nomeFinal,
+          texto: textoFinal,
+          audios: (g.audios || []).map((a, aIdx) => ({
+            index: aIdx + 1,
+            nome: a.nome || `${nomeFinal}_parte_${String(aIdx + 1).padStart(2, '0')}`
+          }))
+        };
+      });
 
-    const resultado = await execResp.json();
-    if (!execResp.ok || !resultado.success) {
-      throw new Error(resultado.error || 'Falha no processamento');
+      const totalAudiosGlobal = listaGruposParaProcessar.reduce((sum, g) => sum + (g.audios ? g.audios.length : 0), 0);
+      msgEl.textContent = `Iniciando sessão para ${listaGruposParaProcessar.length} bloco(s) unificado(s) (${totalAudiosGlobal} áudios)...`;
+
+      const initResp = await fetch(`${BRIDGE_URL}/api/processar/iniciar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          total: totalAudiosGlobal,
+          juntar: true,
+          macro,
+          gerarSrt,
+          grupos: gruposMeta
+        })
+      });
+
+      const initData = await initResp.json();
+      if (!initResp.ok || !initData.success) {
+        throw new Error(initData.error || 'Falha ao iniciar processamento unificado dos blocos no servidor');
+      }
+      const jobId = initData.jobId;
+
+      let audioContador = 0;
+      for (let gIdx = 0; gIdx < listaGruposParaProcessar.length; gIdx++) {
+        const g = listaGruposParaProcessar[gIdx];
+        const gMeta = gruposMeta[gIdx];
+        const audios = g.audios || [];
+
+        for (let i = 0; i < audios.length; i++) {
+          audioContador++;
+          const a = audios[i];
+          const aIdx = i + 1;
+          const nomeAudio = a.nome || `${gMeta.nome}_parte_${String(aIdx).padStart(2, '0')}`;
+          const tamMb = a.blob.size ? (a.blob.size / (1024 * 1024)).toFixed(1) : '0';
+
+          msgEl.textContent = `[${gIdx + 1}/${listaGruposParaProcessar.length}] Enviando áudio ${aIdx}/${audios.length} (${tamMb} MB): ${nomeAudio}...`;
+          const uploadUrl = `${BRIDGE_URL}/api/processar/upload-bloco?jobId=${encodeURIComponent(jobId)}&index=${audioContador}&grupoId=${encodeURIComponent(g.id)}&nome=${encodeURIComponent(nomeAudio)}`;
+          await uploadBlocoComRetry(uploadUrl, a.blob);
+        }
+      }
+
+      msgEl.textContent = `Iniciando Masterização Unificada de ${listaGruposParaProcessar.length} bloco(s) no Audacity...`;
+      if (!polling) {
+        polling = true;
+        pollProgresso();
+      }
+      const execResp = await fetch(`${BRIDGE_URL}/api/processar/executar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId })
+      });
+      polling = false;
+
+      const resultado = await execResp.json();
+      if (!execResp.ok || !resultado.success) {
+        throw new Error(resultado.error || 'Falha no processamento unificado dos blocos');
+      }
+
+      if (Array.isArray(resultado.itens)) {
+        resultado.itens.forEach(it => todosItensFinais.push(it));
+      }
+    } else {
+      msgEl.textContent = 'Iniciando sessão de processamento...';
+      const nomeBaseInput = document.getElementById('nomeBase').value.trim();
+      const nomeBase = nomeBaseInput || (prontos[0].nome ? prontos[0].nome : 'audio_completo');
+
+      const blocosMeta = prontos.map((b, idx) => ({
+        index: idx + 1,
+        nome: b.nome || `bloco_${String(idx + 1).padStart(2, '0')}`,
+        texto: limparTagsParaSrt(b.texto || '')
+      }));
+
+      const textoUnificado = juntar ? (limparTagsParaSrt(blocos.map(b => b.texto ? b.texto.trim() : '').filter(Boolean).join('\n\n') || document.getElementById('mainText')?.value?.trim() || '')) : '';
+
+      const initResp = await fetch(`${BRIDGE_URL}/api/processar/iniciar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          total: prontos.length,
+          juntar,
+          macro,
+          gerarSrt,
+          nome_unificado: nomeBase,
+          texto_unificado: textoUnificado,
+          blocos: blocosMeta
+        })
+      });
+
+      const initData = await initResp.json();
+      if (!initResp.ok || !initData.success) {
+        throw new Error(initData.error || 'Falha ao iniciar sessão no servidor');
+      }
+      const jobId = initData.jobId;
+
+      for (let i = 0; i < prontos.length; i++) {
+        const b = prontos[i];
+        const idx = i + 1;
+        const nomeBloco = b.nome || `bloco_${String(idx).padStart(2, '0')}`;
+        const tamMb = b.blob.size ? (b.blob.size / (1024 * 1024)).toFixed(1) : '0';
+        msgEl.textContent = `Enviando áudio ${idx} de ${prontos.length} (${tamMb} MB): ${nomeBloco}...`;
+
+        const uploadUrl = `${BRIDGE_URL}/api/processar/upload-bloco?jobId=${encodeURIComponent(jobId)}&index=${idx}&nome=${encodeURIComponent(nomeBloco)}`;
+        await uploadBlocoComRetry(uploadUrl, b.blob);
+      }
+
+      msgEl.textContent = 'Iniciando automação no Audacity...';
+      if (!polling) {
+        polling = true;
+        pollProgresso();
+      }
+      const execResp = await fetch(`${BRIDGE_URL}/api/processar/executar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId })
+      });
+      polling = false;
+
+      const resultado = await execResp.json();
+      if (!execResp.ok || !resultado.success) {
+        throw new Error(resultado.error || 'Falha no processamento');
+      }
+
+      if (Array.isArray(resultado.itens)) {
+        resultado.itens.forEach(it => todosItensFinais.push(it));
+      }
     }
 
     msgEl.textContent = '✅ Concluído com sucesso!';
@@ -4654,7 +6100,7 @@ async function processarComAudacityEWhisper() {
     resArea.classList.remove('hidden');
     listaDownloads.innerHTML = '';
 
-    resultado.itens.forEach(item => {
+    todosItensFinais.forEach(item => {
       const card = document.createElement('div');
       card.style.cssText = 'background:var(--surface); padding:8px 12px; border-radius:var(--radius); border:1px solid var(--border); display:flex; align-items:center; gap:8px; width:100%;';
 
@@ -4686,21 +6132,25 @@ async function processarComAudacityEWhisper() {
       listaDownloads.appendChild(card);
     });
 
-    // Popula e abre a nova aba "Áudios Masterizados"
-    renderizarMasterizados(resultado.itens, macro);
+    renderizarMasterizados(todosItensFinais, macro);
     setTimeout(() => {
       trocarAbaWorkspace('masterizados');
     }, 600);
 
   } catch (err) {
-    msgEl.textContent = `✕ ${err.message}`;
+    const msg = (err.message === 'Failed to fetch' || err.name === 'TypeError')
+      ? 'Não foi possível conectar ao servidor local (porta 5006). Verifique se o servidor está rodando no terminal.'
+      : err.message;
+    msgEl.textContent = `✕ ${msg}`;
     msgEl.style.color = 'var(--error)';
-    showToast(`✕ Erro: ${err.message}`);
+    showToast(`✕ Erro: ${msg}`);
   } finally {
     polling = false;
     processandoAudacity = false;
     btn.disabled = false;
     btn.innerHTML = '⚡ Processar no Audacity & Whisper';
+    // Encerra a sessão em segundo plano do Audacity após término completo do lote
+    fetch(`${BRIDGE_URL}/api/audacity/fechar`, { method: 'POST' }).catch(() => {});
   }
 }
 
@@ -4710,23 +6160,30 @@ async function processarSomenteSrt() {
     return;
   }
 
-  const prontos = blocos.filter(b => b.blob);
-  if (!prontos.length) {
-    showToast('⚠️ Nenhum áudio gerado ainda. Gere os blocos primeiro!');
-    return;
-  }
-
   const btnSrt = document.getElementById('gerarSomenteSrtBtn');
   const btnAudacity = document.getElementById('processarAudacityBtn');
   const msgEl = document.getElementById('posProcMsg');
   const resArea = document.getElementById('posProcResultados');
   const listaDownloads = document.getElementById('posProcDownloadsLista');
 
-  const juntar = document.getElementById('checkJuntarAudios').checked;
+  const juntar = document.getElementById('checkJuntarAudios')?.checked;
+  const gruposValidos = juntar ? gruposUnificados.filter(g => g.audios && g.audios.length > 0) : [];
+  const prontos = blocos.filter(b => b.blob);
 
-  if (juntar && prontos.length < blocos.length) {
-    const faltam = blocos.length - prontos.length;
-    if (!confirm(`Atenção: Existem ${faltam} bloco(s) ainda sem áudio gerado.\n\nDeseja gerar legendas apenas para os ${prontos.length} áudios prontos?`)) {
+  if (juntar) {
+    if (gruposValidos.length === 0 && prontos.length === 0) {
+      showToast('⚠️ Nenhum áudio carregado ou gerado ainda!');
+      return;
+    }
+    if (gruposValidos.length === 0 && prontos.length < blocos.length) {
+      const faltam = blocos.length - prontos.length;
+      if (!confirm(`Atenção: Existem ${faltam} bloco(s) ainda sem áudio gerado.\n\nDeseja gerar legendas apenas para os ${prontos.length} áudios prontos?`)) {
+        return;
+      }
+    }
+  } else {
+    if (!prontos.length) {
+      showToast('⚠️ Nenhum áudio gerado ainda. Gere os blocos primeiro!');
       return;
     }
   }
@@ -4759,7 +6216,10 @@ async function processarSomenteSrt() {
     }
   }
 
-  if (juntar) {
+  if (juntar && gruposValidos.length > 0) {
+    msgEl.textContent = `Preparando transcrição de ${gruposValidos.length} Bloco(s) de Áudio Unificado...`;
+    showToast(`🔗 Gerando legendas para ${gruposValidos.length} bloco(s) unificado(s)...`);
+  } else if (juntar) {
     if (prontos.length > 1) {
       msgEl.textContent = `Preparando junção e transcrição de ${prontos.length} blocos...`;
       showToast(`🔗 Gerando legenda unificada para ${prontos.length} blocos...`);
@@ -4770,7 +6230,7 @@ async function processarSomenteSrt() {
     msgEl.textContent = `Preparando ${prontos.length} bloco(s) para transcrição...`;
   }
 
-  let polling = true;
+  let polling = false;
   const pollProgresso = async () => {
     while (polling) {
       try {
@@ -4789,74 +6249,191 @@ async function processarSomenteSrt() {
       await sleep(400);
     }
   };
-  pollProgresso();
 
   try {
-    msgEl.textContent = 'Iniciando transcrição na GPU (Whisper)...';
+    const todosItensFinais = [];
 
-    const nomeBaseInput = document.getElementById('nomeBase').value.trim();
-    const nomeBase = nomeBaseInput || (prontos[0].nome ? prontos[0].nome : 'audio_completo');
+    // Se gruposValidos está vazio, mas o usuário marcou juntar e há blocos prontos que pertencem a múltiplos episódios:
+    let listaGruposParaProcessar = gruposValidos;
+    if (juntar && listaGruposParaProcessar.length === 0 && prontos.length > 0) {
+      const mapaEp = new Map();
+      prontos.forEach(b => {
+        const limpo = (b.nome || '').replace(/\.[^/.]+$/, '').trim();
+        const mEp = limpo.match(/(?:EP|EPISODIO|EPISÓDIO|CAPITULO|CAPÍTULO)[_\s-]*(\d+)/i);
+        const mPrefixoNum = limpo.match(/^(\d+)\s*([a-zA-Z]{0,4})[_\s-]+(\d+)/);
+        let k = null;
+        if (mEp) k = `EP${parseInt(mEp[1], 10)}`;
+        else if (mPrefixoNum) k = mPrefixoNum[2] ? `${parseInt(mPrefixoNum[1], 10)} ${mPrefixoNum[2].trim()}` : String(parseInt(mPrefixoNum[1], 10));
 
-    const blocosMeta = prontos.map((b, idx) => ({
-      index: idx + 1,
-      nome: b.nome || `bloco_${String(idx + 1).padStart(2, '0')}`,
-      texto: b.texto || ''
-    }));
-
-    const initResp = await fetch(`${BRIDGE_URL}/api/processar/iniciar`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        total: prontos.length,
-        juntar,
-        macro: 'apenas_srt',
-        gerarSrt: true,
-        nome_unificado: nomeBase,
-        texto_unificado: document.getElementById('textoUnificadoSrt')?.value?.trim() || '',
-        blocos: blocosMeta
-      })
-    });
-
-    const initData = await initResp.json();
-    if (!initResp.ok || !initData.success) {
-      throw new Error(initData.error || 'Falha ao iniciar sessão no servidor');
-    }
-    const jobId = initData.jobId;
-
-    // Upload binário sequencial dos blobs
-    for (let i = 0; i < prontos.length; i++) {
-      const b = prontos[i];
-      const idx = i + 1;
-      const nomeBloco = b.nome || `bloco_${String(idx).padStart(2, '0')}`;
-      const tamMb = b.blob.size ? (b.blob.size / (1024 * 1024)).toFixed(1) : '0';
-      const pctUpload = Math.round(5 + ((i + 1) / prontos.length) * 15);
-      atualizarBarraProgressoSrt(pctUpload, `Enviando áudio ${idx} de ${prontos.length} (${tamMb} MB)...`);
-      msgEl.textContent = `Enviando áudio ${idx} de ${prontos.length} (${tamMb} MB)...`;
-
-      const uploadUrl = `${BRIDGE_URL}/api/processar/upload-bloco?jobId=${encodeURIComponent(jobId)}&index=${idx}&nome=${encodeURIComponent(nomeBloco)}`;
-      const upResp = await fetch(uploadUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/octet-stream' },
-        body: b.blob
+        if (k) {
+          if (!mapaEp.has(k)) mapaEp.set(k, []);
+          mapaEp.get(k).push(b);
+        }
       });
 
-      const upData = await upResp.json();
-      if (!upResp.ok || !upData.success) {
-        throw new Error(upData.error || `Falha no envio do áudio ${idx}`);
+      if (mapaEp.size > 1) {
+        listaGruposParaProcessar = Array.from(mapaEp.entries()).map(([k, bs]) => ({
+          id: 'auto_' + k,
+          nome: k,
+          texto: bs.map(b => b.texto || '').filter(Boolean).join('\n\n'),
+          audios: bs.map(b => ({
+            id: b.id,
+            nome: b.nome,
+            blob: b.blob
+          }))
+        }));
       }
     }
 
-    atualizarBarraProgressoSrt(20, 'Transcrevendo áudio na GPU com Whisper...');
-    msgEl.textContent = 'Transcrevendo áudio na GPU com Whisper...';
-    const execResp = await fetch(`${BRIDGE_URL}/api/processar/executar`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jobId })
-    });
+    if (juntar && listaGruposParaProcessar.length > 0) {
+      const gruposMeta = listaGruposParaProcessar.map((g, gIdx) => {
+        const cardEl = document.getElementById(`card_grupo_${g.id}`);
+        const nomeFinal = cardEl?._els?.inputNome?.value?.trim() || (g.nome || '').trim() || `Episódio ${gIdx + 1}`;
+        const textoFinal = limparTagsParaSrt(cardEl?._els?.txtArea?.value?.trim() ?? (g.texto || '').trim());
+        return {
+          id: g.id,
+          nome: nomeFinal,
+          texto: textoFinal,
+          audios: (g.audios || []).map((a, aIdx) => ({
+            index: aIdx + 1,
+            nome: a.nome || `${nomeFinal}_parte_${String(aIdx + 1).padStart(2, '0')}`
+          }))
+        };
+      });
 
-    const resultado = await execResp.json();
-    if (!execResp.ok || !resultado.success) {
-      throw new Error(resultado.error || 'Falha na transcrição das legendas');
+      const totalAudiosGlobal = listaGruposParaProcessar.reduce((sum, g) => sum + (g.audios ? g.audios.length : 0), 0);
+      atualizarBarraProgressoSrt(5, `Iniciando transcrição de ${listaGruposParaProcessar.length} bloco(s) unificado(s)...`);
+      msgEl.textContent = `Preparando ${listaGruposParaProcessar.length} bloco(s) unificado(s) (${totalAudiosGlobal} áudios)...`;
+
+      const initResp = await fetch(`${BRIDGE_URL}/api/processar/iniciar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          total: totalAudiosGlobal,
+          juntar: true,
+          macro: 'apenas_srt',
+          gerarSrt: true,
+          grupos: gruposMeta
+        })
+      });
+
+      const initData = await initResp.json();
+      if (!initResp.ok || !initData.success) {
+        throw new Error(initData.error || 'Falha ao iniciar transcrição dos blocos no servidor');
+      }
+      const jobId = initData.jobId;
+
+      let audioContador = 0;
+      for (let gIdx = 0; gIdx < listaGruposParaProcessar.length; gIdx++) {
+        const g = listaGruposParaProcessar[gIdx];
+        const gMeta = gruposMeta[gIdx];
+        const audios = g.audios || [];
+
+        for (let i = 0; i < audios.length; i++) {
+          audioContador++;
+          const a = audios[i];
+          const aIdx = i + 1;
+          const nomeAudio = a.nome || `${gMeta.nome}_parte_${String(aIdx).padStart(2, '0')}`;
+          const tamMb = a.blob.size ? (a.blob.size / (1024 * 1024)).toFixed(1) : '0';
+          const pctEnvio = Math.round(5 + (audioContador / totalAudiosGlobal) * 20);
+
+          atualizarBarraProgressoSrt(pctEnvio, `Enviando áudio ${audioContador}/${totalAudiosGlobal}: ${nomeAudio}...`);
+          msgEl.textContent = `[${gIdx + 1}/${listaGruposParaProcessar.length}] Enviando áudio ${aIdx}/${audios.length} (${tamMb} MB): ${nomeAudio}...`;
+
+          const uploadUrl = `${BRIDGE_URL}/api/processar/upload-bloco?jobId=${encodeURIComponent(jobId)}&index=${audioContador}&grupoId=${encodeURIComponent(g.id)}&nome=${encodeURIComponent(nomeAudio)}`;
+          await uploadBlocoComRetry(uploadUrl, a.blob);
+        }
+      }
+
+      atualizarBarraProgressoSrt(30, `Transcrevendo ${listaGruposParaProcessar.length} bloco(s) na GPU com Whisper...`);
+      msgEl.textContent = `Transcrevendo ${listaGruposParaProcessar.length} bloco(s) na GPU com Whisper...`;
+
+      if (!polling) {
+        polling = true;
+        pollProgresso();
+      }
+      const execResp = await fetch(`${BRIDGE_URL}/api/processar/executar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId })
+      });
+      polling = false;
+
+      const resultado = await execResp.json();
+      if (!execResp.ok || !resultado.success) {
+        throw new Error(resultado.error || 'Falha na transcrição dos blocos');
+      }
+
+      if (Array.isArray(resultado.itens)) {
+        resultado.itens.forEach(it => todosItensFinais.push(it));
+      }
+    } else {
+      msgEl.textContent = 'Iniciando transcrição na GPU (Whisper)...';
+      const nomeBaseInput = document.getElementById('nomeBase').value.trim();
+      const nomeBase = nomeBaseInput || (prontos[0].nome ? prontos[0].nome : 'audio_completo');
+
+      const blocosMeta = prontos.map((b, idx) => ({
+        index: idx + 1,
+        nome: b.nome || `bloco_${String(idx + 1).padStart(2, '0')}`,
+        texto: limparTagsParaSrt(b.texto || '')
+      }));
+
+      const textoUnificado = juntar ? (limparTagsParaSrt(blocos.map(b => b.texto ? b.texto.trim() : '').filter(Boolean).join('\n\n') || document.getElementById('mainText')?.value?.trim() || '')) : '';
+
+      const initResp = await fetch(`${BRIDGE_URL}/api/processar/iniciar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          total: prontos.length,
+          juntar,
+          macro: 'apenas_srt',
+          gerarSrt: true,
+          nome_unificado: nomeBase,
+          texto_unificado: textoUnificado,
+          blocos: blocosMeta
+        })
+      });
+
+      const initData = await initResp.json();
+      if (!initResp.ok || !initData.success) {
+        throw new Error(initData.error || 'Falha ao iniciar sessão no servidor');
+      }
+      const jobId = initData.jobId;
+
+      for (let i = 0; i < prontos.length; i++) {
+        const b = prontos[i];
+        const idx = i + 1;
+        const nomeBloco = b.nome || `bloco_${String(idx).padStart(2, '0')}`;
+        const tamMb = b.blob.size ? (b.blob.size / (1024 * 1024)).toFixed(1) : '0';
+        const pctUpload = Math.round(5 + ((i + 1) / prontos.length) * 15);
+        atualizarBarraProgressoSrt(pctUpload, `Enviando áudio ${idx} de ${prontos.length} (${tamMb} MB)...`);
+        msgEl.textContent = `Enviando áudio ${idx} de ${prontos.length} (${tamMb} MB): ${nomeBloco}...`;
+
+        const uploadUrl = `${BRIDGE_URL}/api/processar/upload-bloco?jobId=${encodeURIComponent(jobId)}&index=${idx}&nome=${encodeURIComponent(nomeBloco)}`;
+        await uploadBlocoComRetry(uploadUrl, b.blob);
+      }
+
+      atualizarBarraProgressoSrt(20, 'Transcrevendo áudio na GPU com Whisper...');
+      msgEl.textContent = 'Transcrevendo áudio na GPU com Whisper...';
+      if (!polling) {
+        polling = true;
+        pollProgresso();
+      }
+      const execResp = await fetch(`${BRIDGE_URL}/api/processar/executar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId })
+      });
+      polling = false;
+
+      const resultado = await execResp.json();
+      if (!execResp.ok || !resultado.success) {
+        throw new Error(resultado.error || 'Falha na transcrição das legendas');
+      }
+
+      if (Array.isArray(resultado.itens)) {
+        resultado.itens.forEach(it => todosItensFinais.push(it));
+      }
     }
 
     msgEl.textContent = '✅ Legendas geradas com sucesso!';
@@ -4869,7 +6446,7 @@ async function processarSomenteSrt() {
     resArea.classList.remove('hidden');
     listaDownloads.innerHTML = '';
 
-    resultado.itens.forEach(item => {
+    todosItensFinais.forEach(item => {
       const card = document.createElement('div');
       card.style.cssText = 'background:var(--surface); padding:8px 12px; border-radius:var(--radius); border:1px solid var(--border); display:flex; align-items:center; gap:8px; width:100%;';
 
@@ -4901,16 +6478,19 @@ async function processarSomenteSrt() {
       listaDownloads.appendChild(card);
     });
 
-    renderizarMasterizados(resultado.itens, 'apenas_srt');
+    renderizarMasterizados(todosItensFinais, 'apenas_srt');
     setTimeout(() => {
       trocarAbaWorkspace('masterizados');
     }, 600);
 
   } catch (err) {
     fecharBarraProgressoSrt(false, 1500);
-    msgEl.textContent = `✕ ${err.message}`;
+    const msg = (err.message === 'Failed to fetch' || err.name === 'TypeError')
+      ? 'Não foi possível conectar ao servidor local (porta 5006). Verifique se o servidor está rodando no terminal.'
+      : err.message;
+    msgEl.textContent = `✕ ${msg}`;
     msgEl.style.color = 'var(--error)';
-    showToast(`✕ Erro: ${err.message}`);
+    showToast(`✕ Erro: ${msg}`);
   } finally {
     polling = false;
     processandoAudacity = false;
@@ -4922,9 +6502,12 @@ async function processarSomenteSrt() {
   }
 }
 
-// Inicializa checagem da ponte
-setInterval(checarBridgeStatus, 6000);
-setTimeout(checarBridgeStatus, 500);
+// Inicializa checagem da ponte com retentativas rápidas na abertura
+setTimeout(checarBridgeStatus, 200);
+setTimeout(checarBridgeStatus, 800);
+setTimeout(checarBridgeStatus, 1800);
+setTimeout(checarBridgeStatus, 3200);
+setInterval(checarBridgeStatus, 5000);
 
 // ════════════════════════════════════════════════════════
 // HELPERS

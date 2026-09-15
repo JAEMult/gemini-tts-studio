@@ -11,13 +11,51 @@ import threading
 import subprocess
 from datetime import datetime
 
+class SafeStream:
+    def __init__(self, target):
+        self.target = target
+    def write(self, s):
+        try:
+            if self.target:
+                self.target.write(s)
+                self.target.flush()
+        except Exception:
+            pass
+    def flush(self):
+        try:
+            if self.target:
+                self.target.flush()
+        except Exception:
+            pass
+
+sys.stdout = SafeStream(sys.stdout)
+sys.stderr = SafeStream(sys.stderr)
+
 # Garante que a pasta atual do server esteja no sys.path
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
 import pipe_runner
-import transcribe_whisper
+
+_transcribe_whisper = None
+_transcribe_mtime = 0
+def get_transcribe_whisper():
+    global _transcribe_whisper, _transcribe_mtime
+    tw_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'transcribe_whisper.py')
+    current_mtime = os.path.getmtime(tw_path) if os.path.isfile(tw_path) else 0
+    if _transcribe_whisper is None:
+        import transcribe_whisper as tw
+        _transcribe_whisper = tw
+        _transcribe_mtime = current_mtime
+    elif current_mtime > _transcribe_mtime:
+        import importlib
+        _transcribe_whisper = importlib.reload(_transcribe_whisper)
+        _transcribe_mtime = current_mtime
+    return _transcribe_whisper
+
+# Pré-aquece o Whisper em segundo plano sem bloquear a inicialização instantânea da porta 5006
+threading.Thread(target=get_transcribe_whisper, daemon=True).start()
 
 PORT = 5006
 PROGRESSO_ATUAL = "Pronto"
@@ -95,17 +133,284 @@ def calcular_metadados_audio(caminho_wav):
     }
 
 def concatenar_wavs(itens, caminho_saida):
-    """Concatena arquivos WAV preservando a taxa de amostragem."""
-    caminhos = [it['caminho_wav'] for it in itens]
+    """Concatena arquivos de áudio preservando integridade, usando módulo wave para WAVs idênticos ou ffmpeg como fallback universal."""
+    caminhos = []
+    for it in itens:
+        if isinstance(it, dict):
+            c = it.get('caminho_wav') or it.get('caminho')
+        else:
+            c = str(it)
+        if c and os.path.isfile(c):
+            caminhos.append(c)
+
     if not caminhos:
         return
-    with wave.open(caminhos[0], 'rb') as w_first:
-        params = w_first.getparams()
-    with wave.open(caminho_saida, 'wb') as w_out:
-        w_out.setparams(params)
-        for c in caminhos:
-            with wave.open(c, 'rb') as w_in:
-                w_out.writeframes(w_in.readframes(w_in.getnframes()))
+
+    if len(caminhos) == 1:
+        shutil.copy2(caminhos[0], caminho_saida)
+        return
+
+    # Tenta concatenação rápida via módulo wave nativo se todos forem WAVs de parâmetros idênticos
+    todos_wav = all(c.lower().endswith('.wav') for c in caminhos)
+    if todos_wav:
+        try:
+            with wave.open(caminhos[0], 'rb') as w_first:
+                params = w_first.getparams()
+            compativeis = True
+            for c in caminhos[1:]:
+                with wave.open(c, 'rb') as w_chk:
+                    if (w_chk.getnchannels() != params.nchannels or
+                        w_chk.getsampwidth() != params.sampwidth or
+                        w_chk.getframerate() != params.framerate):
+                        compativeis = False
+                        break
+            if compativeis:
+                with wave.open(caminho_saida, 'wb') as w_out:
+                    w_out.setparams(params)
+                    for c in caminhos:
+                        with wave.open(c, 'rb') as w_in:
+                            w_out.writeframes(w_in.readframes(w_in.getnframes()))
+                return
+        except Exception:
+            pass
+
+    # Fallback universal via ffmpeg sem popup de janela de console
+    ffmpeg_exe = shutil.which('ffmpeg')
+    if ffmpeg_exe:
+        try:
+            list_txt = caminho_saida + '.concat.txt'
+            with open(list_txt, 'w', encoding='utf-8') as f:
+                for c in caminhos:
+                    f.write(f"file '{os.path.abspath(c).replace(chr(92), '/')}'\n")
+            CREATE_NO_WINDOW = 0x08000000
+            cmd = [ffmpeg_exe, '-y', '-f', 'concat', '-safe', '0', '-i', list_txt, '-c:a', 'pcm_s16le', caminho_saida]
+            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=CREATE_NO_WINDOW)
+            try:
+                os.remove(list_txt)
+            except Exception:
+                pass
+            if res.returncode == 0 and os.path.isfile(caminho_saida) and os.path.getsize(caminho_saida) > 100:
+                return
+        except Exception:
+            pass
+
+    # Fallback final de emergência
+    shutil.copy2(caminhos[0], caminho_saida)
+
+
+class HistoricoSilencioManager:
+    """
+    Gerencia o histórico de cortes de silêncio e versões de áudio/legenda (.wav e .srt)
+    dentro da pasta oculta .historico no diretório de saída do job.
+    Permite rollback instantâneo para qualquer versão anterior (Original, corte 1, corte 2, etc.).
+    """
+    @staticmethod
+    def _pasta_hist(caminho_wav):
+        pasta_saida = os.path.dirname(os.path.abspath(caminho_wav))
+        pasta_hist = os.path.join(pasta_saida, '.historico')
+        os.makedirs(pasta_hist, exist_ok=True)
+        return pasta_hist
+
+    @staticmethod
+    def _meta_path(caminho_wav):
+        return os.path.join(HistoricoSilencioManager._pasta_hist(caminho_wav), 'meta_historico.json')
+
+    @staticmethod
+    def _carregar_meta(caminho_wav):
+        p = HistoricoSilencioManager._meta_path(caminho_wav)
+        if os.path.isfile(p):
+            try:
+                with open(p, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except Exception:
+                pass
+        return {}
+
+    @staticmethod
+    def _salvar_meta(caminho_wav, dados):
+        p = HistoricoSilencioManager._meta_path(caminho_wav)
+        try:
+            with open(p, 'w', encoding='utf-8') as f:
+                json.dump(dados, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            sys.stderr.write(f"[HistoricoSilencio] Erro ao salvar meta: {e}\n")
+
+    @classmethod
+    def registrar_original_se_necessario(cls, caminho_wav, caminho_srt=""):
+        if not os.path.isfile(caminho_wav):
+            return None
+        nome_arq = os.path.basename(caminho_wav)
+        meta_dados = cls._carregar_meta(caminho_wav)
+        if nome_arq in meta_dados and meta_dados[nome_arq].get('versoes'):
+            return meta_dados[nome_arq]['versoes'][0]
+
+        pasta_hist = cls._pasta_hist(caminho_wav)
+        nome_base = os.path.splitext(nome_arq)[0]
+        wav_orig = os.path.join(pasta_hist, f"{nome_base}_v0_Original.wav")
+        try:
+            shutil.copy2(caminho_wav, wav_orig)
+        except Exception as e:
+            sys.stderr.write(f"[HistoricoSilencio] Erro ao copiar original: {e}\n")
+            return None
+
+        srt_orig = ""
+        caminho_srt_cand = caminho_srt if (caminho_srt and os.path.isfile(caminho_srt)) else (os.path.splitext(caminho_wav)[0] + '.srt')
+        if os.path.isfile(caminho_srt_cand):
+            srt_orig = os.path.join(pasta_hist, f"{nome_base}_v0_Original.srt")
+            try:
+                shutil.copy2(caminho_srt_cand, srt_orig)
+            except Exception:
+                pass
+
+        meta_audio = calcular_metadados_audio(caminho_wav)
+        v0 = {
+            'id': 0,
+            'label': 'Original',
+            'preset': 'Original',
+            'timestamp': int(time.time()),
+            'dataFmt': datetime.now().strftime('%d/%m %H:%M'),
+            'duracaoSeg': meta_audio['duracao_seg'],
+            'duracaoFmt': meta_audio['duracao_fmt'],
+            'tamanhoFmt': meta_audio['tamanho_fmt'],
+            'tamanhoBytes': meta_audio['tamanho_bytes'],
+            'reducaoSeg': 0.0,
+            'reducaoFmt': '',
+            'caminhoWav': wav_orig,
+            'caminhoSrt': srt_orig
+        }
+        meta_dados[nome_arq] = {
+            'arquivo': nome_arq,
+            'versaoAtual': 0,
+            'versoes': [v0]
+        }
+        cls._salvar_meta(caminho_wav, meta_dados)
+        return v0
+
+    @classmethod
+    def registrar_novo_corte(cls, caminho_wav, preset, duracao_antiga_seg, caminho_srt=""):
+        if not os.path.isfile(caminho_wav):
+            return None, []
+        nome_arq = os.path.basename(caminho_wav)
+        cls.registrar_original_se_necessario(caminho_wav, caminho_srt)
+
+        meta_dados = cls._carregar_meta(caminho_wav)
+        entry = meta_dados.get(nome_arq, {'versoes': [], 'versaoAtual': 0})
+        nova_id = len(entry['versoes'])
+
+        pasta_hist = cls._pasta_hist(caminho_wav)
+        nome_base = os.path.splitext(nome_arq)[0]
+        wav_ver = os.path.join(pasta_hist, f"{nome_base}_v{nova_id}_{preset}.wav")
+        try:
+            shutil.copy2(caminho_wav, wav_ver)
+        except Exception as e:
+            sys.stderr.write(f"[HistoricoSilencio] Erro ao salvar versão {nova_id}: {e}\n")
+
+        srt_ver = ""
+        caminho_srt_cand = caminho_srt if (caminho_srt and os.path.isfile(caminho_srt)) else (os.path.splitext(caminho_wav)[0] + '.srt')
+        if os.path.isfile(caminho_srt_cand):
+            srt_ver = os.path.join(pasta_hist, f"{nome_base}_v{nova_id}_{preset}.srt")
+            try:
+                shutil.copy2(caminho_srt_cand, srt_ver)
+            except Exception:
+                pass
+
+        meta_novo = calcular_metadados_audio(caminho_wav)
+        reducao_seg = max(0.0, round(duracao_antiga_seg - meta_novo['duracao_seg'], 1))
+        pct = round((reducao_seg / duracao_antiga_seg) * 100) if duracao_antiga_seg > 0 else 0
+        reducao_fmt = f"-{reducao_seg:.1f}s (-{pct}%)" if reducao_seg > 0 else "0s"
+
+        label_preset = '2,0s / 50%' if '2' in preset else ('1,3s / 60%' if '1.3' in preset or '1,3' in preset else ('0,5s / 80%' if '0.5' in preset or '0,5' in preset else preset))
+
+        nova_v = {
+            'id': nova_id,
+            'label': label_preset,
+            'preset': preset,
+            'timestamp': int(time.time()),
+            'dataFmt': datetime.now().strftime('%d/%m %H:%M'),
+            'duracaoSeg': meta_novo['duracao_seg'],
+            'duracaoFmt': meta_novo['duracao_fmt'],
+            'tamanhoFmt': meta_novo['tamanho_fmt'],
+            'tamanhoBytes': meta_novo['tamanho_bytes'],
+            'reducaoSeg': reducao_seg,
+            'reducaoFmt': reducao_fmt,
+            'caminhoWav': wav_ver,
+            'caminhoSrt': srt_ver
+        }
+        entry['versoes'].append(nova_v)
+        entry['versaoAtual'] = nova_id
+        meta_dados[nome_arq] = entry
+        cls._salvar_meta(caminho_wav, meta_dados)
+
+        hist_lista = [dict(v, isAtual=(v['id'] == nova_id)) for v in entry['versoes']]
+        return nova_v, hist_lista
+
+    @classmethod
+    def obter_historico(cls, caminho_wav):
+        nome_arq = os.path.basename(caminho_wav)
+        meta_dados = cls._carregar_meta(caminho_wav)
+        entry = meta_dados.get(nome_arq)
+        if not entry or not entry.get('versoes'):
+            return []
+        v_atual = entry.get('versaoAtual', len(entry['versoes']) - 1)
+        return [dict(v, isAtual=(v['id'] == v_atual)) for v in entry['versoes']]
+
+    @classmethod
+    def restaurar_versao(cls, caminho_wav, versao_id):
+        nome_arq = os.path.basename(caminho_wav)
+        meta_dados = cls._carregar_meta(caminho_wav)
+        entry = meta_dados.get(nome_arq)
+        if not entry or not entry.get('versoes'):
+            raise Exception("Nenhum histórico encontrado para este arquivo.")
+
+        target = None
+        for v in entry['versoes']:
+            if v['id'] == versao_id:
+                target = v
+                break
+        if not target:
+            raise Exception(f"Versão {versao_id} não encontrada no histórico.")
+
+        if not os.path.isfile(target['caminhoWav']):
+            raise Exception(f"Arquivo da versão {versao_id} não encontrado no disco.")
+
+        # Copia de volta o WAV
+        shutil.copy2(target['caminhoWav'], caminho_wav)
+
+        # Copia de volta o SRT se existir
+        caminho_srt_dest = os.path.splitext(caminho_wav)[0] + '.srt'
+        if target.get('caminhoSrt') and os.path.isfile(target['caminhoSrt']):
+            shutil.copy2(target['caminhoSrt'], caminho_srt_dest)
+        elif os.path.isfile(caminho_srt_dest) and not target.get('caminhoSrt'):
+            try:
+                os.remove(caminho_srt_dest)
+            except Exception:
+                pass
+
+        entry['versaoAtual'] = versao_id
+        meta_dados[nome_arq] = entry
+        cls._salvar_meta(caminho_wav, meta_dados)
+
+        meta_audio = calcular_metadados_audio(caminho_wav)
+        srt_conteudo = ""
+        if os.path.isfile(caminho_srt_dest):
+            try:
+                with open(caminho_srt_dest, 'r', encoding='utf-8', errors='ignore') as sf:
+                    srt_conteudo = sf.read()
+            except Exception:
+                pass
+
+        hist_lista = [dict(v, isAtual=(v['id'] == versao_id)) for v in entry['versoes']]
+        return {
+            'caminhoWav': caminho_wav,
+            'duracaoFmt': meta_audio['duracao_fmt'],
+            'duracaoSeg': meta_audio['duracao_seg'],
+            'tamanhoFmt': meta_audio['tamanho_fmt'],
+            'tamanhoBytes': meta_audio['tamanho_bytes'],
+            'reducaoFmt': target.get('reducaoFmt', ''),
+            'caminhoSrt': caminho_srt_dest if srt_conteudo else '',
+            'srtConteudo': srt_conteudo,
+            'historico': hist_lista
+        }
 
 def executar_pipeline_job(itens_processar, roteiro_completo, juntar, nome_macro, gerar_srt, pasta_job, pasta_temp, pasta_saida):
     """
@@ -185,22 +490,29 @@ def executar_pipeline_job(itens_processar, roteiro_completo, juntar, nome_macro,
         texto_ref = " ".join(roteiro_completo)
         srt_conteudo = ""
         caminho_srt = ""
+        aviso_srt = ""
+        similaridade_srt = 100
 
         if gerar_srt:
             set_progresso("Whisper transcrevendo áudio unificado na GPU (última etapa)...", pct=45)
             try:
-                srt_conteudo = transcribe_whisper.gerar_srt_whisper(
+                srt_conteudo, info_meta = get_transcribe_whisper().gerar_srt_whisper(
                     audio_final['caminho'],
-                    texto_referencia=texto_ref
+                    texto_referencia=texto_ref,
+                    retornar_meta=True
                 )
                 caminho_srt = os.path.join(pasta_saida, f"{audio_final['nome']}.srt")
                 with open(caminho_srt, 'w', encoding='utf-8') as sf:
                     sf.write(srt_conteudo)
+                aviso_srt = info_meta.get('aviso', '')
+                similaridade_srt = info_meta.get('similaridade', 100)
                 set_progresso("Legenda unificada gerada com sucesso!", pct=95)
             except Exception as ew:
                 sys.stderr.write(f"[Whisper] Erro na transcrição: {ew}\n")
 
         meta = calcular_metadados_audio(audio_final['caminho'])
+        HistoricoSilencioManager.registrar_original_se_necessario(audio_final['caminho'], caminho_srt)
+        hist_init = HistoricoSilencioManager.obter_historico(audio_final['caminho'])
 
         itens_finais.append({
             'tipo': 'unificado',
@@ -216,7 +528,10 @@ def executar_pipeline_job(itens_processar, roteiro_completo, juntar, nome_macro,
             'duracaoSeg': meta['duracao_seg'],
             'caminhoSrt': caminho_srt,
             'urlSrt': f'/api/download?path={urllib.parse.quote(caminho_srt)}' if caminho_srt else '',
-            'srtConteudo': srt_conteudo
+            'srtConteudo': srt_conteudo,
+            'avisoSrt': aviso_srt,
+            'similaridadeSrt': similaridade_srt,
+            'historico': hist_init
         })
 
     else:
@@ -226,27 +541,34 @@ def executar_pipeline_job(itens_processar, roteiro_completo, juntar, nome_macro,
             texto_ref = itens_processar[idx]['texto'] if idx < len(itens_processar) else ""
             srt_conteudo = ""
             caminho_srt = ""
+            aviso_srt = ""
+            similaridade_srt = 100
 
             if gerar_srt:
                 pct_inicio = 20 + int((idx / total_bl) * 75)
                 set_progresso(f"Whisper transcrevendo bloco {idx+1}/{total_bl} na GPU...", pct=pct_inicio)
                 try:
-                    srt_conteudo = transcribe_whisper.gerar_srt_whisper(
+                    srt_conteudo, info_meta = get_transcribe_whisper().gerar_srt_whisper(
                         arq['caminho'],
-                        texto_referencia=texto_ref
+                        texto_referencia=texto_ref,
+                        retornar_meta=True
                     )
                     caminho_srt = os.path.join(pasta_saida, f"{arq['nome']}.srt")
                     with open(caminho_srt, 'w', encoding='utf-8') as sf:
                         sf.write(srt_conteudo)
+                    aviso_srt = info_meta.get('aviso', '')
+                    similaridade_srt = info_meta.get('similaridade', 100)
                     pct_fim = 20 + int(((idx + 1) / total_bl) * 75)
                     set_progresso(f"Bloco {idx+1}/{total_bl} concluído!", pct=pct_fim)
                 except Exception as ew:
                     sys.stderr.write(f"[Whisper] Erro no bloco {idx+1}: {ew}\n")
 
             meta = calcular_metadados_audio(arq['caminho'])
+            HistoricoSilencioManager.registrar_original_se_necessario(arq['caminho'], caminho_srt)
+            hist_init = HistoricoSilencioManager.obter_historico(arq['caminho'])
 
             itens_finais.append({
-                'tipo': 'bloco',
+                'tipo': arq.get('tipo', 'bloco'),
                 'nome': arq['nome'],
                 'macro': nome_macro,
                 'texto': texto_ref,
@@ -259,7 +581,10 @@ def executar_pipeline_job(itens_processar, roteiro_completo, juntar, nome_macro,
                 'duracaoSeg': meta['duracao_seg'],
                 'caminhoSrt': caminho_srt,
                 'urlSrt': f'/api/download?path={urllib.parse.quote(caminho_srt)}' if caminho_srt else '',
-                'srtConteudo': srt_conteudo
+                'srtConteudo': srt_conteudo,
+                'avisoSrt': aviso_srt,
+                'similaridadeSrt': similaridade_srt,
+                'historico': hist_init
             })
 
     # Limpa arquivos temporários de entrada
@@ -300,8 +625,13 @@ class BridgeHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header('Content-Type', 'application/json; charset=utf-8')
         self.send_header('Content-Length', str(len(corpo)))
+        self.send_header('Connection', 'close')
         self.end_headers()
-        self.wfile.write(corpo)
+        try:
+            self.wfile.write(corpo)
+            self.wfile.flush()
+        except Exception:
+            pass
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
@@ -343,6 +673,21 @@ class BridgeHandler(BaseHTTPRequestHandler):
             threading.Thread(target=_tocar, daemon=True).start()
             self.responder_json({'success': True})
 
+        elif caminho == '/api/tocar-som-silencio':
+            def _tocar_silencio():
+                try:
+                    wav_efeito = r"C:\Projetos\Efeitos Sonoros\liecio-menu_beep_short_snap-533778 Minimalista.wav"
+                    if os.path.isfile(wav_efeito):
+                        import winsound
+                        winsound.PlaySound(wav_efeito, winsound.SND_FILENAME | winsound.SND_ASYNC)
+                    else:
+                        import winsound
+                        winsound.MessageBeep(winsound.MB_ICONASTERISK)
+                except Exception:
+                    pass
+            threading.Thread(target=_tocar_silencio, daemon=True).start()
+            self.responder_json({'success': True})
+
         elif caminho == '/api/audio':
             # Rota de streaming direto para o player do navegador (inline, sem attachment)
             query = urllib.parse.parse_qs(parsed.query)
@@ -367,6 +712,15 @@ class BridgeHandler(BaseHTTPRequestHandler):
         elif caminho == '/api/app/fechar':
             pipe_runner.close_audacity(force=True)
             self.responder_json({'ok': True, 'msg': 'Audacity encerrado com sucesso.'})
+
+        elif caminho == '/api/audacity/historico':
+            query = urllib.parse.parse_qs(parsed.query)
+            caminho_arquivo = query.get('path', [''])[0]
+            if os.path.isfile(caminho_arquivo):
+                hist = HistoricoSilencioManager.obter_historico(caminho_arquivo)
+                self.responder_json({'success': True, 'historico': hist})
+            else:
+                self.responder_json({'success': False, 'error': 'Arquivo não encontrado'}, status=404)
 
         elif caminho == '/api/download':
             query = urllib.parse.parse_qs(parsed.query)
@@ -440,9 +794,10 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     return self.responder_json({'success': False, 'error': f'Arquivo WAV não encontrado: {caminho_wav}'}, status=404)
 
                 set_progresso("Whisper transcrevendo áudio na GPU sob demanda...")
-                srt_conteudo = transcribe_whisper.gerar_srt_whisper(
+                srt_conteudo, info_meta = get_transcribe_whisper().gerar_srt_whisper(
                     caminho_wav,
-                    texto_referencia=texto_ref
+                    texto_referencia=texto_ref,
+                    retornar_meta=True
                 )
                 caminho_srt = os.path.splitext(caminho_wav)[0] + '.srt'
                 with open(caminho_srt, 'w', encoding='utf-8') as sf:
@@ -453,7 +808,9 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     'success': True,
                     'caminhoSrt': caminho_srt,
                     'urlSrt': f'/api/download?path={urllib.parse.quote(caminho_srt)}',
-                    'srtConteudo': srt_conteudo
+                    'srtConteudo': srt_conteudo,
+                    'aviso': info_meta.get('aviso', ''),
+                    'similaridade': info_meta.get('similaridade', 100)
                 })
             except Exception as e:
                 set_progresso(f"Erro Whisper: {e}")
@@ -472,6 +829,21 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 except Exception:
                     pass
             threading.Thread(target=_tocar, daemon=True).start()
+            self.responder_json({'success': True})
+
+        elif caminho == '/api/tocar-som-silencio':
+            def _tocar_silencio():
+                try:
+                    wav_efeito = r"C:\Projetos\Efeitos Sonoros\liecio-menu_beep_short_snap-533778 Minimalista.wav"
+                    if os.path.isfile(wav_efeito):
+                        import winsound
+                        winsound.PlaySound(wav_efeito, winsound.SND_FILENAME | winsound.SND_ASYNC)
+                    else:
+                        import winsound
+                        winsound.MessageBeep(winsound.MB_ICONASTERISK)
+                except Exception:
+                    pass
+            threading.Thread(target=_tocar_silencio, daemon=True).start()
             self.responder_json({'success': True})
 
         elif caminho == '/api/audacity/travar-silencio':
@@ -502,7 +874,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 if not os.path.isfile(caminho_wav):
                     return self.responder_json({'success': False, 'error': f'Arquivo WAV não encontrado: {caminho_wav}'}, status=404)
 
-                set_progresso(f"Aplicando corte de silêncio ({duracao}s / {compressao}%) no Audacity: {os.path.basename(caminho_wav)}...")
+                caminho_srt_existente = os.path.splitext(caminho_wav)[0] + '.srt'
+                meta_antes = calcular_metadados_audio(caminho_wav)
+                duracao_antiga = meta_antes['duracao_seg']
+                HistoricoSilencioManager.registrar_original_se_necessario(caminho_wav, caminho_srt_existente)
+
+                set_progresso(f"Aplicando corte de silêncio ({duracao}s / {compressao}%) no Audacity: {os.path.basename(caminho_wav)}...", pct=10)
                 res_audacity = pipe_runner.executar_travar_silencio(
                     caminho_wav,
                     duracao=duracao,
@@ -513,33 +890,28 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 )
 
                 if not res_audacity.get('success'):
-                    set_progresso("Falha ao travar silêncio no Audacity.")
+                    set_progresso("Falha ao travar silêncio no Audacity.", pct=0)
                     return self.responder_json(res_audacity, status=500)
 
                 # Recalcula metadados de áudio após redução de silêncio
                 meta = calcular_metadados_audio(caminho_wav)
 
-                # Se o arquivo já possuía legenda .srt ou foi solicitado gerar,
-                # regera o SRT via Whisper para que as legendas fiquem 100% sincronizadas com os novos tempos
-                caminho_srt_existente = os.path.splitext(caminho_wav)[0] + '.srt'
-                deve_regerar_srt = gerar_srt or os.path.isfile(caminho_srt_existente)
+                # Preserva o arquivo .srt existente se houver (sem travar a requisição com Whisper)
+                caminho_srt = caminho_srt_existente if os.path.isfile(caminho_srt_existente) else ""
                 srt_conteudo = ""
-                caminho_srt = ""
-
-                if deve_regerar_srt:
-                    set_progresso("Ressincronizando legenda SRT no Whisper para os novos tempos do áudio...")
+                if caminho_srt:
                     try:
-                        srt_conteudo = transcribe_whisper.gerar_srt_whisper(
-                            caminho_wav,
-                            texto_referencia=texto_ref
-                        )
-                        caminho_srt = caminho_srt_existente
-                        with open(caminho_srt, 'w', encoding='utf-8') as sf:
-                            sf.write(srt_conteudo)
-                    except Exception as ew:
-                        sys.stderr.write(f"[Whisper] Erro ao ressincronizar SRT pós-corte: {ew}\n")
+                        with open(caminho_srt, 'r', encoding='utf-8') as sf:
+                            srt_conteudo = sf.read()
+                    except Exception:
+                        pass
+                aviso_srt = ""
 
-                set_progresso("Silêncio travado e áudio atualizado com sucesso!")
+                nova_v, hist_lista = HistoricoSilencioManager.registrar_novo_corte(
+                    caminho_wav, preset, duracao_antiga, caminho_srt=caminho_srt
+                )
+
+                set_progresso("Silêncio travado e áudio atualizado com sucesso!", pct=100)
                 ts_cache = int(time.time())
                 self.responder_json({
                     'success': True,
@@ -548,11 +920,15 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     'tamanhoBytes': meta['tamanho_bytes'],
                     'duracaoFmt': meta['duracao_fmt'],
                     'duracaoSeg': meta['duracao_seg'],
+                    'reducaoSeg': nova_v['reducaoSeg'] if nova_v else 0.0,
+                    'reducaoFmt': nova_v['reducaoFmt'] if nova_v else '',
+                    'historico': hist_lista,
                     'urlAudio': f'/api/audio?path={urllib.parse.quote(caminho_wav)}&t={ts_cache}',
                     'urlWav': f'/api/download?path={urllib.parse.quote(caminho_wav)}&t={ts_cache}',
                     'caminhoSrt': caminho_srt,
                     'urlSrt': f'/api/download?path={urllib.parse.quote(caminho_srt)}&t={ts_cache}' if caminho_srt else '',
-                    'srtConteudo': srt_conteudo
+                    'srtConteudo': srt_conteudo,
+                    'aviso': aviso_srt
                 })
             except Exception as e:
                 set_progresso(f"Erro ao travar silêncio: {e}")
@@ -582,7 +958,17 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 limiar = str(dados.get('limiar', '-35'))
                 descartar = str(dados.get('descartar', '0,5'))
 
-                set_progresso(f"Iniciando corte de silêncio em lote no Audacity ({len(itens)} áudio(s))...")
+                # Registra originais e armazena durações pré-corte
+                duracoes_antigas = {}
+                for it in itens:
+                    cw = it.get('caminhoWav') or it.get('caminho') or ''
+                    if os.path.isfile(cw):
+                        meta_it = calcular_metadados_audio(cw)
+                        duracoes_antigas[cw] = meta_it['duracao_seg']
+                        caminho_srt_cand = os.path.splitext(cw)[0] + '.srt'
+                        HistoricoSilencioManager.registrar_original_se_necessario(cw, caminho_srt_cand)
+
+                set_progresso(f"Iniciando corte de silêncio em lote no Audacity ({len(itens)} áudio(s))...", pct=5)
                 res_lote = pipe_runner.executar_travar_silencio_lote(
                     itens,
                     duracao=duracao,
@@ -593,7 +979,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 )
 
                 if not res_lote.get('success'):
-                    set_progresso("Falha no corte de silêncio em lote no Audacity.")
+                    set_progresso("Falha no corte de silêncio em lote no Audacity.", pct=0)
                     return self.responder_json(res_lote, status=500)
 
                 itens_processados = res_lote.get('itens', [])
@@ -608,22 +994,20 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     caminho_wav = it['caminhoWav']
                     meta = calcular_metadados_audio(caminho_wav)
                     caminho_srt_existente = os.path.splitext(caminho_wav)[0] + '.srt'
-                    deve_regerar_srt = it.get('gerarSrt', True) or os.path.isfile(caminho_srt_existente)
+                    caminho_srt = caminho_srt_existente if os.path.isfile(caminho_srt_existente) else ""
                     srt_conteudo = ""
-                    caminho_srt = ""
-
-                    if deve_regerar_srt:
-                        set_progresso(f"Ressincronizando SRT no Whisper ({idx}/{total}): {os.path.basename(caminho_wav)}...")
+                    if caminho_srt:
                         try:
-                            srt_conteudo = transcribe_whisper.gerar_srt_whisper(
-                                caminho_wav,
-                                texto_referencia=it.get('textoReferencia', '')
-                            )
-                            caminho_srt = caminho_srt_existente
-                            with open(caminho_srt, 'w', encoding='utf-8') as sf:
-                                sf.write(srt_conteudo)
-                        except Exception as ew:
-                            sys.stderr.write(f"[Whisper] Erro ao ressincronizar SRT em lote: {ew}\n")
+                            with open(caminho_srt, 'r', encoding='utf-8') as sf:
+                                srt_conteudo = sf.read()
+                        except Exception:
+                            pass
+                    aviso_srt = ""
+                    similaridade_srt = 100
+
+                    nova_v, hist_lista = HistoricoSilencioManager.registrar_novo_corte(
+                        caminho_wav, preset, duracoes_antigas.get(caminho_wav, meta['duracao_seg']), caminho_srt=caminho_srt
+                    )
 
                     ts_cache = int(time.time())
                     itens_atualizados.append({
@@ -634,20 +1018,88 @@ class BridgeHandler(BaseHTTPRequestHandler):
                         'tamanhoBytes': meta['tamanho_bytes'],
                         'duracaoFmt': meta['duracao_fmt'],
                         'duracaoSeg': meta['duracao_seg'],
+                        'reducaoSeg': nova_v['reducaoSeg'] if nova_v else 0.0,
+                        'reducaoFmt': nova_v['reducaoFmt'] if nova_v else '',
+                        'historico': hist_lista,
                         'urlAudio': f'/api/audio?path={urllib.parse.quote(caminho_wav)}&t={ts_cache}',
                         'urlWav': f'/api/download?path={urllib.parse.quote(caminho_wav)}&t={ts_cache}',
                         'caminhoSrt': caminho_srt,
                         'urlSrt': f'/api/download?path={urllib.parse.quote(caminho_srt)}&t={ts_cache}' if caminho_srt else '',
-                        'srtConteudo': srt_conteudo
+                        'srtConteudo': srt_conteudo,
+                        'avisoSrt': aviso_srt,
+                        'similaridadeSrt': similaridade_srt
                     })
 
-                set_progresso(f"Silêncio travado com sucesso em {len(itens_atualizados)} áudio(s)!")
+                set_progresso(f"Silêncio travado com sucesso em {len(itens_atualizados)} áudio(s)!", pct=100)
                 self.responder_json({
                     'success': True,
                     'itens': itens_atualizados
                 })
             except Exception as e:
-                set_progresso(f"Erro ao travar silêncio em lote: {e}")
+                set_progresso(f"Erro ao travar silêncio em lote: {e}", pct=0)
+                self.responder_json({'success': False, 'error': str(e)}, status=500)
+
+        elif caminho == '/api/audacity/restaurar-versao':
+            try:
+                tamanho = int(self.headers.get('Content-Length', 0))
+                corpo_bruto = self.rfile.read(tamanho)
+                dados = json.loads(corpo_bruto.decode('utf-8'))
+
+                caminho_wav = dados.get('caminhoWav', '')
+                versao_id = int(dados.get('versaoId', 0))
+
+                if not os.path.isfile(caminho_wav):
+                    return self.responder_json({'success': False, 'error': f'Arquivo WAV não encontrado: {caminho_wav}'}, status=404)
+
+                set_progresso(f"Restaurando versão {versao_id} de {os.path.basename(caminho_wav)}...")
+                res = HistoricoSilencioManager.restaurar_versao(caminho_wav, versao_id)
+                ts_cache = int(time.time())
+                res['success'] = True
+                res['urlAudio'] = f'/api/audio?path={urllib.parse.quote(caminho_wav)}&t={ts_cache}'
+                res['urlWav'] = f'/api/download?path={urllib.parse.quote(caminho_wav)}&t={ts_cache}'
+                res['urlSrt'] = f'/api/download?path={urllib.parse.quote(res["caminhoSrt"])}&t={ts_cache}' if res.get('caminhoSrt') else ''
+                set_progresso("Versão restaurada com sucesso!")
+                self.responder_json(res)
+            except Exception as e:
+                set_progresso(f"Erro ao restaurar versão: {e}")
+                self.responder_json({'success': False, 'error': str(e)}, status=500)
+
+        elif caminho == '/api/audacity/restaurar-lote':
+            try:
+                tamanho = int(self.headers.get('Content-Length', 0))
+                corpo_bruto = self.rfile.read(tamanho)
+                dados = json.loads(corpo_bruto.decode('utf-8'))
+
+                itens = dados.get('itens', [])
+                versao_id = int(dados.get('versaoId', 0))
+                if not itens:
+                    return self.responder_json({'success': False, 'error': 'Nenhum item informado.'}, status=400)
+
+                set_progresso(f"Restaurando versão {versao_id} em {len(itens)} áudio(s)...")
+                ts_cache = int(time.time())
+                itens_restaurados = []
+                for it in itens:
+                    caminho_wav = it.get('caminhoWav') or it.get('caminho') or ''
+                    if not os.path.isfile(caminho_wav):
+                        continue
+                    try:
+                        res = HistoricoSilencioManager.restaurar_versao(caminho_wav, versao_id)
+                        res['success'] = True
+                        res['nome'] = it.get('nome', os.path.basename(caminho_wav))
+                        res['urlAudio'] = f'/api/audio?path={urllib.parse.quote(caminho_wav)}&t={ts_cache}'
+                        res['urlWav'] = f'/api/download?path={urllib.parse.quote(caminho_wav)}&t={ts_cache}'
+                        res['urlSrt'] = f'/api/download?path={urllib.parse.quote(res["caminhoSrt"])}&t={ts_cache}' if res.get('caminhoSrt') else ''
+                        itens_restaurados.append(res)
+                    except Exception as e_res:
+                        sys.stderr.write(f"[RestaurarLote] Erro em {caminho_wav}: {e_res}\n")
+
+                set_progresso(f"{len(itens_restaurados)} áudio(s) restaurado(s) com sucesso!")
+                self.responder_json({
+                    'success': True,
+                    'itens': itens_restaurados
+                })
+            except Exception as e:
+                set_progresso(f"Erro ao restaurar lote: {e}")
                 self.responder_json({'success': False, 'error': str(e)}, status=500)
 
 
@@ -722,11 +1174,11 @@ class BridgeHandler(BaseHTTPRequestHandler):
                         if os.path.isdir(pasta_macros_dev):
                             shutil.copytree(pasta_macros_dev, os.path.join(repo_dir, 'macros'), dirs_exist_ok=True)
 
-                        subprocess.run(['git', 'checkout', 'main'], cwd=repo_dir, capture_output=True, text=True)
-                        subprocess.run(['git', 'add', 'gemini-tts-studio.html', 'macros', 'server'], cwd=repo_dir, check=True)
+                        subprocess.run(['git', 'checkout', 'main'], cwd=repo_dir, capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                        subprocess.run(['git', 'add', 'gemini-tts-studio.html', 'macros', 'server'], cwd=repo_dir, check=True, creationflags=subprocess.CREATE_NO_WINDOW)
                         ts_msg = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-                        subprocess.run(['git', 'commit', '-m', f'Implantacao DEV -> Producao: {ts_msg}'], cwd=repo_dir, capture_output=True, text=True)
-                        res_push = subprocess.run(['git', 'push', 'origin', 'main'], cwd=repo_dir, capture_output=True, text=True)
+                        subprocess.run(['git', 'commit', '-m', f'Implantacao DEV -> Producao: {ts_msg}'], cwd=repo_dir, capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                        res_push = subprocess.run(['git', 'push', 'origin', 'main'], cwd=repo_dir, capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
                         if res_push.returncode == 0:
                             github_sincronizado = True
                             github_msg = "Sincronizado e enviado com sucesso ao GitHub (branch main)!"
@@ -799,12 +1251,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
                         shutil.copytree(pasta_macros, os.path.join(repo_dir, 'macros'), dirs_exist_ok=True)
                 
                 # Garante checkout na branch correta antes de commitar e enviar
-                subprocess.run(['git', 'checkout', '-B', branch_destino], cwd=repo_dir, check=True)
-                subprocess.run(['git', 'add', 'gemini-tts-studio.html', 'macros', 'server'], cwd=repo_dir, check=True)
-                subprocess.run(['git', 'commit', '--allow-empty', '-m', f'Backup ({branch_destino}): {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}'], cwd=repo_dir)
-                res = subprocess.run(['git', 'push', 'origin', branch_destino], cwd=repo_dir, capture_output=True, text=True)
+                subprocess.run(['git', 'checkout', '-B', branch_destino], cwd=repo_dir, check=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                subprocess.run(['git', 'add', 'gemini-tts-studio.html', 'macros', 'server'], cwd=repo_dir, check=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                subprocess.run(['git', 'commit', '--allow-empty', '-m', f'Backup ({branch_destino}): {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}'], cwd=repo_dir, creationflags=subprocess.CREATE_NO_WINDOW)
+                res = subprocess.run(['git', 'push', 'origin', branch_destino], cwd=repo_dir, capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
                 if res.returncode != 0:
-                    res = subprocess.run(['git', 'push', 'origin', branch_destino, '--force'], cwd=repo_dir, capture_output=True, text=True)
+                    res = subprocess.run(['git', 'push', 'origin', branch_destino, '--force'], cwd=repo_dir, capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
                     if res.returncode != 0:
                         raise Exception(res.stderr or f'Erro ao enviar para a branch {branch_destino} no GitHub')
                 
@@ -840,6 +1292,8 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 os.makedirs(pasta_temp, exist_ok=True)
                 os.makedirs(pasta_saida, exist_ok=True)
 
+                grupos_info = dados.get('grupos', [])
+
                 job_meta = {
                     'jobId': job_id,
                     'total': total,
@@ -852,6 +1306,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     'pasta_temp': pasta_temp,
                     'pasta_saida': pasta_saida,
                     'blocos_info': blocos_info,
+                    'grupos': grupos_info,
                     'arquivos_recebidos': {}
                 }
 
@@ -862,7 +1317,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 with open(meta_path, 'w', encoding='utf-8') as f:
                     json.dump(job_meta, f, ensure_ascii=False, indent=2)
 
-                sys.stderr.write(f"[Processar Stream] Sessão iniciada: {job_id} ({total} blocos esperados, juntar={juntar}, macro={nome_macro})\n")
+                sys.stderr.write(f"[Processar Stream] Sessão iniciada: {job_id} ({total} blocos esperados, {len(grupos_info)} grupos, juntar={juntar}, macro={nome_macro})\n")
                 self.responder_json({'success': True, 'jobId': job_id})
             except Exception as e:
                 sys.stderr.write(f"[Processar Stream] Erro em iniciar: {e}\n")
@@ -873,6 +1328,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 query = urllib.parse.parse_qs(parsed.query)
                 job_id = query.get('jobId', [''])[0]
                 index = int(query.get('index', ['1'])[0])
+                grupo_id = query.get('grupoId', [''])[0]
                 nome_param = query.get('nome', [''])[0]
 
                 with JOBS_LOCK:
@@ -903,11 +1359,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     nome = f'bloco_{index:02d}'
 
                 nome_sanitizado = "".join(c for c in nome if c not in '<>:"/\\|?*').strip() or f'bloco_{index:02d}'
+                prefixo_arq = f'{grupo_id}_{index:03d}' if grupo_id else f'{index:03d}'
                 if nome_sanitizado.lower().endswith(('.wav', '.mp3', '.m4a', '.ogg', '.flac')):
                     nome_sem_ext, ext_arq = os.path.splitext(nome_sanitizado)
-                    caminho_arquivo = os.path.join(pasta_temp, f'{index:03d}_{nome_sem_ext}{ext_arq}')
+                    caminho_arquivo = os.path.join(pasta_temp, f'{prefixo_arq}_{nome_sem_ext}{ext_arq}')
                 else:
-                    caminho_arquivo = os.path.join(pasta_temp, f'{index:03d}_{nome_sanitizado}.wav')
+                    caminho_arquivo = os.path.join(pasta_temp, f'{prefixo_arq}_{nome_sanitizado}.wav')
 
                 tamanho = int(self.headers.get('Content-Length', 0))
                 tam_legivel = f"{tamanho // (1024*1024)} MB" if tamanho >= 1048576 else f"{tamanho // 1024} KB"
@@ -923,9 +1380,14 @@ class BridgeHandler(BaseHTTPRequestHandler):
                         f.write(chunk)
                         bytes_lidos += len(chunk)
 
+                if tamanho > 0 and bytes_lidos < tamanho:
+                    raise Exception(f"Upload incompleto do bloco {index}: recebidos {bytes_lidos} de {tamanho} bytes")
+
+                chave_rec = f"{grupo_id}_{index}" if grupo_id else str(index)
                 with JOBS_LOCK:
-                    job_meta['arquivos_recebidos'][str(index)] = {
+                    job_meta['arquivos_recebidos'][chave_rec] = {
                         'index': index,
+                        'grupoId': grupo_id,
                         'nome': nome_sanitizado,
                         'caminho': caminho_arquivo,
                         'bytes': bytes_lidos
@@ -937,7 +1399,9 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     except Exception:
                         pass
 
-                sys.stderr.write(f"[Processar Stream] Bloco {index} recebido com sucesso: {caminho_arquivo} ({bytes_lidos} bytes)\n")
+                total_esp = job_meta.get('total', '?')
+                set_progresso(f"Áudio {index}/{total_esp} recebido ({tam_legivel})")
+                sys.stderr.write(f"[Processar Stream] Item {chave_rec} recebido com sucesso: {caminho_arquivo} ({bytes_lidos} bytes)\n")
                 self.responder_json({'success': True, 'index': index, 'bytes': bytes_lidos})
             except Exception as e:
                 sys.stderr.write(f"[Processar Stream] Erro no upload do bloco: {e}\n")
@@ -964,6 +1428,78 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     return self.responder_json({'success': False, 'error': f'Job não encontrado: {job_id}'}, status=404)
 
                 arquivos_recebidos = job_meta.get('arquivos_recebidos', {})
+                pasta_job = job_meta['pasta_job']
+                pasta_temp = job_meta['pasta_temp']
+                pasta_saida = job_meta['pasta_saida']
+
+                # ════════════════════════════════════════════════════════
+                # MODO 1: LOTE DE GRUPOS UNIFICADOS (Opção C)
+                # Cada grupo tem suas partes consolidadas e todos os grupos
+                # são importados simultaneamente no Audacity para masterização unificada.
+                # ════════════════════════════════════════════════════════
+                if job_meta.get('grupos') and len(job_meta['grupos']) > 0:
+                    grupos_def = job_meta['grupos']
+                    itens_grupos = []
+                    roteiro_completo = []
+
+                    for g_idx, g in enumerate(grupos_def):
+                        gid = str(g.get('id', g_idx))
+                        nome_g = "".join(c for c in (g.get('nome') or f'Episodio_{g_idx+1}') if c not in '<>:"/\\|?*').strip() or f'Episodio_{g_idx+1}'
+                        texto_g = str(g.get('texto', '')).strip()
+
+                        # Filtra arquivos pertencentes a este grupo
+                        arqs_g = []
+                        for k, v in arquivos_recebidos.items():
+                            if v.get('grupoId') == gid or (len(grupos_def) == 1 and not v.get('grupoId')):
+                                arqs_g.append(v)
+
+                        # Ordena por índice da parte (1, 2, 3...)
+                        arqs_g.sort(key=lambda x: int(x.get('index', 0)))
+
+                        if not arqs_g:
+                            continue
+
+                        # Concatena todas as partes do grupo num único áudio consolidado do grupo
+                        caminho_grupo_temp = os.path.join(pasta_temp, f'grupo_{g_idx:02d}_{nome_g}.wav')
+                        set_progresso(f"Consolidando partes do grupo [{g_idx+1}/{len(grupos_def)}]: {nome_g}...")
+                        concatenar_wavs(arqs_g, caminho_grupo_temp)
+
+                        if texto_g:
+                            roteiro_completo.append(texto_g)
+
+                        itens_grupos.append({
+                            'tipo': 'unificado',
+                            'nome': nome_g,
+                            'caminho_wav': caminho_grupo_temp,
+                            'texto': texto_g,
+                            'nome_unificado': nome_g
+                        })
+
+                    if not itens_grupos:
+                        return self.responder_json({'success': False, 'error': 'Nenhum áudio de grupo foi recebido para este job.'}, status=400)
+
+                    sys.stderr.write(f"[Processar Stream] Executando lote de {len(itens_grupos)} grupos no Audacity (Masterização Unificada - Opção C)...\n")
+
+                    res = executar_pipeline_job(
+                        itens_processar=itens_grupos,
+                        roteiro_completo=roteiro_completo,
+                        juntar=False, # Múltiplos grupos: processa todos juntos no Audacity e exporta cada grupo separado
+                        nome_macro=job_meta.get('macro', 'none'),
+                        gerar_srt=job_meta.get('gerarSrt', True),
+                        pasta_job=pasta_job,
+                        pasta_temp=pasta_temp,
+                        pasta_saida=pasta_saida
+                    )
+
+                    with JOBS_LOCK:
+                        JOBS_ATIVOS.pop(job_id, None)
+
+                    status_code = 200 if res.get('success') else 500
+                    return self.responder_json(res, status=status_code)
+
+                # ════════════════════════════════════════════════════════
+                # MODO 2: BLOCOS INDIVIDUAIS / JUNÇÃO SIMPLES
+                # ════════════════════════════════════════════════════════
                 blocos_info = job_meta.get('blocos_info', [])
 
                 # Mapeamento de texto por índice
@@ -1094,7 +1630,9 @@ class BridgeHandler(BaseHTTPRequestHandler):
 class SingleInstanceServer(ThreadingHTTPServer):
     # No Windows, SO_REUSEADDR permite que múltiplos processos escutem na mesma porta.
     # Desativar allow_reuse_address impede que dois processos bindem simultaneamente.
-    allow_reuse_address = False
+    allow_reuse_address = True
+    request_queue_size = 128
+    daemon_threads = True
 
 def encerrar_outros_processos_bridge():
     """
@@ -1110,7 +1648,7 @@ def encerrar_outros_processos_bridge():
             f'Where-Object {{ $_.ProcessId -ne {meu_pid} -and $_.ProcessId -ne $parent -and $_.CommandLine -like \'*bridge_server.py*\' }} | '
             f'ForEach-Object {{ Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue; $_.ProcessId }}'
         ]
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=5, creationflags=subprocess.CREATE_NO_WINDOW)
         pids = [p.strip() for p in res.stdout.strip().splitlines() if p.strip()]
         if pids:
             sys.stderr.write(f"[BridgeServer] Instância(s) anterior(es) órfã(s) encerrada(s): {', '.join(pids)}\n")
@@ -1132,7 +1670,7 @@ def iniciar_servidor():
                 subprocess.run([
                     'powershell', '-NoProfile', '-Command',
                     f'$p = Get-NetTCPConnection -LocalPort {PORT} -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess; if ($p -and $p -ne {os.getpid()}) {{ Stop-Process -Id $p -Force -ErrorAction SilentlyContinue }}'
-                ], timeout=4)
+                ], timeout=4, creationflags=subprocess.CREATE_NO_WINDOW)
             except Exception:
                 pass
             time.sleep(1.0)

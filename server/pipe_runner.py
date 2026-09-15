@@ -22,7 +22,48 @@ kernel32.CreateFileW.argtypes = [
     wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
     wintypes.LPVOID, wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE
 ]
+kernel32.WaitNamedPipeW.restype = wintypes.BOOL
+kernel32.WaitNamedPipeW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD]
 INVALID_HANDLE = wintypes.HANDLE(-1).value
+
+TH32CS_SNAPPROCESS = 0x00000002
+
+class PROCESSENTRY32(ctypes.Structure):
+    _fields_ = [
+        ('dwSize', wintypes.DWORD),
+        ('cntUsage', wintypes.DWORD),
+        ('th32ProcessID', wintypes.DWORD),
+        ('th32DefaultHeapID', ctypes.c_void_p),
+        ('th32ModuleID', wintypes.DWORD),
+        ('cntThreads', wintypes.DWORD),
+        ('th32ParentProcessID', wintypes.DWORD),
+        ('pcPriClassBase', ctypes.c_long),
+        ('dwFlags', wintypes.DWORD),
+        ('szExeFile', ctypes.c_char * 260)
+    ]
+
+def get_audacity_pids():
+    """Retorna conjunto de PIDs do Audacity via Win32 Toolhelp32Snapshot (zero subprocessos, zero janelas CMD, instantâneo)."""
+    pids = set()
+    try:
+        hSnap = kernel32.CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
+        if not hSnap or hSnap == -1:
+            return pids
+        try:
+            pe = PROCESSENTRY32()
+            pe.dwSize = ctypes.sizeof(PROCESSENTRY32)
+            if kernel32.Process32First(hSnap, ctypes.byref(pe)):
+                while True:
+                    name = pe.szExeFile.decode('latin-1', errors='ignore').lower()
+                    if 'audacity' in name:
+                        pids.add(pe.th32ProcessID)
+                    if not kernel32.Process32Next(hSnap, ctypes.byref(pe)):
+                        break
+        finally:
+            kernel32.CloseHandle(hSnap)
+    except Exception:
+        pass
+    return pids
 
 PIPE_TO = r'\\.\pipe\ToSrvPipe'
 PIPE_FROM = r'\\.\pipe\FromSrvPipe'
@@ -30,8 +71,8 @@ PIPE_FROM = r'\\.\pipe\FromSrvPipe'
 AUDACITY_INICIADO_POR_NOS = False
 AUDACITY_LOCK = threading.Lock()
 
-# Configuração padrão de corte/compressão de silêncio excessivo (1,3s / 30%)
-CMD_TRAVAR_SILENCIO_FINAL = 'TruncateSilence:Action="Compress Excess Silence" Compress="30" Independent="1" Minimum="1,3" Threshold="-35" Truncate="0,5" TruncateEnd="1" TruncateMiddle="1" TruncateStart="1"'
+# Configuração padrão de corte/compressão de silêncio excessivo (1,3s / 40%)
+CMD_TRAVAR_SILENCIO_FINAL = 'TruncateSilence:Action="Compress Excess Silence" Compress="40" Independent="1" Minimum="1,3" Threshold="-35" Truncate="0,5" TruncateEnd="1" TruncateMiddle="1" TruncateStart="1"'
 
 def limpar_todas_faixas(client):
     """Garante que absolutamente nenhuma faixa residual permaneça no Audacity."""
@@ -43,37 +84,49 @@ def limpar_todas_faixas(client):
                 return True
             client.send('SelectAll:', timeout=2.0)
             client.send('RemoveTracks:', timeout=2.0)
-            time.sleep(0.15)
+            time.sleep(0.4)
         except Exception:
             pass
+    time.sleep(0.3)
     return False
+
+_CACHED_AUDACITY_EXE = None
 
 def find_audacity_exe():
     """
     Localiza dinamicamente o executável do Audacity no computador:
-    1. Se o processo já estiver rodando, descobre o caminho pelo sistema.
-    2. Procura nas chaves de Registro do Windows (HKLM, WOW6432Node, HKCU e App Paths).
+    1. Retorna cache em memória instantaneamente.
+    2. Procura nas pastas de instalação padrão (%ProgramFiles%, C:, D:, etc.).
     3. Procura no PATH do sistema.
-    4. Procura nas pastas de instalação padrão (%ProgramFiles%, %ProgramFiles(x86)%, %LOCALAPPDATA%, C:, D:, etc.).
-    Se não encontrar, retorna None (NUNCA baixa nada automaticamente; o usuário deve ter o Audacity).
+    4. Procura nas chaves de Registro do Windows.
+    5. Se o processo já estiver rodando, descobre o caminho pelo sistema.
     """
-    # 1. Se já está rodando, descobre caminho do executável ativo
-    try:
-        out = subprocess.run(
-            ['powershell', '-NoProfile', '-Command', '(Get-Process -Name Audacity -ErrorAction SilentlyContinue).Path'],
-            capture_output=True, text=True, timeout=3
-        )
-        for line in out.stdout.strip().splitlines():
-            p = line.strip()
-            if p and os.path.isfile(p):
-                return os.path.abspath(p)
-    except Exception:
-        pass
+    global _CACHED_AUDACITY_EXE
+    if _CACHED_AUDACITY_EXE and os.path.isfile(_CACHED_AUDACITY_EXE):
+        return _CACHED_AUDACITY_EXE
+
+    # 1. Pastas padrão no Windows (instantâneo, sem criar subprocessos)
+    locais_comuns = [
+        r'C:\Program Files\Audacity\Audacity.exe',
+        r'C:\Program Files (x86)\Audacity\Audacity.exe',
+        os.path.expandvars(r'%ProgramFiles%\Audacity\Audacity.exe'),
+        os.path.expandvars(r'%ProgramFiles(x86)%\Audacity\Audacity.exe'),
+        os.path.expandvars(r'%LOCALAPPDATA%\Programs\Audacity\Audacity.exe'),
+    ]
+    for disco in ['C', 'D', 'E', 'F', 'G']:
+        locais_comuns.append(f'{disco}:\\Audacity\\Audacity.exe')
+        locais_comuns.append(f'{disco}:\\Program Files\\Audacity\\Audacity.exe')
+
+    for p in locais_comuns:
+        if os.path.isfile(p):
+            _CACHED_AUDACITY_EXE = os.path.abspath(p)
+            return _CACHED_AUDACITY_EXE
 
     # 2. PATH do Windows
     w = shutil.which('audacity') or shutil.which('Audacity')
     if w and os.path.isfile(w):
-        return os.path.abspath(w)
+        _CACHED_AUDACITY_EXE = os.path.abspath(w)
+        return _CACHED_AUDACITY_EXE
 
     # 3. Registro do Windows
     try:
@@ -93,7 +146,8 @@ def find_audacity_exe():
                             val, _ = winreg.QueryValueEx(k, '')
                             val = str(val).strip('\"\'')
                             if val and os.path.isfile(val):
-                                return os.path.abspath(val)
+                                _CACHED_AUDACITY_EXE = os.path.abspath(val)
+                                return _CACHED_AUDACITY_EXE
                         except Exception:
                             pass
                     else:
@@ -112,10 +166,12 @@ def find_audacity_exe():
                                                 val, _ = winreg.QueryValueEx(sk, prop)
                                                 caminho = str(val).strip('\"\'')
                                                 if caminho.lower().endswith('.exe') and os.path.isfile(caminho):
-                                                    return os.path.abspath(caminho)
+                                                    _CACHED_AUDACITY_EXE = os.path.abspath(caminho)
+                                                    return _CACHED_AUDACITY_EXE
                                                 cand = os.path.join(caminho, 'Audacity.exe')
                                                 if os.path.isfile(cand):
-                                                    return os.path.abspath(cand)
+                                                    _CACHED_AUDACITY_EXE = os.path.abspath(cand)
+                                                    return _CACHED_AUDACITY_EXE
                                             except Exception:
                                                 pass
                             except Exception:
@@ -125,21 +181,24 @@ def find_audacity_exe():
     except Exception:
         pass
 
-    # 4. Pastas padrão no Windows
-    locais_comuns = [
-        os.path.expandvars(r'%ProgramFiles%\Audacity\Audacity.exe'),
-        os.path.expandvars(r'%ProgramFiles(x86)%\Audacity\Audacity.exe'),
-        os.path.expandvars(r'%LOCALAPPDATA%\Programs\Audacity\Audacity.exe'),
-        r'C:\Program Files\Audacity\Audacity.exe',
-        r'C:\Program Files (x86)\Audacity\Audacity.exe',
-    ]
-    for disco in ['C', 'D', 'E', 'F', 'G']:
-        locais_comuns.append(f'{disco}:\\Audacity\\Audacity.exe')
-        locais_comuns.append(f'{disco}:\\Program Files\\Audacity\\Audacity.exe')
-
-    for p in locais_comuns:
-        if os.path.isfile(p):
-            return os.path.abspath(p)
+    # 4. Se já está rodando, descobre caminho do executável ativo via Win32 API direta
+    try:
+        pids = get_audacity_pids()
+        for pid in pids:
+            h = kernel32.OpenProcess(0x1000, False, pid)
+            if h:
+                try:
+                    buf = ctypes.create_unicode_buffer(512)
+                    size = wintypes.DWORD(512)
+                    if kernel32.QueryFullProcessImageNameW(h, 0, buf, ctypes.byref(size)):
+                        p = buf.value
+                        if p and os.path.isfile(p):
+                            _CACHED_AUDACITY_EXE = os.path.abspath(p)
+                            return _CACHED_AUDACITY_EXE
+                finally:
+                    kernel32.CloseHandle(h)
+    except Exception:
+        pass
 
     return None
 
@@ -185,13 +244,15 @@ def clean_audacity_sessions():
             os.path.join(os.environ.get('APPDATA', ''), 'audacity', 'AutoSave'),
         ]
         for session_dir in pastas_sessao:
-            if os.path.exists(session_dir):
+            if os.path.isdir(session_dir):
                 for f in glob.glob(os.path.join(session_dir, '*')):
-                    if os.path.isfile(f):
+                    for _ in range(3):
                         try:
-                            os.remove(f)
+                            if os.path.isfile(f):
+                                os.remove(f)
+                            break
                         except Exception:
-                            pass
+                            time.sleep(0.05)
     except Exception:
         pass
 
@@ -275,8 +336,30 @@ def ensure_audacity_cfg():
             sys.stderr.write(f'[AudacityCfg] Erro ao verificar cfg: {e}\n')
 
 def is_audacity_running():
-    out = subprocess.run(['tasklist', '/FI', 'IMAGENAME eq Audacity.exe'], capture_output=True, text=True)
-    return 'Audacity.exe' in out.stdout
+    global _AUDACITY_PIDS
+    if _AUDACITY_PIDS:
+        vivos = set()
+        for pid in list(_AUDACITY_PIDS):
+            h = kernel32.OpenProcess(0x1000, False, pid)
+            if h:
+                code = wintypes.DWORD()
+                if kernel32.GetExitCodeProcess(h, ctypes.byref(code)) and code.value == 259: # STILL_ACTIVE
+                    vivos.add(pid)
+                kernel32.CloseHandle(h)
+        _AUDACITY_PIDS = vivos
+        if _AUDACITY_PIDS:
+            return True
+
+    # Se há servidor do Audacity ativo escutando no pipe
+    if kernel32.WaitNamedPipeW(PIPE_TO, 0):
+        return True
+
+    # Fallback instantâneo via Toolhelp32Snapshot (zero subprocessos, zero janelas CMD)
+    pids = get_audacity_pids()
+    if pids:
+        _AUDACITY_PIDS.update(pids)
+        return True
+    return False
 
 # Configurações de API do Windows (Win32 / Win64)
 user32.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, wintypes.UINT]
@@ -329,6 +412,22 @@ user32.SetWinEventHook.restype = wintypes.HANDLE
 user32.UnhookWinEvent.argtypes = [wintypes.HANDLE]
 user32.UnhookWinEvent.restype = wintypes.BOOL
 
+user32.CreateDesktopW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR, ctypes.c_void_p, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p]
+user32.CreateDesktopW.restype = wintypes.HDESK
+
+SILENT_DESKTOP_NAME = "AudacitySilentDesktop"
+_h_silent_desktop = None
+
+def _get_or_create_silent_desktop():
+    global _h_silent_desktop
+    if _h_silent_desktop:
+        return _h_silent_desktop
+    try:
+        _h_silent_desktop = user32.CreateDesktopW(SILENT_DESKTOP_NAME, None, None, 0, 0x01FF, None)
+    except Exception as e:
+        sys.stderr.write(f"[Desktop] Falha ao criar desktop silencioso: {e}\n")
+    return _h_silent_desktop
+
 # ════════════════════════════════════════════════════════════════
 # SILENCIADOR EM NÍVEL DE KERNEL/DWM DO AUDACITY
 # Intercepta eventos do Windows e neutraliza instantaneamente
@@ -353,21 +452,11 @@ _CB_HOLDER = None
 _ENUM_DESK_PROC = None
 
 def _atualizar_pids_audacity():
-    """Mantém a lista de PIDs do Audacity atualizada sem overhead de OpenProcess contínuo."""
+    """Mantém a lista de PIDs do Audacity atualizada sem subprocessos."""
     global _AUDACITY_PIDS
-    try:
-        out = subprocess.run(['tasklist', '/FI', 'IMAGENAME eq Audacity.exe', '/FO', 'CSV', '/NH'], capture_output=True, text=True, timeout=2)
-        novos = set()
-        for line in out.stdout.strip().splitlines():
-            partes = line.replace('"', '').split(',')
-            if len(partes) >= 2 and 'audacity' in partes[0].lower():
-                pid_str = partes[1].strip()
-                if pid_str.isdigit():
-                    novos.add(int(pid_str))
-        if novos:
-            _AUDACITY_PIDS.update(novos)
-    except Exception:
-        pass
+    pids = get_audacity_pids()
+    if pids:
+        _AUDACITY_PIDS.update(pids)
 
 def _is_audacity_pid(pid):
     if not pid:
@@ -537,9 +626,45 @@ def minimize_audacity():
     start_audacity_silencer()
     ensure_audacity_hidden()
 
+_IDLE_TIMER = None
+_IDLE_LOCK = threading.Lock()
+
+def _cancel_idle_close():
+    """Cancela qualquer agendamento pendente de encerramento por inatividade."""
+    global _IDLE_TIMER
+    with _IDLE_LOCK:
+        if _IDLE_TIMER is not None:
+            try:
+                _IDLE_TIMER.cancel()
+            except Exception:
+                pass
+            _IDLE_TIMER = None
+
+def _schedule_idle_close(timeout=180.0):
+    """Agenda o encerramento automático do Audacity após um período de inatividade (padrão: 3 min)."""
+    global _IDLE_TIMER
+    with _IDLE_LOCK:
+        if _IDLE_TIMER is not None:
+            try:
+                _IDLE_TIMER.cancel()
+            except Exception:
+                pass
+        
+        def _on_idle():
+            sys.stderr.write(f'[Audacity] Inativo por {int(timeout)}s. Encerrando sessão de segundo plano...\n')
+            close_audacity(force=True)
+
+        _IDLE_TIMER = threading.Timer(timeout, _on_idle)
+        _IDLE_TIMER.daemon = True
+        _IDLE_TIMER.start()
+
 def launch_audacity():
-    """Inicia o Audacity 100% invisível em segundo plano (SW_HIDE), sem nenhuma intro, splash ou janela na tela."""
+    """Inicia o Audacity 100% invisível em segundo plano (SW_HIDE), sem nenhuma intro, splash ou janela na tela.
+    Retorna True se acabou de ser iniciado do zero, ou False se já estava aberto e foi reutilizado.
+    """
     global AUDACITY_INICIADO_POR_NOS, _AUDACITY_PIDS
+
+    _cancel_idle_close()
 
     audacity_exe = find_audacity_exe()
     if not audacity_exe:
@@ -549,41 +674,39 @@ def launch_audacity():
             'para que o estúdio possa masterizar seus áudios.'
         )
 
-    clean_audacity_sessions()
-    ensure_audacity_cfg()
-
     if is_audacity_running():
         _atualizar_pids_audacity()
-        # Testa se a instância existente responde ao mod-script-pipe
-        c = PipeClient()
-        if c.connect(timeout=2.0):
-            sys.stderr.write('[Audacity] Audacity já em execução e respondendo ao pipe. Ocultando em background.\n')
-            start_audacity_silencer()
-            ensure_audacity_hidden()
-            boost_audacity_priority()
-            return
-        else:
-            # Instância zumbi ou travada — mata e reinicia limpa para nunca travar
-            sys.stderr.write('[Audacity] Instância anterior estava travada ou sem pipe. Reiniciando limpa...\n')
-            close_audacity(force=True)
-            time.sleep(0.4)
+        sys.stderr.write('[Audacity] Audacity já em execução em segundo plano. Reutilizando sessão...\n')
+        start_audacity_silencer()
+        ensure_audacity_hidden()
+        boost_audacity_priority()
+        return False
+
+    clean_audacity_sessions()
+    ensure_audacity_cfg()
 
     AUDACITY_INICIADO_POR_NOS = True
 
     # 1. Ativa o sentinela interceptador no Windows ANTES de disparar o executável
     start_audacity_silencer()
 
+    _get_or_create_silent_desktop()
     si = subprocess.STARTUPINFO()
     si.dwFlags |= subprocess.STARTF_USESHOWWINDOW | 0x00000004 # STARTF_USEPOSITION
     si.wShowWindow = 0 # SW_HIDE (100% invisível em background)
     si.dwX = -32000
     si.dwY = -32000
+    si.lpDesktop = SILENT_DESKTOP_NAME
 
     proc = None
+    CREATE_NO_WINDOW = 0x08000000
     try:
-        proc = subprocess.Popen([audacity_exe], startupinfo=si)
+        proc = subprocess.Popen([audacity_exe], startupinfo=si, creationflags=CREATE_NO_WINDOW)
     except Exception:
-        proc = subprocess.Popen([audacity_exe])
+        try:
+            proc = subprocess.Popen([audacity_exe], creationflags=CREATE_NO_WINDOW)
+        except Exception:
+            proc = subprocess.Popen([audacity_exe])
 
     if proc and proc.pid:
         _AUDACITY_PIDS.add(proc.pid)
@@ -591,20 +714,19 @@ def launch_audacity():
     # 2. Varredura imediata para suprimir a criação da janela antes do primeiro frame
     ensure_audacity_hidden()
     boost_audacity_priority()
+    return True
 
 def boost_audacity_priority():
-    """Garante prioridade acima do normal para o Audacity e impede estrangulamento por EcoQoS do Windows."""
+    """Garante prioridade acima do normal para o Audacity e impede estrangulamento por EcoQoS do Windows (zero subprocessos)."""
     try:
-        out = subprocess.run(['powershell', '-NoProfile', '-Command', '(Get-Process -Name Audacity -ErrorAction SilentlyContinue).Id'], capture_output=True, text=True, timeout=3)
-        for line in out.stdout.strip().splitlines():
-            if line.strip().isdigit():
-                pid = int(line.strip())
-                h = kernel32.OpenProcess(0x0200 | 0x0400, False, pid)
-                if h:
-                    try:
-                        kernel32.SetPriorityClass(h, 0x00008000) # ABOVE_NORMAL_PRIORITY_CLASS
-                    finally:
-                        kernel32.CloseHandle(h)
+        pids = list(_AUDACITY_PIDS) or list(get_audacity_pids())
+        for pid in pids:
+            h = kernel32.OpenProcess(0x0200 | 0x0400, False, pid) # PROCESS_SET_INFORMATION | PROCESS_QUERY_INFORMATION
+            if h:
+                try:
+                    kernel32.SetPriorityClass(h, 0x00008000) # ABOVE_NORMAL_PRIORITY_CLASS
+                finally:
+                    kernel32.CloseHandle(h)
     except Exception:
         pass
 
@@ -614,6 +736,7 @@ def close_audacity(force=False):
     Se force=True ou foi iniciado pelo estúdio, fecha educadamente via pipe e garante término do processo.
     """
     global AUDACITY_INICIADO_POR_NOS, _AUDACITY_PID_CACHE, _AUDACITY_PIDS
+    _cancel_idle_close()
     stop_audacity_silencer()
     _AUDACITY_PID_CACHE.clear()
     _AUDACITY_PIDS.clear()
@@ -639,13 +762,17 @@ def close_audacity(force=False):
     except Exception:
         pass
 
-    # 2. Termina processo caso ainda persista
-    if is_audacity_running():
-        subprocess.run(['taskkill', '/IM', 'Audacity.exe'], capture_output=True, text=True)
-        time.sleep(0.4)
-        if is_audacity_running():
-            subprocess.run(['taskkill', '/F', '/IM', 'Audacity.exe'], capture_output=True, text=True)
-            time.sleep(0.3)
+    # 2. Termina processo caso ainda persista via Win32 TerminateProcess direto (zero subprocessos, zero janelas CMD)
+    pids = get_audacity_pids()
+    if pids:
+        for pid in pids:
+            h = kernel32.OpenProcess(0x0001, False, pid) # PROCESS_TERMINATE
+            if h:
+                try:
+                    kernel32.TerminateProcess(h, 0)
+                finally:
+                    kernel32.CloseHandle(h)
+        time.sleep(0.3)
 
     AUDACITY_INICIADO_POR_NOS = False
     clean_audacity_sessions()
@@ -659,15 +786,17 @@ class PipeClient:
     def connect(self, timeout=12.0):
         start = time.time()
         while time.time() - start < timeout:
+            kernel32.WaitNamedPipeW(PIPE_TO, 300)
             h_to = kernel32.CreateFileW(PIPE_TO, GENERIC_WRITE, 0, None, OPEN_EXISTING, 0, None)
             if h_to != INVALID_HANDLE:
+                kernel32.WaitNamedPipeW(PIPE_FROM, 300)
                 h_from = kernel32.CreateFileW(PIPE_FROM, GENERIC_READ, 0, None, OPEN_EXISTING, 0, None)
                 if h_from != INVALID_HANDLE:
                     self.h_to = h_to
                     self.h_from = h_from
                     return True
                 kernel32.CloseHandle(h_to)
-            time.sleep(0.4)
+            time.sleep(0.3)
         return False
 
     def send(self, cmd, timeout=30.0):
@@ -708,14 +837,15 @@ class PipeClient:
             pass
 
     def close(self):
-        if self.h_to:
+        if self.h_to and self.h_to != INVALID_HANDLE:
             try: kernel32.CloseHandle(self.h_to)
             except: pass
             self.h_to = None
-        if self.h_from:
+        if self.h_from and self.h_from != INVALID_HANDLE:
             try: kernel32.CloseHandle(self.h_from)
             except: pass
             self.h_from = None
+        time.sleep(0.1)
 
 def executar_processamento_audacity(itens_audio, juntar=True, macro_path=None, pasta_saida='', progress_callback=None):
     """
@@ -743,16 +873,26 @@ def executar_processamento_audacity(itens_audio, juntar=True, macro_path=None, p
     with AUDACITY_LOCK:
         os.makedirs(pasta_saida, exist_ok=True)
         report('Iniciando o Audacity...')
-        launch_audacity()
+        novo_inicio = launch_audacity()
 
         client = PipeClient()
-        connected = client.connect(timeout=15.0)
+        connected = client.connect(timeout=6.0 if not novo_inicio else 15.0)
+        if not connected and not novo_inicio:
+            report('Sessão anterior não respondeu ao pipe. Reiniciando Audacity do zero...')
+            close_audacity(force=True)
+            time.sleep(0.5)
+            novo_inicio = launch_audacity()
+            connected = client.connect(timeout=15.0)
+
         if not connected:
-            close_audacity()
+            close_audacity(force=True)
             return {'success': False, 'error': 'Não foi possível conectar ao Audacity via mod-script-pipe.'}
 
-        # Aguarda estabilização da engine gráfica e de áudio do Audacity
-        time.sleep(1.0)
+        # Aguarda estabilização da engine gráfica e de áudio do Audacity apenas na inicialização fria
+        if novo_inicio:
+            time.sleep(0.8)
+        else:
+            time.sleep(0.1)
         boost_audacity_priority()
 
         try:
@@ -761,10 +901,10 @@ def executar_processamento_audacity(itens_audio, juntar=True, macro_path=None, p
             if macro_path and os.path.isfile(macro_path):
                 with open(macro_path, 'r', encoding='utf-8', errors='ignore') as f:
                     linhas_macro = [l.strip() for l in f.readlines() if l.strip() and not l.startswith('#')]
-                # Garante que todo macro termine com o TruncateSilence de 1,3s / 30% como etapa final
-                ultimo_cmd = linhas_macro[-1] if linhas_macro else ''
-                if 'TruncateSilence' not in ultimo_cmd or 'Minimum="1,3"' not in ultimo_cmd:
-                    linhas_macro.append(CMD_TRAVAR_SILENCIO_FINAL)
+                # Garante que qualquer TruncateSilence tenha Independent="1" para que faixas concorrentes não fiquem vinculadas
+                for idx_m, l_m in enumerate(linhas_macro):
+                    if 'TruncateSilence' in l_m and 'Independent=' not in l_m:
+                        linhas_macro[idx_m] = l_m.rstrip() + ' Independent="1"'
                 report(f'Macro selecionada: {os.path.basename(macro_path)} ({len(linhas_macro)} comandos)')
 
             arquivos_gerados = []
@@ -785,13 +925,13 @@ def executar_processamento_audacity(itens_audio, juntar=True, macro_path=None, p
 
                 if len(itens_audio) > 1:
                     report('Alinhando áudios de ponta a ponta (Align_EndToEnd)...')
-                    client.send('SelectAll:', timeout=3.0)
-                    client.send('Align_EndToEnd:', timeout=10.0)
+                    client.send('SelectAll:', timeout=5.0)
+                    client.send('Align_EndToEnd:', timeout=60.0)
                     time.sleep(0.3)
 
                     report('Renderizando em faixa única consolidada (MixAndRender)...')
-                    client.send('SelectAll:', timeout=3.0)
-                    client.send('MixAndRender:', timeout=15.0)
+                    client.send('SelectAll:', timeout=5.0)
+                    client.send('MixAndRender:', timeout=180.0)
                     time.sleep(0.5)
                 else:
                     report('Apenas 1 bloco enviado: alinhamento dispensado, aplicando efeitos diretamente...')
@@ -800,29 +940,48 @@ def executar_processamento_audacity(itens_audio, juntar=True, macro_path=None, p
                 # 2. APLICAR MACRO NA FAIXA ÚNICA
                 # ════════════════════════════════════════════════════════
                 if linhas_macro:
-                    client.send('SelectAll:', timeout=3.0)
+                    client.send('SelectAll:', timeout=5.0)
                     for l in linhas_macro:
                         nome_cmd = l.split(':')[0]
                         report(f'Aplicando efeito: {nome_cmd}...')
-                        client.send(l, timeout=180.0)
+                        client.send(l, timeout=300.0)
                         time.sleep(0.2)
 
                 # ════════════════════════════════════════════════════════
                 # 3. EXPORTAR O ÁUDIO CONSOLIDADO
                 # ════════════════════════════════════════════════════════
-                nome_final = (itens_audio[0].get('nome_unificado') or 'audio_completo').replace('.wav', '').strip()
+                nome_final = (itens_audio[0].get('nome_unificado') or itens_audio[0].get('nome') or 'audio_completo').replace('.wav', '').strip()
                 caminho_saida = os.path.join(pasta_saida, f'{nome_final}.wav')
                 saida_norm = os.path.abspath(caminho_saida).replace('\\', '/')
 
                 report('Exportando áudio final masterizado...')
-                client.send('SelectAll:', timeout=3.0)
-                client.send(f'Export2: Filename="{saida_norm}" NumChannels=1', timeout=120.0)
-                time.sleep(0.5)
+                client.send('SelectAll:', timeout=5.0)
+                client.send(f'Export2: Filename="{saida_norm}" NumChannels=1', timeout=600.0)
 
-                # Limpa projeto
-                limpar_todas_faixas(client)
+                # Aguarda o Audacity concluir a gravação e o Windows liberar o arquivo no disco
+                report('Aguardando gravação completa do arquivo no disco...')
+                arquivo_pronto = False
+                t0_espera = time.time()
+                ultimo_tam = -1
 
-                if os.path.isfile(caminho_saida) and os.path.getsize(caminho_saida) > 1000:
+                while time.time() - t0_espera < 60.0:
+                    if os.path.isfile(caminho_saida):
+                        tam_atual = os.path.getsize(caminho_saida)
+                        if tam_atual > 1000:
+                            if tam_atual == ultimo_tam:
+                                arquivo_pronto = True
+                                break
+                            ultimo_tam = tam_atual
+                    time.sleep(0.5)
+
+                # Somente após o arquivo estar 100% gravado e liberado, limpa as faixas do projeto
+                try:
+                    limpar_todas_faixas(client)
+                except:
+                    pass
+
+                if arquivo_pronto:
+                    report(f'Áudio unificado masterizado com sucesso ({round(os.path.getsize(caminho_saida) / (1024 * 1024), 2)} MB)!')
                     arquivos_gerados.append({
                         'tipo': 'unificado',
                         'nome': nome_final,
@@ -830,45 +989,78 @@ def executar_processamento_audacity(itens_audio, juntar=True, macro_path=None, p
                         'tamanho': os.path.getsize(caminho_saida)
                     })
                 else:
-                    raise Exception('O arquivo unificado masterizado não foi gerado pelo Audacity.')
+                    raise Exception(f'O arquivo unificado masterizado "{nome_final}.wav" não foi finalizado a tempo pelo Audacity.')
 
             else:
                 # ════════════════════════════════════════════════════════
-                # PROCESSAR BLOCO A BLOCO (Sem junção)
+                # PROCESSAMENTO EM LOTE SIMULTÂNEO (Opção C: Masterização Unificada)
+                # Todas as faixas são importadas simultaneamente para a mesma sessão do Audacity.
+                # A macro (TDR Nova, LUFS -14dB, Compressor, Limiter) atua em todas em conjunto,
+                # garantindo calibração de volume homogênea entre todos os arquivos/grupos.
+                # Em seguida, cada faixa é selecionada individualmente (com Solo) e exportada para seu próprio arquivo.
                 # ════════════════════════════════════════════════════════
+                report('Garantindo projeto limpo no Audacity...')
+                limpar_todas_faixas(client)
+                time.sleep(0.4)
+
+                report(f'Importando {len(itens_audio)} faixa(s) para masterização unificada no Audacity...')
                 for idx, item in enumerate(itens_audio, 1):
                     nome = item.get('nome', f'bloco_{idx}').replace('.wav', '').strip()
                     caminho_norm = os.path.abspath(item['caminho_wav']).replace('\\', '/')
+                    report(f'Importando faixa {idx}/{len(itens_audio)}: {nome}')
+                    client.send(f'Import2: Filename="{caminho_norm}"', timeout=15.0)
+                    time.sleep(0.25)
+
+                if linhas_macro:
+                    report(f'Aplicando macro unificada em todas as {len(itens_audio)} faixas simultaneamente...')
+                    client.send('SelectAll:', timeout=5.0)
+                    for l in linhas_macro:
+                        nome_cmd = l.split(':')[0]
+                        report(f'Aplicando efeito: {nome_cmd} em todas as faixas...')
+                        client.send(l, timeout=300.0)
+                        time.sleep(0.2)
+
+                report(f'Exportando {len(itens_audio)} arquivos masterizados individualmente...')
+                for idx, item in enumerate(itens_audio):
+                    nome = item.get('nome', f'bloco_{idx+1}').replace('.wav', '').strip()
                     caminho_saida = os.path.join(pasta_saida, f'{nome}.wav')
                     saida_norm = os.path.abspath(caminho_saida).replace('\\', '/')
 
-                    report(f'Processando bloco {idx}/{len(itens_audio)}: {nome}...')
-                    limpar_todas_faixas(client)
-                    client.send(f'Import2: Filename="{caminho_norm}"', timeout=10.0)
-                    time.sleep(0.2)
+                    report(f'Exportando faixa {idx+1}/{len(itens_audio)}: {nome}.wav...')
+                    # Seleciona estritamente a faixa atual e ativa Solo para isolamento total sem mixagem
+                    client.send(f'SelectTracks: Mode="Set" Track="{idx}" TrackCount="1"', timeout=5.0)
+                    client.send('SetTrackAudio: Solo="1"', timeout=5.0)
+                    client.send(f'Export2: Filename="{saida_norm}" NumChannels=1', timeout=300.0)
+                    client.send('SetTrackAudio: Solo="0"', timeout=5.0)
 
-                    if linhas_macro:
-                        client.send('SelectAll:', timeout=3.0)
-                        for l in linhas_macro:
-                            nome_cmd = l.split(':')[0]
-                            report(f'Bloco {idx}/{len(itens_audio)}: {nome} — Aplicando {nome_cmd}...')
-                            client.send(l, timeout=180.0)
-                            time.sleep(0.15)
+                    # Aguarda gravação completa do arquivo no disco
+                    arquivo_bloco_pronto = False
+                    t0_bloco = time.time()
+                    ult_tam_b = -1
+                    while time.time() - t0_bloco < 45.0:
+                        if os.path.isfile(caminho_saida):
+                            tam_b = os.path.getsize(caminho_saida)
+                            if tam_b > 1000:
+                                if tam_b == ult_tam_b:
+                                    arquivo_bloco_pronto = True
+                                    break
+                                ult_tam_b = tam_b
+                        time.sleep(0.3)
 
-                    report(f'Bloco {idx}/{len(itens_audio)}: {nome} — Exportando áudio masterizado...')
-                    client.send('SelectAll:', timeout=3.0)
-                    client.send(f'Export2: Filename="{saida_norm}" NumChannels=1', timeout=60.0)
-                    time.sleep(0.3)
-
-                    limpar_todas_faixas(client)
-
-                    if os.path.isfile(caminho_saida) and os.path.getsize(caminho_saida) > 1000:
+                    if arquivo_bloco_pronto:
                         arquivos_gerados.append({
-                            'tipo': 'bloco',
+                            'tipo': item.get('tipo', 'bloco'),
                             'nome': nome,
                             'caminho': caminho_saida,
                             'tamanho': os.path.getsize(caminho_saida)
                         })
+                    else:
+                        report(f'Aviso: O arquivo "{nome}.wav" não foi finalizado a tempo pelo Audacity.')
+
+                try:
+                    limpar_todas_faixas(client)
+                except:
+                    pass
 
             report('Processamento no Audacity concluído!')
             return {'success': True, 'arquivos': arquivos_gerados}
@@ -883,10 +1075,13 @@ def executar_processamento_audacity(itens_audio, juntar=True, macro_path=None, p
                 limpar_todas_faixas(client)
             except:
                 pass
-            client.close()
-            # Encerra o Audacity imediatamente após a conclusão para nunca ficar órfão em segundo plano
-            close_audacity(force=True)
-            report('Audacity finalizado e recursos liberados com sucesso.')
+            try:
+                client.close()
+            except:
+                pass
+            # Mantém o Audacity em background para os próximos blocos e agenda encerramento após 3 min de inatividade
+            _schedule_idle_close(180.0)
+            report('Áudio concluído no Audacity. Sessão preservada em background.')
 
 def gerar_comando_truncate_silence(duracao="1,3", compressao="30", limiar="-35", descartar="0,5"):
     """Gera o comando TruncateSilence com os parâmetros informados, formatados para o Audacity."""
@@ -907,10 +1102,13 @@ def executar_travar_silencio(caminho_wav, duracao="1,3", compressao="30", limiar
     diretamente no arquivo WAV informado, substituindo-o de forma atômica e segura.
     Protegido por AUDACITY_LOCK.
     """
-    def report(msg):
+    def report(msg, pct=None):
         if progress_callback:
-            progress_callback(msg)
-        sys.stderr.write(f'[Audacity-TravarSilencio] {msg}\n')
+            try:
+                progress_callback(msg, pct=pct)
+            except TypeError:
+                progress_callback(msg)
+        sys.stderr.write(f'[Audacity-TravarSilencio] ({pct}%) {msg}\n')
 
     if not os.path.isfile(caminho_wav):
         return {'success': False, 'error': f'Arquivo WAV não encontrado: {caminho_wav}'}
@@ -918,49 +1116,93 @@ def executar_travar_silencio(caminho_wav, duracao="1,3", compressao="30", limiar
     cmd_truncate = gerar_comando_truncate_silence(duracao=duracao, compressao=compressao, limiar=limiar, descartar=descartar)
 
     with AUDACITY_LOCK:
-        report(f'Iniciando Audacity para travar silêncio ({duracao}s / {compressao}%)...')
-        launch_audacity()
+        report(f'Iniciando Audacity para travar silêncio ({duracao}s / {compressao}%)...', pct=10)
+        novo_inicio = launch_audacity()
 
         client = PipeClient()
-        connected = client.connect(timeout=15.0)
+        connected = client.connect(timeout=6.0 if not novo_inicio else 15.0)
+        if not connected and not novo_inicio:
+            report('Sessão anterior não respondeu ao pipe. Reiniciando Audacity do zero...', pct=15)
+            close_audacity(force=True)
+            time.sleep(0.5)
+            novo_inicio = launch_audacity()
+            connected = client.connect(timeout=15.0)
+
         if not connected:
-            close_audacity()
+            close_audacity(force=True)
             return {'success': False, 'error': 'Não foi possível conectar ao Audacity via mod-script-pipe.'}
 
-        time.sleep(0.5)
+        if novo_inicio:
+            time.sleep(0.5)
+        else:
+            time.sleep(0.1)
         boost_audacity_priority()
 
         try:
-            report('Garantindo projeto limpo no Audacity...')
+            report('Garantindo projeto limpo no Audacity...', pct=20)
             limpar_todas_faixas(client)
+            time.sleep(0.4)
 
             caminho_norm = os.path.abspath(caminho_wav).replace('\\', '/')
             caminho_temp = os.path.abspath(caminho_wav + '.trunc_temp.wav').replace('\\', '/')
 
-            report(f'Importando áudio para aplicar corte de silêncio: {os.path.basename(caminho_wav)}')
-            client.send(f'Import2: Filename="{caminho_norm}"', timeout=15.0)
+            report(f'Importando áudio para aplicar corte de silêncio: {os.path.basename(caminho_wav)}', pct=30)
+            client.send(f'Import2: Filename="{caminho_norm}"', timeout=30.0)
             time.sleep(0.2)
 
-            report(f'Selecionando áudio e aplicando TruncateSilence ({duracao}s / {compressao}%)...')
+            report(f'Aplicando TruncateSilence ({duracao}s / {compressao}%)...', pct=50)
             client.send('SelectAll:', timeout=3.0)
-            client.send(cmd_truncate, timeout=120.0)
+            client.send(cmd_truncate, timeout=300.0)
             time.sleep(0.2)
 
-            report('Exportando áudio com silêncio ajustado...')
+            report('Exportando áudio com silêncio ajustado...', pct=80)
             client.send('SelectAll:', timeout=3.0)
-            client.send(f'Export2: Filename="{caminho_temp}" NumChannels=1', timeout=60.0)
+            client.send(f'Export2: Filename="{caminho_temp}" NumChannels=1', timeout=240.0)
             time.sleep(0.3)
 
-            # Limpa o projeto no Audacity antes de mover o arquivo para liberar locks do Windows
-            limpar_todas_faixas(client)
-
+            # Aguarda o Audacity concluir a gravação do arquivo temporário no disco
             caminho_temp_os = os.path.abspath(caminho_wav + '.trunc_temp.wav')
-            if os.path.isfile(caminho_temp_os) and os.path.getsize(caminho_temp_os) > 500:
-                os.replace(caminho_temp_os, caminho_wav)
-                report('Arquivo WAV atualizado com sucesso!')
+            arquivo_temp_pronto = False
+            t0_trunc = time.time()
+            ult_tam_tr = -1
+            while time.time() - t0_trunc < 60.0:
+                if os.path.isfile(caminho_temp_os):
+                    tam_tr = os.path.getsize(caminho_temp_os)
+                    if tam_tr > 500:
+                        if tam_tr == ult_tam_tr:
+                            arquivo_temp_pronto = True
+                            break
+                        ult_tam_tr = tam_tr
+                time.sleep(0.15)
+
+            # Limpa o projeto no Audacity antes de mover o arquivo para liberar locks do Windows
+            try:
+                limpar_todas_faixas(client)
+                time.sleep(0.4)
+            except:
+                pass
+
+            if arquivo_temp_pronto and os.path.isfile(caminho_temp_os) and os.path.getsize(caminho_temp_os) > 500:
+                substituido = False
+                for _ in range(15):
+                    try:
+                        os.replace(caminho_temp_os, caminho_wav)
+                        substituido = True
+                        break
+                    except Exception:
+                        time.sleep(0.2)
+                if not substituido:
+                    try:
+                        shutil.copy2(caminho_temp_os, caminho_wav)
+                        os.remove(caminho_temp_os)
+                        substituido = True
+                    except Exception:
+                        pass
+
+                report('Arquivo WAV atualizado com sucesso!', pct=100)
                 return {'success': True, 'caminho_wav': caminho_wav}
             else:
-                raise Exception('O Audacity não gerou o áudio temporário truncado.')
+                raise Exception('O Audacity não gerou o áudio temporário truncado a tempo.')
 
         except Exception as e:
             report(f'Erro ao travar silêncio: {e}')
@@ -971,9 +1213,12 @@ def executar_travar_silencio(caminho_wav, duracao="1,3", compressao="30", limiar
                 limpar_todas_faixas(client)
             except:
                 pass
-            client.close()
-            close_audacity(force=True)
-            report('Silêncio ajustado e Audacity liberado.')
+            try:
+                client.close()
+            except:
+                pass
+            _schedule_idle_close(180.0)
+            report('Silêncio ajustado no Audacity. Sessão preservada em background.')
 
 def executar_travar_silencio_lote(itens, duracao="2", compressao="50", limiar="-35", descartar="0,5", progress_callback=None):
     """
@@ -981,10 +1226,13 @@ def executar_travar_silencio_lote(itens, duracao="2", compressao="50", limiar="-
     em uma ÚNICA sessão do Audacity, sem reiniciar o processo entre os arquivos.
     Protegido por AUDACITY_LOCK.
     """
-    def report(msg):
+    def report(msg, pct=None):
         if progress_callback:
-            progress_callback(msg)
-        sys.stderr.write(f'[Audacity-TravarSilencioLote] {msg}\n')
+            try:
+                progress_callback(msg, pct=pct)
+            except TypeError:
+                progress_callback(msg)
+        sys.stderr.write(f'[Audacity-TravarSilencioLote] ({pct}%) {msg}\n')
 
     if not itens:
         return {'success': False, 'error': 'Nenhum item informado para corte de silêncio.'}
@@ -992,21 +1240,35 @@ def executar_travar_silencio_lote(itens, duracao="2", compressao="50", limiar="-
     cmd_truncate = gerar_comando_truncate_silence(duracao=duracao, compressao=compressao, limiar=limiar, descartar=descartar)
 
     with AUDACITY_LOCK:
-        report(f'Iniciando Audacity em segundo plano para travar silêncio em lote ({len(itens)} áudio(s))...')
-        launch_audacity()
+        report(f'Iniciando Audacity em segundo plano para travar silêncio em lote ({len(itens)} áudio(s))...', pct=5)
+        novo_inicio = launch_audacity()
 
         client = PipeClient()
-        connected = client.connect(timeout=15.0)
+        connected = client.connect(timeout=6.0 if not novo_inicio else 15.0)
+        if not connected and not novo_inicio:
+            report('Sessão anterior não respondeu ao pipe. Reiniciando Audacity do zero...', pct=10)
+            close_audacity(force=True)
+            time.sleep(0.5)
+            novo_inicio = launch_audacity()
+            connected = client.connect(timeout=15.0)
+
         if not connected:
-            close_audacity()
+            close_audacity(force=True)
             return {'success': False, 'error': 'Não foi possível conectar ao Audacity via mod-script-pipe.'}
 
-        time.sleep(0.5)
+        if novo_inicio:
+            time.sleep(0.5)
+        else:
+            time.sleep(0.1)
         boost_audacity_priority()
 
         resultados = []
         try:
             total = len(itens)
+            report(f'Garantindo projeto limpo no Audacity...', pct=10)
+            limpar_todas_faixas(client)
+            time.sleep(0.4)
+
             for idx, item in enumerate(itens, 1):
                 caminho_wav = item.get('caminhoWav') or item.get('caminho') or ''
                 nome = item.get('nome') or os.path.basename(caminho_wav)
@@ -1014,28 +1276,67 @@ def executar_travar_silencio_lote(itens, duracao="2", compressao="50", limiar="-
                     report(f'Arquivo WAV {idx}/{total} não encontrado: {caminho_wav}')
                     continue
 
-                report(f'Cortando silêncio {idx}/{total}: {nome} ({duracao}s / {compressao}%)...')
+                pct_item_inicio = int(((idx - 1) / total) * 90) + 5
+                report(f'Cortando silêncio {idx}/{total}: {nome} ({duracao}s / {compressao}%)...', pct=pct_item_inicio)
+
+                # Limpa faixas antes de cada arquivo para garantir isolamento absoluto
                 limpar_todas_faixas(client)
+                time.sleep(0.35)
 
                 caminho_norm = os.path.abspath(caminho_wav).replace('\\', '/')
                 caminho_temp = os.path.abspath(caminho_wav + '.trunc_temp.wav').replace('\\', '/')
 
-                client.send(f'Import2: Filename="{caminho_norm}"', timeout=15.0)
-                time.sleep(0.15)
+                client.send(f'Import2: Filename="{caminho_norm}"', timeout=30.0)
+                time.sleep(0.25)
 
                 client.send('SelectAll:', timeout=3.0)
-                client.send(cmd_truncate, timeout=120.0)
-                time.sleep(0.15)
-
-                client.send('SelectAll:', timeout=3.0)
-                client.send(f'Export2: Filename="{caminho_temp}" NumChannels=1', timeout=60.0)
+                client.send(cmd_truncate, timeout=300.0)
                 time.sleep(0.2)
 
-                limpar_todas_faixas(client)
+                client.send('SelectAll:', timeout=3.0)
+                client.send(f'Export2: Filename="{caminho_temp}" NumChannels=1', timeout=240.0)
+                time.sleep(0.3)
 
+                # Aguarda o Audacity concluir a gravação do arquivo temporário no disco
                 caminho_temp_os = os.path.abspath(caminho_wav + '.trunc_temp.wav')
-                if os.path.isfile(caminho_temp_os) and os.path.getsize(caminho_temp_os) > 500:
-                    os.replace(caminho_temp_os, caminho_wav)
+                arquivo_temp_pronto = False
+                t0_trunc = time.time()
+                ult_tam_tr = -1
+                while time.time() - t0_trunc < 60.0:
+                    if os.path.isfile(caminho_temp_os):
+                        tam_tr = os.path.getsize(caminho_temp_os)
+                        if tam_tr > 500:
+                            if tam_tr == ult_tam_tr:
+                                arquivo_temp_pronto = True
+                                break
+                            ult_tam_tr = tam_tr
+                    time.sleep(0.15)
+
+                try:
+                    limpar_todas_faixas(client)
+                    time.sleep(0.4)
+                except:
+                    pass
+
+                if arquivo_temp_pronto and os.path.isfile(caminho_temp_os) and os.path.getsize(caminho_temp_os) > 500:
+                    substituido = False
+                    for _ in range(15):
+                        try:
+                            os.replace(caminho_temp_os, caminho_wav)
+                            substituido = True
+                            break
+                        except Exception:
+                            time.sleep(0.2)
+                    if not substituido:
+                        try:
+                            shutil.copy2(caminho_temp_os, caminho_wav)
+                            os.remove(caminho_temp_os)
+                            substituido = True
+                        except Exception:
+                            pass
+
+                    pct_item_concluido = int((idx / total) * 90) + 5
+                    report(f'Áudio {idx}/{total} concluído: {nome}', pct=pct_item_concluido)
                     resultados.append({
                         'success': True,
                         'caminhoWav': caminho_wav,
@@ -1051,7 +1352,7 @@ def executar_travar_silencio_lote(itens, duracao="2", compressao="50", limiar="-
                         'error': 'Falha ao exportar áudio truncado no Audacity'
                     })
 
-            report('Todos os áudios foram processados com sucesso no Audacity!')
+            report('Todos os áudios foram processados com sucesso no Audacity!', pct=100)
             return {'success': True, 'itens': resultados}
 
         except Exception as e:
@@ -1063,7 +1364,10 @@ def executar_travar_silencio_lote(itens, duracao="2", compressao="50", limiar="-
                 limpar_todas_faixas(client)
             except:
                 pass
-            client.close()
-            close_audacity(force=True)
+            try:
+                client.close()
+            except:
+                pass
+            _schedule_idle_close(180.0)
             report('Sessão em lote do Audacity finalizada com sucesso.')
 
