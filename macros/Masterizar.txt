@@ -1,4 +1,5 @@
-Compressor:attackMs="10" compressionRatio="3" kneeWidthDb="5" lookaheadMs="1" makeupGainDb="0" releaseMs="100" showActual="1" showInput="0" showOutput="1" showTarget="0" thresholdDb="-18"
-TdrNova:Use_Preset="<Current Settings>"
-Limiter:kneeWidthDb="2" lookaheadMs="1" makeupTargetDb="0" releaseMs="100" showActual="1" showInput="0" showOutput="1" showTarget="0" thresholdDb="-1,5"
+FiltrosPassa-alta:FREQUENCY="80" ROLLOFF="dB12"
+Compressor:attackMs="25" compressionRatio="2.2" kneeWidthDb="5" lookaheadMs="1" makeupGainDb="0" releaseMs="120" showActual="1" showInput="0" showOutput="1" showTarget="0" thresholdDb="-14"
+BassAndTreble:Bass="-2.5" Gain="0" Link Sliders="0" Treble="3.5"
+Limiter:kneeWidthDb="2" lookaheadMs="1" makeupTargetDb="-1,5" releaseMs="100" showActual="1" showInput="0" showOutput="1" showTarget="0" thresholdDb="-1,5"
 Normalize:ApplyVolume="1" PeakLevel="-2" RemoveDcOffset="1" StereoIndependent="0"

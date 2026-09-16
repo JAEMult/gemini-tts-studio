@@ -613,14 +613,14 @@ def gerar_srt_whisper(audio_path, texto_referencia="", max_caracteres=42, retorn
     blocos, duracao, info_meta = _gerar_blocos_srt(audio_path, texto_referencia, max_caracteres=max_caracteres)
     srt_conteudo = _formatar_srt(blocos)
 
-    # Auditoria de integridade matemática
+    # Auditoria de integridade matemática (sem ajuste automático silencioso)
     auditoria = auditar_srt(srt_conteudo, duracao_audio_seg=duracao)
-    if not auditoria['aprovado'] or auditoria['score'] < 95:
-        srt_conteudo, auditoria = reparar_srt(srt_conteudo, duracao_audio_seg=duracao)
-
     info_meta['auditoria'] = auditoria
     info_meta['similaridade'] = auditoria['score']
-    info_meta['aviso'] = auditoria['resumo']
+    if auditoria['aprovado'] and auditoria['amontoadas'] == 0:
+        info_meta['aviso'] = f"✅ Legenda 100% íntegra ({auditoria['total_cues']} falas • 0 amontoadas)"
+    else:
+        info_meta['aviso'] = f"⚠️ Legenda gerada com {auditoria['amontoadas']} fala(s) amontoada(s) (Score: {auditoria['score']}%)"
 
     if retornar_meta:
         return srt_conteudo, info_meta

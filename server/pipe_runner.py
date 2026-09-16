@@ -846,7 +846,26 @@ class PipeClient:
             try: kernel32.CloseHandle(self.h_from)
             except: pass
             self.h_from = None
-        time.sleep(0.1)
+def enviar_comando_macro_com_fallback(client, cmd_line, timeout=300.0):
+    """
+    Envia comando de macro ao Audacity com fallback bilíngue automático (PT-BR / EN)
+    para efeitos cujos nomes variam de acordo com o idioma da interface (ex: HighPass / FiltrosPassa-alta).
+    """
+    resp = client.send(cmd_line, timeout=timeout)
+    if 'Command not found' in resp:
+        if cmd_line.startswith('FiltrosPassa-alta:'):
+            alt1 = cmd_line.replace('FiltrosPassa-alta:', 'HighPass:', 1)
+            resp1 = client.send(alt1, timeout=timeout)
+            if 'Command not found' not in resp1:
+                return resp1
+            alt2 = cmd_line.replace('FiltrosPassa-alta:', 'High-Pass Filter:', 1)
+            return client.send(alt2, timeout=timeout)
+        elif cmd_line.startswith('HighPass:'):
+            alt = cmd_line.replace('HighPass:', 'FiltrosPassa-alta:', 1)
+            resp2 = client.send(alt, timeout=timeout)
+            if 'Command not found' not in resp2:
+                return resp2
+    return resp
 
 def executar_processamento_audacity(itens_audio, juntar=True, macro_path=None, pasta_saida='', progress_callback=None):
     """
@@ -950,7 +969,7 @@ def executar_processamento_audacity(itens_audio, juntar=True, macro_path=None, p
                         nome_cmd = l.split(':')[0]
                         pct_m = int(42 + (i_m / len(linhas_macro)) * 20)
                         report(f'Aplicando efeito: {nome_cmd}...', pct=pct_m)
-                        client.send(l, timeout=300.0)
+                        enviar_comando_macro_com_fallback(client, l, timeout=300.0)
                         time.sleep(0.2)
 
                 # ════════════════════════════════════════════════════════
@@ -1025,7 +1044,7 @@ def executar_processamento_audacity(itens_audio, juntar=True, macro_path=None, p
                         nome_cmd = l.split(':')[0]
                         pct_m = int(36 + (i_m / len(linhas_macro)) * 16)
                         report(f'Aplicando efeito: {nome_cmd} em todas as faixas...', pct=pct_m)
-                        client.send(l, timeout=300.0)
+                        enviar_comando_macro_com_fallback(client, l, timeout=300.0)
                         time.sleep(0.2)
 
                 report(f'Exportando {len(itens_audio)} arquivos masterizados individualmente...', pct=53)
