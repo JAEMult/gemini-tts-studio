@@ -495,9 +495,10 @@ def executar_pipeline_job(itens_processar, roteiro_completo, juntar, nome_macro,
         caminho_srt = ""
         aviso_srt = ""
         similaridade_srt = 100
+        auditoria_srt = None
 
         if gerar_srt:
-            set_progresso("Whisper transcrevendo áudio unificado na GPU (última etapa)...", pct=45)
+            set_progresso("Whisper transcrevendo áudio unificado na GPU (última etapa)...", pct=72)
             try:
                 srt_conteudo, info_meta = get_transcribe_whisper().gerar_srt_whisper(
                     audio_final['caminho'],
@@ -509,6 +510,7 @@ def executar_pipeline_job(itens_processar, roteiro_completo, juntar, nome_macro,
                     sf.write(srt_conteudo)
                 aviso_srt = info_meta.get('aviso', '')
                 similaridade_srt = info_meta.get('similaridade', 100)
+                auditoria_srt = info_meta.get('auditoria', None)
                 set_progresso("Legenda unificada gerada com sucesso!", pct=95)
             except Exception as ew:
                 sys.stderr.write(f"[Whisper] Erro na transcrição: {ew}\n")
@@ -534,6 +536,7 @@ def executar_pipeline_job(itens_processar, roteiro_completo, juntar, nome_macro,
             'srtConteudo': srt_conteudo,
             'avisoSrt': aviso_srt,
             'similaridadeSrt': similaridade_srt,
+            'auditoriaSrt': auditoria_srt,
             'historico': hist_init
         })
 
@@ -546,9 +549,10 @@ def executar_pipeline_job(itens_processar, roteiro_completo, juntar, nome_macro,
             caminho_srt = ""
             aviso_srt = ""
             similaridade_srt = 100
+            auditoria_srt = None
 
             if gerar_srt:
-                pct_inicio = 20 + int((idx / total_bl) * 75)
+                pct_inicio = int(68 + (idx / total_bl) * 26)
                 set_progresso(f"Whisper transcrevendo bloco {idx+1}/{total_bl} na GPU...", pct=pct_inicio)
                 try:
                     srt_conteudo, info_meta = get_transcribe_whisper().gerar_srt_whisper(
@@ -561,7 +565,8 @@ def executar_pipeline_job(itens_processar, roteiro_completo, juntar, nome_macro,
                         sf.write(srt_conteudo)
                     aviso_srt = info_meta.get('aviso', '')
                     similaridade_srt = info_meta.get('similaridade', 100)
-                    pct_fim = 20 + int(((idx + 1) / total_bl) * 75)
+                    auditoria_srt = info_meta.get('auditoria', None)
+                    pct_fim = int(68 + ((idx + 1) / total_bl) * 26)
                     set_progresso(f"Bloco {idx+1}/{total_bl} concluído!", pct=pct_fim)
                 except Exception as ew:
                     sys.stderr.write(f"[Whisper] Erro no bloco {idx+1}: {ew}\n")
@@ -587,6 +592,7 @@ def executar_pipeline_job(itens_processar, roteiro_completo, juntar, nome_macro,
                 'srtConteudo': srt_conteudo,
                 'avisoSrt': aviso_srt,
                 'similaridadeSrt': similaridade_srt,
+                'auditoriaSrt': auditoria_srt,
                 'historico': hist_init
             })
 
@@ -728,6 +734,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', '*')
+        self.send_header('Access-Control-Expose-Headers', 'Content-Disposition, Content-Length')
         super().end_headers()
 
     def do_OPTIONS(self):
@@ -764,7 +771,6 @@ class BridgeHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header('Content-Type', mime)
             self.send_header('Content-Length', str(tamanho))
-            self.send_header('Access-Control-Allow-Origin', '*')
             self.send_header('Connection', 'close')
             self.end_headers()
             with open(caminho, 'rb') as f:
@@ -846,8 +852,6 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 self.send_header('Content-Type', 'application/zip')
                 self.send_header('Content-Disposition', f'attachment; filename="{nome_zip}"')
                 self.send_header('Content-Length', str(len(zip_data)))
-                self.send_header('Access-Control-Allow-Origin', '*')
-                self.send_header('Access-Control-Expose-Headers', 'Content-Disposition')
                 self.end_headers()
                 self.wfile.write(zip_data)
             except Exception as e:
@@ -975,10 +979,75 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     'urlSrt': f'/api/download?path={urllib.parse.quote(caminho_srt)}',
                     'srtConteudo': srt_conteudo,
                     'aviso': info_meta.get('aviso', ''),
-                    'similaridade': info_meta.get('similaridade', 100)
+                    'similaridade': info_meta.get('similaridade', 100),
+                    'auditoria': info_meta.get('auditoria', None)
                 })
             except Exception as e:
                 set_progresso(f"Erro Whisper: {e}")
+                self.responder_json({'success': False, 'error': str(e)}, status=500)
+
+        elif caminho == '/api/srt/auditar':
+            try:
+                tamanho = int(self.headers.get('Content-Length', 0)) if self.headers.get('Content-Length') else 0
+                dados = json.loads(self.rfile.read(tamanho).decode('utf-8')) if tamanho > 0 else {}
+                caminho_srt = dados.get('caminhoSrt', '')
+                srt_conteudo = dados.get('srtConteudo', '')
+                caminho_wav = dados.get('caminhoWav', '')
+                duracao_seg = float(dados.get('duracaoSeg', 0) or 0)
+
+                if not srt_conteudo and caminho_srt and os.path.isfile(caminho_srt):
+                    with open(caminho_srt, 'r', encoding='utf-8', errors='ignore') as sf:
+                        srt_conteudo = sf.read()
+
+                if not duracao_seg and caminho_wav and os.path.isfile(caminho_wav):
+                    meta = calcular_metadados_audio(caminho_wav)
+                    duracao_seg = meta.get('duracao_seg', 0)
+
+                relatorio = get_transcribe_whisper().auditar_srt(srt_conteudo, duracao_audio_seg=duracao_seg)
+                self.responder_json({
+                    'success': True,
+                    'auditoria': relatorio,
+                    'caminhoSrt': caminho_srt
+                })
+            except Exception as e:
+                self.responder_json({'success': False, 'error': str(e)}, status=500)
+
+        elif caminho == '/api/srt/reparar':
+            try:
+                tamanho = int(self.headers.get('Content-Length', 0)) if self.headers.get('Content-Length') else 0
+                dados = json.loads(self.rfile.read(tamanho).decode('utf-8')) if tamanho > 0 else {}
+                caminho_srt = dados.get('caminhoSrt', '')
+                srt_conteudo = dados.get('srtConteudo', '')
+                caminho_wav = dados.get('caminhoWav', '')
+                salvar = bool(dados.get('salvar', True))
+                duracao_seg = float(dados.get('duracaoSeg', 0) or 0)
+
+                if not srt_conteudo and caminho_srt and os.path.isfile(caminho_srt):
+                    with open(caminho_srt, 'r', encoding='utf-8', errors='ignore') as sf:
+                        srt_conteudo = sf.read()
+
+                if not duracao_seg and caminho_wav and os.path.isfile(caminho_wav):
+                    meta = calcular_metadados_audio(caminho_wav)
+                    duracao_seg = meta.get('duracao_seg', 0)
+
+                set_progresso("Reparando integridade matemática do SRT...")
+                novo_srt, relatorio = get_transcribe_whisper().reparar_srt(srt_conteudo, duracao_audio_seg=duracao_seg)
+
+                if salvar and caminho_srt and os.path.isfile(caminho_srt):
+                    with open(caminho_srt, 'w', encoding='utf-8') as sf:
+                        sf.write(novo_srt)
+
+                set_progresso("SRT reparado com 100% de sucesso!", pct=100)
+                ts_cache = int(time.time())
+                self.responder_json({
+                    'success': True,
+                    'srtConteudo': novo_srt,
+                    'auditoria': relatorio,
+                    'caminhoSrt': caminho_srt,
+                    'urlSrt': f'/api/download?path={urllib.parse.quote(caminho_srt)}&t={ts_cache}' if caminho_srt else ''
+                })
+            except Exception as e:
+                set_progresso(f"Erro ao reparar SRT: {e}", pct=0)
                 self.responder_json({'success': False, 'error': str(e)}, status=500)
 
         elif caminho == '/api/tocar-concluido':
@@ -1039,8 +1108,6 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 self.send_header('Content-Type', 'application/zip')
                 self.send_header('Content-Disposition', f'attachment; filename="{nome_zip}"')
                 self.send_header('Content-Length', str(len(zip_data)))
-                self.send_header('Access-Control-Allow-Origin', '*')
-                self.send_header('Access-Control-Expose-Headers', 'Content-Disposition')
                 self.end_headers()
                 self.wfile.write(zip_data)
             except Exception as e:
@@ -1698,6 +1765,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
         elif caminho == '/api/processar/iniciar':
             try:
+                set_progresso("Iniciando nova sessão de processamento...", pct=0)
                 limpar_jobs_antigos(max_idade_horas=24)
                 tamanho = int(self.headers.get('Content-Length', 0))
                 corpo_bruto = self.rfile.read(tamanho)

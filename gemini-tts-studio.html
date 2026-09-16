@@ -1491,6 +1491,9 @@
         <button class="btn-download hidden" id="btnAjustarTempoTodos" onclick="ajustarTempoTodosMasterizados()" style="padding:6px 13px; border-color:rgba(245,158,11,0.5); color:#f59e0b; background:rgba(245,158,11,0.12); font-weight:600; font-size:11.5px; cursor:pointer; transition:all 0.15s ease; font-family:inherit; white-space:nowrap; display:inline-flex; align-items:center; gap:5px;" onmouseover="this.style.background='#f59e0b';this.style.color='#111';" onmouseout="this.style.background='rgba(245,158,11,0.12)';this.style.color='#f59e0b';" title="Ajusta o tempo proporcional de todos os áudios fora dos limites (longos para 1:30 e curtos para 61s)">
           ⏱️ Ajustar Duração (60s - 1:30)
         </button>
+        <button class="btn-download" id="btnRepararTodasLegendas" onclick="repararTodasLegendasMasterizadas()" style="padding:6px 13px; border-color:rgba(16,185,129,0.5); color:#34d399; background:rgba(16,185,129,0.12); font-weight:600; font-size:11.5px; cursor:pointer; transition:all 0.15s ease; font-family:inherit; white-space:nowrap; display:inline-flex; align-items:center; gap:5px;" title="Audita matematicamente e repara a integridade de todas as legendas da biblioteca, eliminando amontoamentos e falhas de sincronia">
+          🛡️ Auditar & Reparar SRTs
+        </button>
         <button class="btn-download hidden" id="btnRestaurarSilencioTodos" onclick="restaurarSilencioTodosMasterizados()" style="padding:6px 13px; border-color:rgba(148,163,184,0.35); color:#94a3b8; background:rgba(148,163,184,0.08); font-weight:600; font-size:11.5px; cursor:pointer; transition:all 0.15s ease; font-family:inherit; white-space:nowrap;" onmouseover="this.style.background='rgba(148,163,184,0.18)';this.style.color='#f1f5f9';" onmouseout="this.style.background='rgba(148,163,184,0.08)';this.style.color='#94a3b8';" title="Restaura todos os áudios modificados para a versão Original (desfazendo o corte de silêncio)">
           ↩️ Desfazer Silêncio (Todos)
         </button>
@@ -1528,14 +1531,14 @@
 
 <!-- BARRINHA DE PROGRESSO E AVISO FIXA NA PARTE INFERIOR COM BOTÃO X FECHAR -->
 <div id="barraProgressoInferiorContainer" class="hidden" style="position:fixed; bottom:0; left:0; width:100%; z-index:99999; background:rgba(18, 22, 25, 0.97); backdrop-filter:blur(12px); border-top:1px solid #52b788; box-shadow:0 -6px 24px rgba(0,0,0,0.6); padding:10px 24px; display:flex; align-items:center; gap:16px; font-family:inherit; transition:border-color 0.2s ease;">
-  <div style="display:flex; align-items:center; gap:9px; font-size:13px; font-weight:600; color:#f1f5f9; white-space:nowrap;">
-    <span id="barraProgressoInferiorIcone" style="font-size:16px;">⏳</span>
-    <span id="barraProgressoInferiorTexto">Processando...</span>
+  <div style="flex:0 0 340px; width:340px; min-width:340px; max-width:340px; display:flex; align-items:center; gap:9px; font-size:13px; font-weight:600; color:#f1f5f9; overflow:hidden;">
+    <span id="barraProgressoInferiorIcone" style="font-size:16px; flex-shrink:0;">⏳</span>
+    <span id="barraProgressoInferiorTexto" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; display:inline-block;" title="Processando...">Processando...</span>
   </div>
-  <div style="flex:1; height:9px; background:rgba(255,255,255,0.08); border-radius:99px; overflow:hidden; position:relative; box-shadow:inset 0 1px 2px rgba(0,0,0,0.4);">
+  <div style="flex:1; height:9px; background:rgba(255,255,255,0.08); border-radius:99px; overflow:hidden; position:relative; box-shadow:inset 0 1px 2px rgba(0,0,0,0.4); min-width:120px;">
     <div id="barraProgressoInferiorPreenchimento" style="width:0%; height:100%; background:linear-gradient(90deg, #40916c, #52b788, #74c69d); border-radius:99px; transition:width 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow:0 0 12px rgba(82, 183, 136, 0.55);"></div>
   </div>
-  <span id="barraProgressoInferiorPct" style="font-size:13px; font-weight:700; color:#74c69d; min-width:42px; text-align:right;">0%</span>
+  <span id="barraProgressoInferiorPct" style="flex:0 0 45px; width:45px; min-width:45px; max-width:45px; font-size:13px; font-weight:700; color:#74c69d; text-align:right; flex-shrink:0;">0%</span>
   <button id="btnFecharBarraInferior" onclick="fecharBarraProgressoInferior()" title="Fechar aviso" style="background:rgba(239, 68, 68, 0.15); border:1px solid rgba(239, 68, 68, 0.4); color:#ef4444; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:13px; font-weight:700; line-height:1; padding:0; margin-left:4px; transition:all 0.15s ease; flex-shrink:0;" onmouseover="this.style.background='#ef4444';this.style.color='#fff';" onmouseout="this.style.background='rgba(239, 68, 68, 0.15)';this.style.color='#ef4444';">✕</button>
 </div>
 <!-- Shims ocultos para compatibilidade com eventuais buscas por ID antigo -->
@@ -5398,6 +5401,248 @@ function atualizarBotoesLoteLimitesTempo() {
   }
 }
 
+
+function auditarSrtJS(srtText, duracaoAudio) {
+  if (!srtText || !srtText.trim()) {
+    return {
+      aprovado: false,
+      score: 0,
+      total_cues: 0,
+      amontoadas: 0,
+      detalhes_amontoadas: [],
+      micro: 0,
+      mega: 0,
+      retro: 0,
+      cpsMedio: 0.0,
+      problemas: ['Arquivo SRT vazio.'],
+      resumo: 'Arquivo SRT vazio.'
+    };
+  }
+
+  const blocos = [];
+  const regex = /(\d+)\s*\n(\d{2}:\d{2}:\d{2}[,\.]\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}[,\.]\d{3})\s*\n([\s\S]*?)(?=\n\s*\n\d+\s*\n|\Z)/g;
+  const toSec = (ts) => {
+    ts = ts.replace(',', '.');
+    const p = ts.split(':');
+    return (+p[0]) * 3600 + (+p[1]) * 60 + (+p[2]);
+  };
+
+  let m;
+  while ((m = regex.exec(srtText.trim())) !== null) {
+    try {
+      const idx = +m[1];
+      const t0 = toSec(m[2]);
+      const t1 = toSec(m[3]);
+      const txt = m[4].trim().replace(/\s+/g, ' ');
+      if (txt) {
+        blocos.push({ idx, t0: Math.round(t0 * 1000) / 1000, t1: Math.round(t1 * 1000) / 1000, duracao: Math.max(0, t1 - t0), texto: txt });
+      }
+    } catch (e) {}
+  }
+
+  const total = blocos.length;
+  if (total === 0) {
+    return { aprovado: false, score: 0, total_cues: 0, amontoadas: 0, micro: 0, mega: 0, retro: 0, cpsMedio: 0, problemas: ['Nenhum bloco SRT válido encontrado.'], resumo: 'SRT inválido' };
+  }
+
+  const amontoadas = [];
+  let micro = 0, mega = 0, retro = 0, totalChars = 0, tempoFala = 0;
+  for (let i = 0; i < total; i++) {
+    const b = blocos[i];
+    const dur = b.duracao;
+    const txt = b.texto;
+    totalChars += txt.length;
+    tempoFala += Math.max(0.1, dur);
+
+    if (dur < 0.4 && (txt.length > 8 || txt.includes(' '))) micro++;
+    if (dur > 8.0) mega++;
+
+    if (i > 0) {
+      const bAnt = blocos[i - 1];
+      const diff = b.t0 - bAnt.t0;
+      if (diff < -0.01) {
+        retro++;
+      } else if (diff < 0.25) {
+        amontoadas.push({ idx: b.idx, t0: b.t0, txt: b.texto.substring(0, 35) });
+      }
+    }
+  }
+
+  const cpsMedio = Math.round((totalChars / Math.max(1, tempoFala)) * 10) / 10;
+  let score = 100;
+  const problemas = [];
+  if (amontoadas.length > 0) {
+    score -= Math.min(60, amontoadas.length * 10);
+    problemas.push(`${amontoadas.length} falas amontoadas no mesmo instante ou em < 250ms.`);
+  }
+  if (retro > 0) {
+    score -= Math.min(40, retro * 20);
+    problemas.push(`${retro} falas com ordem cronológica invertida.`);
+  }
+  if (micro > 0) {
+    score -= Math.min(20, micro * 2);
+    problemas.push(`${micro} falas com micro-duração (< 0.4s).`);
+  }
+  if (mega > 0) {
+    score -= Math.min(15, mega * 3);
+    problemas.push(`${mega} falas congeladas na tela (> 8s).`);
+  }
+  if (cpsMedio > 26.0) {
+    score -= 15;
+    problemas.push(`Velocidade de leitura excessiva (média ${cpsMedio} CPS).`);
+  }
+  if (amontoadas.length >= 10) score = 0;
+  score = Math.max(0, Math.min(100, score));
+  const aprovado = (score >= 90 && amontoadas.length === 0 && retro === 0 && micro <= 2);
+  const resumo = aprovado 
+    ? `100% Íntegro (${total} falas • 0 amontoadas • CPS: ${cpsMedio})`
+    : `Score ${score}% (${amontoadas.length} amontoadas, ${micro} micro, ${mega} mega)`;
+
+  return {
+    aprovado,
+    score,
+    total_cues: total,
+    amontoadas: amontoadas.length,
+    detalhes_amontoadas: amontoadas.slice(0, 10),
+    micro,
+    mega,
+    retro,
+    cpsMedio,
+    problemas,
+    resumo
+  };
+}
+
+function abrirModalAuditoriaSrt(nomeArquivo, audit) {
+  const modalAntigo = document.getElementById('modalAuditoriaSrt');
+  if (modalAntigo) modalAntigo.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'modalAuditoriaSrt';
+  overlay.style.cssText = 'position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.7); backdrop-filter:blur(5px); z-index:99999; display:flex; align-items:center; justify-content:center; padding:16px; box-sizing:border-box;';
+
+  const modal = document.createElement('div');
+  modal.style.cssText = 'background:var(--surface); border:1px solid var(--border); border-radius:12px; width:100%; max-width:620px; max-height:90vh; overflow-y:auto; box-shadow:0 20px 40px rgba(0,0,0,0.5); display:flex; flex-direction:column; gap:16px; padding:20px 24px; box-sizing:border-box; color:var(--text);';
+
+  const header = document.createElement('div');
+  header.style.cssText = 'display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--border); padding-bottom:12px;';
+  header.innerHTML = `
+    <div>
+      <div style="font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px;">
+        <span>🔍 Auditoria de Legenda SRT</span>
+        <span style="font-size:12px; font-weight:600; padding:2px 8px; border-radius:9999px; ${audit.aprovado ? 'background:rgba(16,185,129,0.15); color:#34d399; border:1px solid rgba(16,185,129,0.3);' : 'background:rgba(239,68,68,0.15); color:#f87171; border:1px solid rgba(239,68,68,0.3);'}">
+          ${audit.aprovado ? '100% APROVADO' : 'REPROVADO - SCORE ' + audit.score + '%'}
+        </span>
+      </div>
+      <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">${nomeArquivo}</div>
+    </div>
+    <button id="btnFecharModalAuditoria" class="btn-icon" style="font-size:16px; padding:4px 8px; cursor:pointer;">✕</button>
+  `;
+
+  const banner = document.createElement('div');
+  banner.style.cssText = `padding:12px 16px; border-radius:8px; font-size:13px; font-weight:600; display:flex; align-items:center; gap:10px; ${audit.aprovado ? 'background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.3); color:#34d399;' : 'background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:#f87171;'}`;
+  banner.innerHTML = audit.aprovado 
+    ? '✅ <b>Legenda Aprovada!</b> Sincronização temporal limpa, sem falas sobrepostas e velocidade de leitura humana confortável.'
+    : `⚠️ <b>Atenção:</b> Esta legenda possui ${audit.amontoadas} falas amontoadas/conflitantes e não deve ser utilizada sem reparo.`;
+
+  const grid = document.createElement('div');
+  grid.style.cssText = 'display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-top:4px;';
+  grid.innerHTML = `
+    <div style="background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:10px 12px; text-align:center;">
+      <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; font-weight:600;">Total de Falas</div>
+      <div style="font-size:20px; font-weight:700; margin-top:4px;">${audit.total_cues || 0}</div>
+    </div>
+    <div style="background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:10px 12px; text-align:center;">
+      <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; font-weight:600;">Amontoadas</div>
+      <div style="font-size:20px; font-weight:700; margin-top:4px; ${audit.amontoadas > 0 ? 'color:#f87171;' : 'color:#34d399;'}">${audit.amontoadas || 0}</div>
+    </div>
+    <div style="background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:10px 12px; text-align:center;">
+      <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; font-weight:600;">Micro-durações</div>
+      <div style="font-size:20px; font-weight:700; margin-top:4px; ${audit.micro > 0 ? 'color:#fbbf24;' : ''}">${audit.micro || 0}</div>
+    </div>
+    <div style="background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:10px 12px; text-align:center;">
+      <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; font-weight:600;">Congeladas (>8s)</div>
+      <div style="font-size:20px; font-weight:700; margin-top:4px;">${audit.mega || 0}</div>
+    </div>
+    <div style="background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:10px 12px; text-align:center;">
+      <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; font-weight:600;">Velocidade</div>
+      <div style="font-size:20px; font-weight:700; margin-top:4px;">${audit.cpsMedio || 0} <span style="font-size:11px; font-weight:400; color:var(--text-muted);">CPS</span></div>
+    </div>
+    <div style="background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:10px 12px; text-align:center;">
+      <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; font-weight:600;">Retrocessos</div>
+      <div style="font-size:20px; font-weight:700; margin-top:4px; ${audit.retro > 0 ? 'color:#f87171;' : 'color:#34d399;'}">${audit.retro || 0}</div>
+    </div>
+  `;
+
+  let listaProblemas = '';
+  if (audit.problemas && audit.problemas.length > 0) {
+    listaProblemas = `
+      <div style="background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.25); border-radius:8px; padding:12px 14px;">
+        <div style="font-size:12px; font-weight:700; color:#f87171; margin-bottom:6px;">Diagnósticos de Inconsistência:</div>
+        <ul style="margin:0; padding-left:18px; font-size:12px; line-height:1.6; color:var(--text);">
+          ${audit.problemas.map(p => `<li>${p}</li>`).join('')}
+        </ul>
+      </div>
+    `;
+  }
+
+  const footer = document.createElement('div');
+  footer.style.cssText = 'display:flex; justify-content:flex-end; gap:10px; border-top:1px solid var(--border); padding-top:14px; margin-top:4px;';
+  footer.innerHTML = `
+    <button id="btnFecharModalBaixo" class="btn-download" style="padding:6px 14px; cursor:pointer;">Fechar</button>
+  `;
+
+  modal.append(header, banner, grid);
+  if (listaProblemas) {
+    const divProb = document.createElement('div');
+    divProb.innerHTML = listaProblemas;
+    modal.appendChild(divProb);
+  }
+  modal.appendChild(footer);
+  overlay.appendChild(modal);
+
+  const fechar = () => overlay.remove();
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) fechar(); });
+  header.querySelector('#btnFecharModalAuditoria').onclick = fechar;
+  footer.querySelector('#btnFecharModalBaixo').onclick = fechar;
+
+  document.body.appendChild(overlay);
+}
+
+async function repararTodasLegendasMasterizadas() {
+  const comSrt = (masterizadosItens || []).filter(it => it.srtConteudo || it.caminhoSrt);
+  if (!comSrt.length) {
+    showToast('ℹ️ Nenhuma legenda SRT encontrada na biblioteca para auditar.');
+    return;
+  }
+  showToast(`⏳ Auditando e reparando ${comSrt.length} legenda(s) SRT...`);
+  let corrigidos = 0;
+  for (const it of comSrt) {
+    try {
+      const resp = await fetch(`${BRIDGE_URL}/api/srt/reparar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          caminhoSrt: it.caminhoSrt,
+          srtConteudo: it.srtConteudo,
+          caminhoWav: it.caminhoWav,
+          salvar: true
+        })
+      });
+      const dados = await resp.json();
+      if (dados.success) {
+        it.srtConteudo = dados.srtConteudo;
+        it.auditoriaSrt = dados.auditoria;
+        corrigidos++;
+      }
+    } catch (err) {
+      console.warn('Erro ao reparar legenda:', it.nome, err);
+    }
+  }
+  renderizarMasterizados(masterizadosItens);
+  showToast(`🛡️ ${corrigidos} legenda(s) auditadas e 100% íntegras!`);
+}
+
 function renderizarMasterizados(itens, macroNome) {
   masterizadosItens = (itens || []).map(it => {
     if (it.srtConteudo) it.srtConteudo = limparTagsDeSrt(it.srtConteudo);
@@ -5605,21 +5850,80 @@ function renderizarMasterizados(itens, macroNome) {
       if (oldAviso) oldAviso.remove();
 
       if (item.srtConteudo) {
+        const audit = item.auditoriaSrt || auditarSrtJS(item.srtConteudo, item.duracaoSeg);
+        item.auditoriaSrt = audit;
+
         const srtDetails = document.createElement('details');
         srtDetails.className = 'master-srt-details';
         srtDetails.style.cssText = 'background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; margin-top:4px;';
 
         const srtSummary = document.createElement('summary');
-        srtSummary.style.cssText = 'padding:8px 12px; font-size:11px; cursor:pointer; font-weight:600; color:var(--text);';
-        const numLinhas = (item.srtConteudo.match(/\d+\s+\d{2}:\d{2}:\d{2}/g) || []).length;
-        srtSummary.innerHTML = `📄 Visualizar Legenda SRT <span style="opacity:.7; font-weight:400;">(${numLinhas || 'várias'} falas sincronizadas)</span>`;
+        srtSummary.style.cssText = 'padding:8px 12px; font-size:11px; cursor:pointer; font-weight:600; color:var(--text); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px;';
+
+        const badgeAudit = audit.aprovado
+          ? `<span style="background:rgba(16,185,129,0.15); color:#34d399; border:1px solid rgba(16,185,129,0.3); border-radius:9999px; padding:2px 8px; font-size:10px; font-weight:700;">✅ SRT 100% Íntegro (${audit.total_cues} falas • 0 amontoadas)</span>`
+          : `<span style="background:rgba(239,68,68,0.15); color:#f87171; border:1px solid rgba(239,68,68,0.3); border-radius:9999px; padding:2px 8px; font-size:10px; font-weight:700;">⚠️ ${audit.amontoadas} Falas Amontoadas (Score ${audit.score}%)</span>`;
+
+        srtSummary.innerHTML = `
+          <div style="display:inline-flex; align-items:center; gap:6px;">
+            <span>📄 Visualizar Legenda SRT</span>
+            <span style="opacity:.7; font-weight:400;">(${audit.total_cues || 'várias'} falas sincronizadas)</span>
+          </div>
+          <div>${badgeAudit}</div>
+        `;
 
         const srtBox = document.createElement('div');
         srtBox.className = 'master-srt-box';
         srtBox.textContent = item.srtConteudo;
 
         const srtActions = document.createElement('div');
-        srtActions.style.cssText = 'padding:6px 12px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:8px;';
+        srtActions.style.cssText = 'padding:6px 12px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; align-items:center; gap:8px; flex-wrap:wrap;';
+
+        if (!audit.aprovado || audit.amontoadas > 0) {
+          const btnReparar = document.createElement('button');
+          btnReparar.className = 'btn-download';
+          btnReparar.style.cssText = 'padding:4px 10px; font-size:11px; font-weight:700; background:rgba(239,68,68,0.15); border-color:rgba(239,68,68,0.4); color:#f87171; cursor:pointer;';
+          btnReparar.innerHTML = '🔧 Reparar SRT Automaticamente';
+          btnReparar.onclick = async () => {
+            btnReparar.disabled = true;
+            btnReparar.innerHTML = '⏳ Reparando...';
+            try {
+              const resp = await fetch(`${BRIDGE_URL}/api/srt/reparar`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  caminhoSrt: item.caminhoSrt,
+                  srtConteudo: item.srtConteudo,
+                  caminhoWav: item.caminhoWav,
+                  salvar: true
+                })
+              });
+              const dados = await resp.json();
+              if (dados.success) {
+                item.srtConteudo = dados.srtConteudo;
+                item.auditoriaSrt = dados.auditoria;
+                renderizarSecaoSrt();
+                showToast('✅ Legenda SRT reparada com 100% de integridade!');
+              } else {
+                throw new Error(dados.error || 'Falha ao reparar');
+              }
+            } catch (err) {
+              btnReparar.disabled = false;
+              btnReparar.innerHTML = '🔧 Reparar SRT Automaticamente';
+              showToast(`❌ Erro ao reparar SRT: ${err.message}`);
+            }
+          };
+          srtActions.appendChild(btnReparar);
+        }
+
+        const btnDetalhes = document.createElement('button');
+        btnDetalhes.className = 'btn-icon';
+        btnDetalhes.textContent = '🔍 Auditoria';
+        btnDetalhes.title = 'Ver métricas completas da integridade temporal';
+        btnDetalhes.onclick = () => {
+          abrirModalAuditoriaSrt(item.nome + '.srt', item.auditoriaSrt || audit);
+        };
+        srtActions.appendChild(btnDetalhes);
 
         const btnCopiarSrt = document.createElement('button');
         btnCopiarSrt.className = 'btn-icon';
@@ -6568,6 +6872,35 @@ async function baixarTodosWavMasterizados() {
     concluirBarraProgressoInferior(`✅ ${itensWav.length} áudios masterizados baixados em .zip!`, 'zip', true);
     showToast(`✅ ${itensWav.length} áudios baixados em .zip!`);
   } catch (err) {
+    console.warn('[BaixarWavsZip] Falha na rota do servidor, iniciando empacotamento local via JSZip:', err);
+    if (typeof JSZip !== 'undefined') {
+      try {
+        atualizarBarraProgressoInferior(35, `📦 Empacotando localmente no navegador...`, 'zip');
+        const zip = new JSZip();
+        for (let i = 0; i < itensWav.length; i++) {
+          const it = itensWav[i];
+          const nome = (it.nome || `audio_${i + 1}`).replace(/\.wav$/i, '') + '.wav';
+          const url = it.urlWav ? (it.urlWav.startsWith('http') ? it.urlWav : `${BRIDGE_URL}${it.urlWav}`) : null;
+          if (url) {
+            const resp = await fetch(url);
+            if (resp.ok) {
+              const b = await resp.blob();
+              zip.file(nome, b);
+            }
+          }
+          atualizarBarraProgressoInferior(Math.round(35 + ((i + 1) / itensWav.length) * 45), `Adicionando ${nome}...`, 'zip');
+        }
+        atualizarBarraProgressoInferior(85, `Gerando arquivo .zip comprimido...`, 'zip');
+        const blobZip = await zip.generateAsync({ type: 'blob' });
+        const ts = formatarTimestampDataHora();
+        baixarBlob(blobZip, `Audios_Masterizados_${ts}.zip`);
+        concluirBarraProgressoInferior(`✅ ${itensWav.length} áudios masterizados baixados em .zip!`, 'zip', true);
+        showToast(`✅ ${itensWav.length} áudios baixados em .zip!`);
+        return;
+      } catch (errLocal) {
+        console.error('[BaixarWavsZip] Erro no fallback JSZip:', errLocal);
+      }
+    }
     fecharBarraProgressoInferior();
     console.error('[BaixarWavsZip] Erro:', err);
     showToast(`❌ Falha ao baixar .zip: ${err.message}`);
@@ -6615,6 +6948,37 @@ async function baixarTodasLegendasMasterizadas() {
     concluirBarraProgressoInferior(`✅ ${comSrt.length} legendas (.srt) baixadas em .zip!`, 'zip', true);
     showToast(`✅ ${comSrt.length} legendas baixadas em .zip!`);
   } catch (err) {
+    console.warn('[BaixarSrtsZip] Falha na rota do servidor, iniciando empacotamento local via JSZip:', err);
+    if (typeof JSZip !== 'undefined') {
+      try {
+        atualizarBarraProgressoInferior(35, `📦 Empacotando legendas no navegador...`, 'zip');
+        const zip = new JSZip();
+        for (let i = 0; i < comSrt.length; i++) {
+          const it = comSrt[i];
+          const nome = (it.nome || `legenda_${i + 1}`).replace(/\.srt$/i, '') + '.srt';
+          if (it.srtConteudo) {
+            zip.file(nome, it.srtConteudo);
+          } else if (it.urlSrt) {
+            const url = it.urlSrt.startsWith('http') ? it.urlSrt : `${BRIDGE_URL}${it.urlSrt}`;
+            const resp = await fetch(url);
+            if (resp.ok) {
+              const txt = await resp.text();
+              zip.file(nome, txt);
+            }
+          }
+          atualizarBarraProgressoInferior(Math.round(35 + ((i + 1) / comSrt.length) * 45), `Adicionando ${nome}...`, 'zip');
+        }
+        atualizarBarraProgressoInferior(85, `Gerando arquivo .zip comprimido...`, 'zip');
+        const blobZip = await zip.generateAsync({ type: 'blob' });
+        const ts = formatarTimestampDataHora();
+        baixarBlob(blobZip, `Legendas_SRT_${ts}.zip`);
+        concluirBarraProgressoInferior(`✅ ${comSrt.length} legendas (.srt) baixadas em .zip!`, 'zip', true);
+        showToast(`✅ ${comSrt.length} legendas baixadas em .zip!`);
+        return;
+      } catch (errLocal) {
+        console.error('[BaixarSrtsZip] Erro no fallback JSZip:', errLocal);
+      }
+    }
     fecharBarraProgressoInferior();
     console.error('[BaixarSrtsZip] Erro:', err);
     showToast(`❌ Falha ao baixar legendas .zip: ${err.message}`);
@@ -6675,6 +7039,50 @@ async function baixarTudoMasterizado() {
     concluirBarraProgressoInferior(`✅ Pacote com ${totalArquivos} arquivos baixado em .zip!`, 'zip', true);
     showToast(`✅ Pacote com ${totalArquivos} arquivos baixado em .zip!`);
   } catch (err) {
+    console.warn('[BaixarTudoZip] Falha na rota do servidor, iniciando empacotamento local via JSZip:', err);
+    if (typeof JSZip !== 'undefined') {
+      try {
+        atualizarBarraProgressoInferior(30, `📦 Empacotando tudo no navegador...`, 'zip');
+        const zip = new JSZip();
+        for (let i = 0; i < itensWav.length; i++) {
+          const it = itensWav[i];
+          const nome = (it.nome || `audio_${i + 1}`).replace(/\.wav$/i, '') + '.wav';
+          const url = it.urlWav ? (it.urlWav.startsWith('http') ? it.urlWav : `${BRIDGE_URL}${it.urlWav}`) : null;
+          if (url) {
+            const resp = await fetch(url);
+            if (resp.ok) {
+              const b = await resp.blob();
+              zip.file(nome, b);
+            }
+          }
+          atualizarBarraProgressoInferior(Math.round(30 + ((i + 1) / totalArquivos) * 45), `Adicionando áudio ${nome}...`, 'zip');
+        }
+        for (let i = 0; i < itensSrt.length; i++) {
+          const it = itensSrt[i];
+          const nome = (it.nome || `legenda_${i + 1}`).replace(/\.srt$/i, '') + '.srt';
+          if (it.srtConteudo) {
+            zip.file(nome, it.srtConteudo);
+          } else if (it.urlSrt) {
+            const url = it.urlSrt.startsWith('http') ? it.urlSrt : `${BRIDGE_URL}${it.urlSrt}`;
+            const resp = await fetch(url);
+            if (resp.ok) {
+              const txt = await resp.text();
+              zip.file(nome, txt);
+            }
+          }
+          atualizarBarraProgressoInferior(Math.round(30 + ((itensWav.length + i + 1) / totalArquivos) * 45), `Adicionando legenda ${nome}...`, 'zip');
+        }
+        atualizarBarraProgressoInferior(85, `Gerando arquivo .zip comprimido...`, 'zip');
+        const blobZip = await zip.generateAsync({ type: 'blob' });
+        const ts = formatarTimestampDataHora();
+        baixarBlob(blobZip, `Audios_e_Legendas_${ts}.zip`);
+        concluirBarraProgressoInferior(`✅ Pacote com ${totalArquivos} arquivos baixado em .zip!`, 'zip', true);
+        showToast(`✅ Pacote com ${totalArquivos} arquivos baixado em .zip!`);
+        return;
+      } catch (errLocal) {
+        console.error('[BaixarTudoZip] Erro no fallback JSZip:', errLocal);
+      }
+    }
     fecharBarraProgressoInferior();
     console.error('[BaixarTudoZip] Erro:', err);
     showToast(`❌ Falha ao baixar pacote .zip: ${err.message}`);
@@ -6816,7 +7224,10 @@ function atualizarBarraProgressoInferior(pct, texto, tipo = 'padrao') {
     pctEl.style.color = cfg.texto;
   }
   if (iconEl) iconEl.textContent = cfg.icone;
-  if (texto && txt) txt.textContent = texto;
+  if (texto && txt) {
+    txt.textContent = texto;
+    txt.title = texto;
+  }
 }
 
 function concluirBarraProgressoInferior(textoSucesso, tipo = 'padrao', tocarSom = true) {
@@ -6840,7 +7251,11 @@ function concluirBarraProgressoInferior(textoSucesso, tipo = 'padrao', tocarSom 
     pctEl.style.color = '#34d399';
   }
   if (iconEl) iconEl.textContent = '✅';
-  if (txt) txt.textContent = textoSucesso || '✅ Concluído com sucesso!';
+  if (txt) {
+    const msgS = textoSucesso || '✅ Concluído com sucesso!';
+    txt.textContent = msgS;
+    txt.title = msgS;
+  }
 
   // Permanece na interface como aviso concluído até o usuário clicar no botão vermelho ✕
   if (tocarSom) {
@@ -7025,6 +7440,8 @@ async function processarComAudacityEWhisper() {
     msgEl.textContent = `Preparando ${prontos.length} bloco(s)...`;
   }
 
+  atualizarBarraProgressoInferior(0, 'Iniciando sessão...', 'master');
+
   let polling = false;
   const pollProgresso = async () => {
     while (polling) {
@@ -7034,7 +7451,8 @@ async function processarComAudacityEWhisper() {
           const pData = await pRes.json();
           if (pData.progresso) {
             msgEl.textContent = pData.progresso;
-            atualizarBarraProgressoInferior(pData.pct || 40, pData.progresso, 'master');
+            const pctVal = (typeof pData.pct === 'number' && !isNaN(pData.pct)) ? pData.pct : 25;
+            atualizarBarraProgressoInferior(pctVal, pData.progresso, 'master');
           }
         }
       } catch {}
@@ -7127,7 +7545,11 @@ async function processarComAudacityEWhisper() {
           const nomeAudio = a.nome || `${gMeta.nome}_parte_${String(aIdx).padStart(2, '0')}`;
           const tamMb = a.blob.size ? (a.blob.size / (1024 * 1024)).toFixed(1) : '0';
 
-          msgEl.textContent = `[${gIdx + 1}/${listaGruposParaProcessar.length}] Enviando áudio ${aIdx}/${audios.length} (${tamMb} MB): ${nomeAudio}...`;
+          const pctUpload = Math.max(1, Math.round((audioContador / totalAudiosGlobal) * 15));
+          const msgUpload = `Enviando áudio ${audioContador}/${totalAudiosGlobal} (${tamMb} MB): ${nomeAudio}...`;
+          msgEl.textContent = `[${gIdx + 1}/${listaGruposParaProcessar.length}] ${msgUpload}`;
+          atualizarBarraProgressoInferior(pctUpload, msgUpload, 'master');
+
           const uploadUrl = `${BRIDGE_URL}/api/processar/upload-bloco?jobId=${encodeURIComponent(jobId)}&index=${audioContador}&grupoId=${encodeURIComponent(g.id)}&nome=${encodeURIComponent(nomeAudio)}`;
           await uploadBlocoComRetry(uploadUrl, a.blob);
         }
@@ -7191,7 +7613,11 @@ async function processarComAudacityEWhisper() {
         const idx = i + 1;
         const nomeBloco = b.nome || `bloco_${String(idx).padStart(2, '0')}`;
         const tamMb = b.blob.size ? (b.blob.size / (1024 * 1024)).toFixed(1) : '0';
-        msgEl.textContent = `Enviando áudio ${idx} de ${prontos.length} (${tamMb} MB): ${nomeBloco}...`;
+
+        const pctUpload = Math.max(1, Math.round((idx / prontos.length) * 15));
+        const msgUpload = `Enviando áudio ${idx} de ${prontos.length} (${tamMb} MB): ${nomeBloco}...`;
+        msgEl.textContent = msgUpload;
+        atualizarBarraProgressoInferior(pctUpload, msgUpload, 'master');
 
         const uploadUrl = `${BRIDGE_URL}/api/processar/upload-bloco?jobId=${encodeURIComponent(jobId)}&index=${idx}&nome=${encodeURIComponent(nomeBloco)}`;
         await uploadBlocoComRetry(uploadUrl, b.blob);

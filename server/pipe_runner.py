@@ -863,23 +863,26 @@ def executar_processamento_audacity(itens_audio, juntar=True, macro_path=None, p
        - Para cada bloco: limpa, importa, aplica macro, exporta
     4. Garante limpeza completa das faixas no final.
     """
-    def report(msg):
+    def report(msg, pct=None):
         if progress_callback:
-            progress_callback(msg)
-        sys.stderr.write(f'[Audacity] {msg}\n')
+            try:
+                progress_callback(msg, pct=pct)
+            except TypeError:
+                progress_callback(msg)
+        sys.stderr.write(f'[Audacity] ({pct}%) {msg}\n' if pct is not None else f'[Audacity] {msg}\n')
 
     if not itens_audio:
         return {'success': False, 'error': 'Nenhum áudio fornecido para processamento.'}
 
     with AUDACITY_LOCK:
         os.makedirs(pasta_saida, exist_ok=True)
-        report('Iniciando o Audacity...')
+        report('Iniciando o Audacity...', pct=16)
         novo_inicio = launch_audacity()
 
         client = PipeClient()
         connected = client.connect(timeout=6.0 if not novo_inicio else 15.0)
         if not connected and not novo_inicio:
-            report('Sessão anterior não respondeu ao pipe. Reiniciando Audacity do zero...')
+            report('Sessão anterior não respondeu ao pipe. Reiniciando Audacity do zero...', pct=17)
             close_audacity(force=True)
             time.sleep(0.5)
             novo_inicio = launch_audacity()
@@ -906,7 +909,7 @@ def executar_processamento_audacity(itens_audio, juntar=True, macro_path=None, p
                 for idx_m, l_m in enumerate(linhas_macro):
                     if 'TruncateSilence' in l_m and 'Independent=' not in l_m:
                         linhas_macro[idx_m] = l_m.rstrip() + ' Independent="1"'
-                report(f'Macro selecionada: {os.path.basename(macro_path)} ({len(linhas_macro)} comandos)')
+                report(f'Macro selecionada: {os.path.basename(macro_path)} ({len(linhas_macro)} comandos)', pct=18)
 
             arquivos_gerados = []
 
@@ -914,37 +917,39 @@ def executar_processamento_audacity(itens_audio, juntar=True, macro_path=None, p
                 # ════════════════════════════════════════════════════════
                 # 1. JUNTAR PRIMEIRO (Ordem estrita requerida pelo usuário)
                 # ════════════════════════════════════════════════════════
-                report('Garantindo projeto limpo no Audacity...')
+                report('Garantindo projeto limpo no Audacity...', pct=20)
                 limpar_todas_faixas(client)
 
-                report(f'Importando {len(itens_audio)} faixa(s) para junção...')
+                report(f'Importando {len(itens_audio)} faixa(s) para junção...', pct=20)
                 for idx, item in enumerate(itens_audio, 1):
                     caminho_norm = os.path.abspath(item['caminho_wav']).replace('\\', '/')
-                    report(f'Importando bloco {idx}/{len(itens_audio)}: {item.get("nome", f"bloco_{idx}")}')
+                    pct_imp = int(20 + (idx / len(itens_audio)) * 14)
+                    report(f'Importando bloco {idx}/{len(itens_audio)}: {item.get("nome", f"bloco_{idx}")}', pct=pct_imp)
                     client.send(f'Import2: Filename="{caminho_norm}"', timeout=15.0)
                     time.sleep(0.15)
 
                 if len(itens_audio) > 1:
-                    report('Alinhando áudios de ponta a ponta (Align_EndToEnd)...')
+                    report('Alinhando áudios de ponta a ponta (Align_EndToEnd)...', pct=36)
                     client.send('SelectAll:', timeout=5.0)
                     client.send('Align_EndToEnd:', timeout=60.0)
                     time.sleep(0.3)
 
-                    report('Renderizando em faixa única consolidada (MixAndRender)...')
+                    report('Renderizando em faixa única consolidada (MixAndRender)...', pct=40)
                     client.send('SelectAll:', timeout=5.0)
                     client.send('MixAndRender:', timeout=180.0)
                     time.sleep(0.5)
                 else:
-                    report('Apenas 1 bloco enviado: alinhamento dispensado, aplicando efeitos diretamente...')
+                    report('Apenas 1 bloco enviado: alinhamento dispensado, aplicando efeitos diretamente...', pct=40)
 
                 # ════════════════════════════════════════════════════════
                 # 2. APLICAR MACRO NA FAIXA ÚNICA
                 # ════════════════════════════════════════════════════════
                 if linhas_macro:
                     client.send('SelectAll:', timeout=5.0)
-                    for l in linhas_macro:
+                    for i_m, l in enumerate(linhas_macro, 1):
                         nome_cmd = l.split(':')[0]
-                        report(f'Aplicando efeito: {nome_cmd}...')
+                        pct_m = int(42 + (i_m / len(linhas_macro)) * 20)
+                        report(f'Aplicando efeito: {nome_cmd}...', pct=pct_m)
                         client.send(l, timeout=300.0)
                         time.sleep(0.2)
 
@@ -955,12 +960,12 @@ def executar_processamento_audacity(itens_audio, juntar=True, macro_path=None, p
                 caminho_saida = os.path.join(pasta_saida, f'{nome_final}.wav')
                 saida_norm = os.path.abspath(caminho_saida).replace('\\', '/')
 
-                report('Exportando áudio final masterizado...')
+                report('Exportando áudio final masterizado...', pct=64)
                 client.send('SelectAll:', timeout=5.0)
                 client.send(f'Export2: Filename="{saida_norm}" NumChannels=1', timeout=600.0)
 
                 # Aguarda o Audacity concluir a gravação e o Windows liberar o arquivo no disco
-                report('Aguardando gravação completa do arquivo no disco...')
+                report('Aguardando gravação completa do arquivo no disco...', pct=66)
                 arquivo_pronto = False
                 t0_espera = time.time()
                 ultimo_tam = -1
@@ -982,7 +987,7 @@ def executar_processamento_audacity(itens_audio, juntar=True, macro_path=None, p
                     pass
 
                 if arquivo_pronto:
-                    report(f'Áudio unificado masterizado com sucesso ({round(os.path.getsize(caminho_saida) / (1024 * 1024), 2)} MB)!')
+                    report(f'Áudio unificado masterizado com sucesso ({round(os.path.getsize(caminho_saida) / (1024 * 1024), 2)} MB)!', pct=68)
                     arquivos_gerados.append({
                         'tipo': 'unificado',
                         'nome': nome_final,
@@ -1000,34 +1005,37 @@ def executar_processamento_audacity(itens_audio, juntar=True, macro_path=None, p
                 # garantindo calibração de volume homogênea entre todos os arquivos/grupos.
                 # Em seguida, cada faixa é selecionada individualmente (com Solo) e exportada para seu próprio arquivo.
                 # ════════════════════════════════════════════════════════
-                report('Garantindo projeto limpo no Audacity...')
+                report('Garantindo projeto limpo no Audacity...', pct=20)
                 limpar_todas_faixas(client)
                 time.sleep(0.4)
 
-                report(f'Importando {len(itens_audio)} faixa(s) para masterização unificada no Audacity...')
+                report(f'Importando {len(itens_audio)} faixa(s) para masterização unificada no Audacity...', pct=20)
                 for idx, item in enumerate(itens_audio, 1):
                     nome = item.get('nome', f'bloco_{idx}').replace('.wav', '').strip()
                     caminho_norm = os.path.abspath(item['caminho_wav']).replace('\\', '/')
-                    report(f'Importando faixa {idx}/{len(itens_audio)}: {nome}')
+                    pct_imp = int(20 + (idx / len(itens_audio)) * 14)
+                    report(f'Importando faixa {idx}/{len(itens_audio)}: {nome}', pct=pct_imp)
                     client.send(f'Import2: Filename="{caminho_norm}"', timeout=15.0)
                     time.sleep(0.25)
 
                 if linhas_macro:
-                    report(f'Aplicando macro unificada em todas as {len(itens_audio)} faixas simultaneamente...')
+                    report(f'Aplicando macro unificada em todas as {len(itens_audio)} faixas simultaneamente...', pct=36)
                     client.send('SelectAll:', timeout=5.0)
-                    for l in linhas_macro:
+                    for i_m, l in enumerate(linhas_macro, 1):
                         nome_cmd = l.split(':')[0]
-                        report(f'Aplicando efeito: {nome_cmd} em todas as faixas...')
+                        pct_m = int(36 + (i_m / len(linhas_macro)) * 16)
+                        report(f'Aplicando efeito: {nome_cmd} em todas as faixas...', pct=pct_m)
                         client.send(l, timeout=300.0)
                         time.sleep(0.2)
 
-                report(f'Exportando {len(itens_audio)} arquivos masterizados individualmente...')
+                report(f'Exportando {len(itens_audio)} arquivos masterizados individualmente...', pct=53)
                 for idx, item in enumerate(itens_audio):
                     nome = item.get('nome', f'bloco_{idx+1}').replace('.wav', '').strip()
                     caminho_saida = os.path.join(pasta_saida, f'{nome}.wav')
                     saida_norm = os.path.abspath(caminho_saida).replace('\\', '/')
 
-                    report(f'Exportando faixa {idx+1}/{len(itens_audio)}: {nome}.wav...')
+                    pct_exp = int(53 + ((idx + 1) / len(itens_audio)) * 15)
+                    report(f'Exportando faixa {idx+1}/{len(itens_audio)}: {nome}.wav...', pct=pct_exp)
                     # Seleciona estritamente a faixa atual e ativa Solo para isolamento total sem mixagem
                     client.send(f'SelectTracks: Mode="Set" Track="{idx}" TrackCount="1"', timeout=5.0)
                     client.send('SetTrackAudio: Solo="1"', timeout=5.0)
@@ -1063,7 +1071,7 @@ def executar_processamento_audacity(itens_audio, juntar=True, macro_path=None, p
                 except:
                     pass
 
-            report('Processamento no Audacity concluído!')
+            report('Processamento no Audacity concluído!', pct=69)
             return {'success': True, 'arquivos': arquivos_gerados}
 
         except Exception as e:
