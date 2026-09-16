@@ -9,6 +9,7 @@ from ctypes import wintypes
 import subprocess
 import shutil
 import threading
+import wave
 
 GENERIC_READ = 0x80000000
 GENERIC_WRITE = 0x40000000
@@ -1371,3 +1372,345 @@ def executar_travar_silencio_lote(itens, duracao="2", compressao="50", limiar="-
             _schedule_idle_close(180.0)
             report('Sessão em lote do Audacity finalizada com sucesso.')
 
+def obter_duracao_wav(caminho_wav):
+    """Obtém a duração exata em segundos de um arquivo WAV."""
+    try:
+        with wave.open(caminho_wav, 'rb') as w:
+            frames = w.getnframes()
+            rate = w.getframerate()
+            if rate > 0:
+                return frames / float(rate)
+    except Exception:
+        pass
+    return 0.0
+
+def executar_ajustar_tempo(caminho_wav, duracao_alvo=88.8, progress_callback=None):
+    """
+    Ajusta proporcionalmente o tempo do áudio WAV no Audacity usando o efeito
+    ChangeTempo com SBSMS="1" (alta qualidade, preserva afinação e timbre da voz)
+    para atingir a duração alvo informada (padrão 88.8s / 1:30 min).
+    """
+    def report(msg, pct=None):
+        if progress_callback:
+            try:
+                progress_callback(msg, pct=pct)
+            except TypeError:
+                progress_callback(msg)
+        sys.stderr.write(f'[Audacity-AjustarTempo] ({pct}%) {msg}\n')
+
+    if not os.path.isfile(caminho_wav):
+        return {'success': False, 'error': f'Arquivo WAV não encontrado: {caminho_wav}'}
+
+    duracao_atual = obter_duracao_wav(caminho_wav)
+    if duracao_atual <= 0:
+        return {'success': False, 'error': 'Não foi possível ler a duração do arquivo WAV.'}
+
+    precisa_ajuste = False
+    if duracao_alvo > duracao_atual:
+        if duracao_atual < 60.0 or (duracao_alvo - duracao_atual > 0.5):
+            precisa_ajuste = True
+    else:
+        if duracao_atual > duracao_alvo + 0.2:
+            precisa_ajuste = True
+
+    if not precisa_ajuste:
+        return {
+            'success': True,
+            'modificado': False,
+            'motivo': 'ja_dentro_do_limite',
+            'duracao_atual': duracao_atual,
+            'duracao_alvo': duracao_alvo
+        }
+
+    # Calcula porcentagem exata de alteração
+    # Formula: ((duracao_atual / duracao_alvo) - 1.0) * 100.0
+    pct = ((duracao_atual / duracao_alvo) - 1.0) * 100.0
+    pct_str = f"{pct:.3f}".replace(',', '.')
+
+    with AUDACITY_LOCK:
+        report(f'Iniciando Audacity para ajustar tempo (+{pct:.2f}% para {duracao_alvo}s)...', pct=10)
+        novo_inicio = launch_audacity()
+
+        client = PipeClient()
+        connected = client.connect(timeout=6.0 if not novo_inicio else 15.0)
+        if not connected and not novo_inicio:
+            report('Sessão anterior não respondeu. Reiniciando Audacity...', pct=15)
+            close_audacity(force=True)
+            time.sleep(0.5)
+            novo_inicio = launch_audacity()
+            connected = client.connect(timeout=15.0)
+
+        if not connected:
+            close_audacity(force=True)
+            return {'success': False, 'error': 'Não foi possível conectar ao Audacity via mod-script-pipe.'}
+
+        if novo_inicio:
+            time.sleep(0.5)
+        else:
+            time.sleep(0.1)
+        boost_audacity_priority()
+
+        try:
+            report('Garantindo projeto limpo no Audacity...', pct=20)
+            limpar_todas_faixas(client)
+            time.sleep(0.4)
+
+            caminho_norm = os.path.abspath(caminho_wav).replace('\\', '/')
+            caminho_temp_os = os.path.abspath(caminho_wav + '.tempo_temp.wav')
+            caminho_temp_audacity = caminho_temp_os.replace('\\', '/')
+
+            if os.path.isfile(caminho_temp_os):
+                try: os.remove(caminho_temp_os)
+                except: pass
+
+            report(f'Importando áudio para ajuste de tempo: {os.path.basename(caminho_wav)}', pct=30)
+            client.send(f'Import2: Filename="{caminho_norm}"', timeout=30.0)
+            time.sleep(0.3)
+
+            report('Selecionando todo o áudio...', pct=50)
+            client.send('SelectAll:', timeout=5.0)
+            time.sleep(0.2)
+
+            cmd_tempo = f'ChangeTempo:Percentage="{pct_str}" SBSMS="1"'
+            report(f'Aplicando ChangeTempo (+{pct_str}%, alta qualidade)...', pct=65)
+            client.send(cmd_tempo, timeout=180.0)
+            time.sleep(0.4)
+
+            report('Exportando áudio com tempo ajustado...', pct=85)
+            client.send('SelectAll:', timeout=5.0)
+            client.send(f'Export2: Filename="{caminho_temp_audacity}" NumChannels=1', timeout=180.0)
+            time.sleep(0.3)
+
+            arquivo_temp_pronto = False
+            t0_exp = time.time()
+            ult_tam_tr = -1
+            while time.time() - t0_exp < 60.0:
+                if os.path.isfile(caminho_temp_os):
+                    tam_tr = os.path.getsize(caminho_temp_os)
+                    if tam_tr > 500:
+                        if tam_tr == ult_tam_tr:
+                            arquivo_temp_pronto = True
+                            break
+                        ult_tam_tr = tam_tr
+                time.sleep(0.15)
+
+            try:
+                limpar_todas_faixas(client)
+                time.sleep(0.4)
+            except:
+                pass
+
+            if arquivo_temp_pronto and os.path.isfile(caminho_temp_os) and os.path.getsize(caminho_temp_os) > 500:
+                substituido = False
+                for _ in range(15):
+                    try:
+                        os.replace(caminho_temp_os, caminho_wav)
+                        substituido = True
+                        break
+                    except Exception:
+                        time.sleep(0.2)
+                if not substituido:
+                    try:
+                        shutil.copy2(caminho_temp_os, caminho_wav)
+                        os.remove(caminho_temp_os)
+                        substituido = True
+                    except Exception:
+                        pass
+
+                nova_duracao = obter_duracao_wav(caminho_wav)
+                report(f'Arquivo WAV atualizado com sucesso para {nova_duracao:.1f}s!', pct=100)
+                return {
+                    'success': True,
+                    'modificado': True,
+                    'caminho_wav': caminho_wav,
+                    'duracao_anterior': duracao_atual,
+                    'duracao_nova': nova_duracao,
+                    'porcentagem': pct
+                }
+            else:
+                raise Exception('O Audacity não gerou o áudio temporário com tempo alterado.')
+
+        except Exception as e:
+            report(f'Erro ao alterar tempo: {e}')
+            return {'success': False, 'error': str(e)}
+
+        finally:
+            try: limpar_todas_faixas(client)
+            except: pass
+            try: client.close()
+            except: pass
+            _schedule_idle_close(180.0)
+
+def executar_ajustar_tempo_lote(itens, duracao_alvo=88.8, progress_callback=None):
+    """
+    Executa o ajuste proporcional de tempo em LOTE para todos os arquivos que
+    ultrapassam a duração alvo em uma ÚNICA sessão do Audacity.
+    """
+    def report(msg, pct=None):
+        if progress_callback:
+            try:
+                progress_callback(msg, pct=pct)
+            except TypeError:
+                progress_callback(msg)
+        sys.stderr.write(f'[Audacity-AjustarTempoLote] ({pct}%) {msg}\n')
+
+    if not itens:
+        return {'success': False, 'error': 'Nenhum item informado para ajuste de tempo.'}
+
+    with AUDACITY_LOCK:
+        report(f'Iniciando Audacity para ajuste de tempo em lote ({len(itens)} áudio(s))...', pct=5)
+        novo_inicio = launch_audacity()
+
+        client = PipeClient()
+        connected = client.connect(timeout=6.0 if not novo_inicio else 15.0)
+        if not connected and not novo_inicio:
+            report('Sessão anterior não respondeu. Reiniciando Audacity...', pct=10)
+            close_audacity(force=True)
+            time.sleep(0.5)
+            novo_inicio = launch_audacity()
+            connected = client.connect(timeout=15.0)
+
+        if not connected:
+            close_audacity(force=True)
+            return {'success': False, 'error': 'Não foi possível conectar ao Audacity via mod-script-pipe.'}
+
+        if novo_inicio:
+            time.sleep(0.5)
+        else:
+            time.sleep(0.1)
+        boost_audacity_priority()
+
+        resultados = []
+        try:
+            total = len(itens)
+            report('Garantindo projeto limpo no Audacity...', pct=10)
+            limpar_todas_faixas(client)
+            time.sleep(0.4)
+
+            for idx, item in enumerate(itens, 1):
+                caminho_wav = item.get('caminhoWav', '')
+                nome = item.get('nome', os.path.basename(caminho_wav))
+                if not os.path.isfile(caminho_wav):
+                    resultados.append({'success': False, 'caminhoWav': caminho_wav, 'nome': nome, 'error': 'Arquivo inexistente'})
+                    continue
+
+                item_alvo = float(item.get('duracaoAlvo', duracao_alvo))
+                dur_atual = obter_duracao_wav(caminho_wav)
+                precisa_ajuste = False
+                if item_alvo >= 70.0:
+                    if dur_atual > item_alvo + 0.2:
+                        precisa_ajuste = True
+                else:
+                    if dur_atual < 60.0 or (item_alvo - dur_atual > 0.5):
+                        precisa_ajuste = True
+
+                if not precisa_ajuste:
+                    resultados.append({
+                        'success': True,
+                        'modificado': False,
+                        'caminhoWav': caminho_wav,
+                        'nome': nome,
+                        'duracao_anterior': dur_atual,
+                        'duracao_nova': dur_atual,
+                        'duracaoAlvo': item_alvo,
+                        'motivo': 'ja_dentro_do_limite'
+                    })
+                    continue
+
+                pct = ((dur_atual / item_alvo) - 1.0) * 100.0
+                pct_str = f"{pct:.3f}".replace(',', '.')
+
+                pct_progresso = int(10 + (idx / total) * 80)
+                meta_label = "1:30" if item_alvo >= 70.0 else f"{int(item_alvo)}s"
+                sinal = "+" if pct > 0 else ""
+                report(f'[{idx}/{total}] Ajustando tempo de {nome} ({sinal}{pct:.2f}% para {meta_label})...', pct=pct_progresso)
+
+                limpar_todas_faixas(client)
+                time.sleep(0.2)
+
+                caminho_norm = os.path.abspath(caminho_wav).replace('\\', '/')
+                caminho_temp_os = os.path.abspath(caminho_wav + '.tempo_temp.wav')
+                caminho_temp_audacity = caminho_temp_os.replace('\\', '/')
+
+                if os.path.isfile(caminho_temp_os):
+                    try: os.remove(caminho_temp_os)
+                    except: pass
+
+                client.send(f'Import2: Filename="{caminho_norm}"', timeout=30.0)
+                time.sleep(0.2)
+                client.send('SelectAll:', timeout=5.0)
+                time.sleep(0.1)
+
+                cmd_tempo = f'ChangeTempo:Percentage="{pct_str}" SBSMS="1"'
+                client.send(cmd_tempo, timeout=180.0)
+                time.sleep(0.3)
+
+                client.send('SelectAll:', timeout=5.0)
+                client.send(f'Export2: Filename="{caminho_temp_audacity}" NumChannels=1', timeout=180.0)
+
+                arquivo_temp_pronto = False
+                t0_exp = time.time()
+                ult_tam_tr = -1
+                while time.time() - t0_exp < 60.0:
+                    if os.path.isfile(caminho_temp_os):
+                        tam_tr = os.path.getsize(caminho_temp_os)
+                        if tam_tr > 500:
+                            if tam_tr == ult_tam_tr:
+                                arquivo_temp_pronto = True
+                                break
+                            ult_tam_tr = tam_tr
+                    time.sleep(0.15)
+
+                limpar_todas_faixas(client)
+                time.sleep(0.2)
+
+                if arquivo_temp_pronto and os.path.isfile(caminho_temp_os) and os.path.getsize(caminho_temp_os) > 500:
+                    substituido = False
+                    for _ in range(15):
+                        try:
+                            os.replace(caminho_temp_os, caminho_wav)
+                            substituido = True
+                            break
+                        except Exception:
+                            time.sleep(0.2)
+                    if not substituido:
+                        try:
+                            shutil.copy2(caminho_temp_os, caminho_wav)
+                            os.remove(caminho_temp_os)
+                            substituido = True
+                        except Exception:
+                            pass
+
+                    nova_dur = obter_duracao_wav(caminho_wav)
+                    resultados.append({
+                        'success': True,
+                        'modificado': True,
+                        'caminhoWav': caminho_wav,
+                        'nome': nome,
+                        'duracao_anterior': dur_atual,
+                        'duracao_nova': nova_dur,
+                        'duracaoAlvo': item_alvo,
+                        'porcentagem': pct
+                    })
+                else:
+                    resultados.append({
+                        'success': False,
+                        'caminhoWav': caminho_wav,
+                        'nome': nome,
+                        'duracaoAlvo': item_alvo,
+                        'error': 'Falha ao exportar áudio ajustado'
+                    })
+
+            report('Todos os áudios foram ajustados dentro dos limites de duração no Audacity!', pct=100)
+            return {'success': True, 'itens': resultados}
+
+        except Exception as e:
+            report(f'Erro no ajuste em lote: {e}')
+            return {'success': False, 'error': str(e), 'itens': resultados}
+
+        finally:
+            try: limpar_todas_faixas(client)
+            except: pass
+            try: client.close()
+            except: pass
+            _schedule_idle_close(180.0)

@@ -10,6 +10,9 @@ from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 import threading
 import subprocess
 from datetime import datetime
+import re
+import wave
+import io
 
 class SafeStream:
     def __init__(self, target):
@@ -622,6 +625,104 @@ def tocar_efeito_silencio_local():
         except Exception:
             pass
 
+
+import wave
+
+def fatiar_ultimos_segundos(wav_bytes, segundos=9.0):
+    try:
+        import io
+        with io.BytesIO(wav_bytes) as bio:
+            with wave.open(bio, 'rb') as wf:
+                params = wf.getparams()
+                n_frames = wf.getnframes()
+                rate = wf.getframerate()
+                duracao = n_frames / float(rate) if rate > 0 else 0.0
+                frames_desejados = int(segundos * rate)
+                if n_frames > frames_desejados:
+                    wf.setpos(n_frames - frames_desejados)
+                    frames_fatia = wf.readframes(frames_desejados)
+                else:
+                    wf.setpos(0)
+                    frames_fatia = wf.readframes(n_frames)
+        out_io = io.BytesIO()
+        with wave.open(out_io, 'wb') as wf_out:
+            wf_out.setparams(params)
+            wf_out.writeframes(frames_fatia)
+        return out_io.getvalue(), duracao
+    except Exception as e:
+        sys.stderr.write(f"[Fatiar Wav] Erro: {e}\n")
+        return wav_bytes, 0.0
+
+def normalizar_palavras_whisper(texto):
+    sem_tags = re.sub(r'\[[^\]]+\]', ' ', texto or '')
+    apenas_letras = re.sub(r'[^\w\s]', ' ', sem_tags, flags=re.UNICODE)
+    return [p.lower().strip() for p in apenas_letras.split() if p.strip()]
+
+def criar_zip_processados(raiz_dev, tipo='tudo', caminhos_explicit=None, job_id=None):
+    import zipfile, io
+    arquivos_para_zip = []
+
+    if caminhos_explicit and isinstance(caminhos_explicit, list):
+        for c in caminhos_explicit:
+            c_norm = os.path.abspath(c)
+            if os.path.isfile(c_norm):
+                arquivos_para_zip.append(c_norm)
+    elif job_id:
+        pasta_job = os.path.join(raiz_dev, 'Processados', str(job_id))
+        pasta_saida = os.path.join(pasta_job, 'saida')
+        target_dir = pasta_saida if os.path.isdir(pasta_saida) else (pasta_job if os.path.isdir(pasta_job) else None)
+        if target_dir:
+            for f in os.listdir(target_dir):
+                fl = f.lower()
+                incluir = False
+                if tipo == 'wav' and fl.endswith('.wav'):
+                    incluir = True
+                elif tipo == 'srt' and fl.endswith('.srt'):
+                    incluir = True
+                elif tipo == 'tudo' and (fl.endswith('.wav') or fl.endswith('.srt')):
+                    incluir = True
+                if incluir:
+                    c_full = os.path.join(target_dir, f)
+                    if os.path.isfile(c_full):
+                        arquivos_para_zip.append(c_full)
+
+    # Nunca inclui arquivos históricos gerais caso caminhos ou job não sejam informados
+    if not arquivos_para_zip:
+        return None, None
+
+    ts_agora = datetime.now().strftime("%Y%m%d_%H%M%S")
+    if tipo == 'wav':
+        nome_zip = f"Audios_Masterizados_{ts_agora}.zip"
+    elif tipo == 'srt':
+        nome_zip = f"Legendas_SRT_{ts_agora}.zip"
+    else:
+        nome_zip = f"Audios_e_Legendas_{ts_agora}.zip"
+
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for arq in arquivos_para_zip:
+            nome_no_zip = os.path.basename(arq)
+            zf.write(arq, nome_no_zip)
+
+    return nome_zip, zip_buffer.getvalue()
+
+
+def verificar_final_cortado(texto_esperado, texto_whisper):
+    palavras_esperadas = normalizar_palavras_whisper(texto_esperado)
+    palavras_whisper = normalizar_palavras_whisper(texto_whisper)
+    if not palavras_esperadas:
+        return True, "sem_texto_esperado"
+    if not palavras_whisper:
+        return False, "whisper_vazio"
+    ultimas_3 = palavras_esperadas[-3:]
+    ultima_1 = palavras_esperadas[-1]
+    if len(palavras_whisper) >= 1 and ultima_1 in palavras_whisper[-4:]:
+        return True, "ultima_palavra_ok"
+    acertos = sum(1 for p in ultimas_3 if p in palavras_whisper)
+    if acertos >= 2:
+        return True, "maioria_ultimas_palavras_ok"
+    return False, "palavras_finais_nao_encontradas"
+
 class BridgeHandler(BaseHTTPRequestHandler):
     def end_headers(self):
         self.send_header('Access-Control-Allow-Origin', '*')
@@ -653,6 +754,25 @@ class BridgeHandler(BaseHTTPRequestHandler):
         self.end_headers()
         try:
             self.wfile.write(corpo)
+            self.wfile.flush()
+        except Exception:
+            pass
+
+    def responder_arquivo(self, caminho, mime='application/octet-stream'):
+        try:
+            tamanho = os.path.getsize(caminho)
+            self.send_response(200)
+            self.send_header('Content-Type', mime)
+            self.send_header('Content-Length', str(tamanho))
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Connection', 'close')
+            self.end_headers()
+            with open(caminho, 'rb') as f:
+                while True:
+                    pedaco = f.read(65536)
+                    if not pedaco:
+                        break
+                    self.wfile.write(pedaco)
             self.wfile.flush()
         except Exception:
             pass
@@ -700,6 +820,38 @@ class BridgeHandler(BaseHTTPRequestHandler):
         elif caminho == '/api/tocar-som-silencio':
             threading.Thread(target=tocar_efeito_silencio_local, daemon=True).start()
             self.responder_json({'success': True})
+
+        elif caminho == '/static/jszip.min.js' or caminho == '/jszip.min.js':
+            caminho_js = os.path.join(BASE_DIR, 'jszip.min.js')
+            if not os.path.isfile(caminho_js):
+                caminho_js = os.path.join(BASE_DIR, '..', 'jszip.min.js')
+            if os.path.isfile(caminho_js):
+                self.responder_arquivo(caminho_js, 'application/javascript')
+            else:
+                self.responder_json({'error': 'Arquivo jszip não encontrado'}, status=404)
+
+        elif caminho == '/api/processados/baixar-zip':
+            try:
+                query = urllib.parse.parse_qs(parsed.query)
+                tipo = query.get('tipo', ['tudo'])[0].lower()
+                job_id = query.get('jobId', [None])[0]
+                caminhos_explicit = query.get('caminho', None)
+
+                raiz_dev = os.path.abspath(os.path.join(BASE_DIR, '..'))
+                nome_zip, zip_data = criar_zip_processados(raiz_dev, tipo=tipo, caminhos_explicit=caminhos_explicit, job_id=job_id)
+                if not zip_data:
+                    return self.responder_json({'success': False, 'error': 'Nenhum arquivo especificado ou encontrado para baixar.'}, status=400)
+
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/zip')
+                self.send_header('Content-Disposition', f'attachment; filename="{nome_zip}"')
+                self.send_header('Content-Length', str(len(zip_data)))
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.send_header('Access-Control-Expose-Headers', 'Content-Disposition')
+                self.end_headers()
+                self.wfile.write(zip_data)
+            except Exception as e:
+                self.responder_json({'success': False, 'error': str(e)}, status=500)
 
         elif caminho == '/api/audio':
             # Rota de streaming direto para o player do navegador (inline, sem attachment)
@@ -847,6 +999,52 @@ class BridgeHandler(BaseHTTPRequestHandler):
         elif caminho == '/api/tocar-som-silencio':
             threading.Thread(target=tocar_efeito_silencio_local, daemon=True).start()
             self.responder_json({'success': True})
+
+        elif caminho == '/static/jszip.min.js' or caminho == '/jszip.min.js':
+            caminho_js = os.path.join(BASE_DIR, 'jszip.min.js')
+            if not os.path.isfile(caminho_js):
+                caminho_js = os.path.join(BASE_DIR, '..', 'jszip.min.js')
+            if os.path.isfile(caminho_js):
+                self.responder_arquivo(caminho_js, 'application/javascript')
+            else:
+                self.responder_json({'error': 'Arquivo jszip não encontrado'}, status=404)
+
+        elif caminho == '/api/processados/baixar-zip':
+            try:
+                tipo = 'tudo'
+                caminhos_explicit = None
+                job_id = None
+                try:
+                    tam = int(self.headers.get('Content-Length', 0))
+                    if tam > 0:
+                        dados = json.loads(self.rfile.read(tam).decode('utf-8'))
+                        if dados.get('tipo'):
+                            tipo = dados['tipo'].lower()
+                        if isinstance(dados.get('caminhos'), list) and len(dados['caminhos']) > 0:
+                            caminhos_explicit = dados['caminhos']
+                        if dados.get('jobId'):
+                            job_id = dados['jobId']
+                except Exception:
+                    pass
+
+                if not caminhos_explicit and not job_id:
+                    return self.responder_json({'success': False, 'error': 'Nenhum arquivo especificado para download em .zip.'}, status=400)
+
+                raiz_dev = os.path.abspath(os.path.join(BASE_DIR, '..'))
+                nome_zip, zip_data = criar_zip_processados(raiz_dev, tipo=tipo, caminhos_explicit=caminhos_explicit, job_id=job_id)
+                if not zip_data:
+                    return self.responder_json({'success': False, 'error': 'Nenhum arquivo encontrado para gerar o pacote .zip.'}, status=404)
+
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/zip')
+                self.send_header('Content-Disposition', f'attachment; filename="{nome_zip}"')
+                self.send_header('Content-Length', str(len(zip_data)))
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.send_header('Access-Control-Expose-Headers', 'Content-Disposition')
+                self.end_headers()
+                self.wfile.write(zip_data)
+            except Exception as e:
+                self.responder_json({'success': False, 'error': str(e)}, status=500)
 
         elif caminho == '/api/audacity/travar-silencio':
             try:
@@ -1041,6 +1239,186 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 set_progresso(f"Erro ao travar silêncio em lote: {e}", pct=0)
                 self.responder_json({'success': False, 'error': str(e)}, status=500)
 
+        elif caminho == '/api/audacity/ajustar-tempo':
+            try:
+                tamanho = int(self.headers.get('Content-Length', 0))
+                corpo_bruto = self.rfile.read(tamanho)
+                dados = json.loads(corpo_bruto.decode('utf-8'))
+
+                caminho_wav = dados.get('caminhoWav', '')
+                duracao_alvo = float(dados.get('duracaoAlvo', 88.8))
+
+                if not os.path.isfile(caminho_wav):
+                    return self.responder_json({'success': False, 'error': f'Arquivo WAV não encontrado: {caminho_wav}'}, status=404)
+
+                caminho_srt_existente = os.path.splitext(caminho_wav)[0] + '.srt'
+                meta_antes = calcular_metadados_audio(caminho_wav)
+                duracao_antiga = meta_antes['duracao_seg']
+
+                # Registra backup v0 antes de alterar se ainda não tiver
+                HistoricoSilencioManager.registrar_original_se_necessario(caminho_wav, caminho_srt_existente)
+
+                set_progresso(f"Ajustando tempo no Audacity para 1:30 ({duracao_alvo}s): {os.path.basename(caminho_wav)}...", pct=10)
+                res_audacity = pipe_runner.executar_ajustar_tempo(
+                    caminho_wav,
+                    duracao_alvo=duracao_alvo,
+                    progress_callback=set_progresso
+                )
+
+                if not res_audacity.get('success'):
+                    set_progresso("Falha ao ajustar tempo no Audacity.", pct=0)
+                    return self.responder_json(res_audacity, status=500)
+
+                # Se não precisou modificar (já estava <= duracao_alvo)
+                if not res_audacity.get('modificado'):
+                    return self.responder_json({
+                        'success': True,
+                        'modificado': False,
+                        'motivo': 'ja_dentro_do_limite',
+                        'duracaoSeg': duracao_antiga,
+                        'msg': 'Áudio já possui duração menor ou igual a 1:30'
+                    })
+
+                # Re-sincroniza legenda SRT com Whisper na GPU se o SRT existir
+                caminho_srt = caminho_srt_existente if os.path.isfile(caminho_srt_existente) else ""
+                srt_conteudo = ""
+                if caminho_srt:
+                    try:
+                        set_progresso("Re-sincronizando legenda SRT na GPU com nova velocidade...", pct=85)
+                        import transcribe_whisper
+                        srt_novo, _ = transcribe_whisper.get_transcribe_whisper().gerar_srt_whisper(
+                            caminho_wav,
+                            texto_referencia="",
+                            retornar_meta=True
+                        )
+                        with open(caminho_srt, 'w', encoding='utf-8') as sf:
+                            sf.write(srt_novo)
+                        srt_conteudo = srt_novo
+                    except Exception as eW:
+                        sys.stderr.write(f"[AjustarTempo] Erro ao re-sincronizar SRT: {eW}\n")
+
+                # Recalcula metadados
+                meta = calcular_metadados_audio(caminho_wav)
+                meta_label = "1-30" if duracao_alvo > 70 else f"{int(duracao_alvo)}s"
+                pct_val = res_audacity.get('porcentagem', 0)
+                sinal_str = "+" if pct_val > 0 else ""
+                preset_label = f"Tempo_{meta_label} ({sinal_str}{pct_val:.1f}%)" 
+                nova_v, hist_lista = HistoricoSilencioManager.registrar_novo_corte(
+                    caminho_wav, preset_label, duracao_antiga, caminho_srt=caminho_srt
+                )
+
+                set_progresso(f"Tempo ajustado para {'1:30' if duracao_alvo > 70 else f'{int(duracao_alvo)}s'} com sucesso!", pct=100)
+                ts_cache = int(time.time())
+                self.responder_json({
+                    'success': True,
+                    'modificado': True,
+                    'caminhoWav': caminho_wav,
+                    'tamanhoFmt': meta['tamanho_fmt'],
+                    'tamanhoBytes': meta['tamanho_bytes'],
+                    'duracaoFmt': meta['duracao_fmt'],
+                    'duracaoSeg': meta['duracao_seg'],
+                    'duracaoAnterior': duracao_antiga,
+                    'porcentagem': res_audacity.get('porcentagem', 0),
+                    'historico': hist_lista,
+                    'urlAudio': f'/api/audio?path={urllib.parse.quote(caminho_wav)}&t={ts_cache}',
+                    'urlWav': f'/api/download?path={urllib.parse.quote(caminho_wav)}&t={ts_cache}',
+                    'caminhoSrt': caminho_srt,
+                    'urlSrt': f'/api/download?path={urllib.parse.quote(caminho_srt)}&t={ts_cache}' if caminho_srt else '',
+                    'srtConteudo': srt_conteudo
+                })
+            except Exception as e:
+                set_progresso(f"Erro ao ajustar tempo: {e}")
+                self.responder_json({'success': False, 'error': str(e)}, status=500)
+
+        elif caminho == '/api/audacity/ajustar-tempo-lote':
+            try:
+                tamanho = int(self.headers.get('Content-Length', 0))
+                corpo_bruto = self.rfile.read(tamanho)
+                dados = json.loads(corpo_bruto.decode('utf-8'))
+
+                itens = dados.get('itens', [])
+                duracao_alvo = float(dados.get('duracaoAlvo', 88.8))
+
+                if not itens:
+                    return self.responder_json({'success': False, 'error': 'Nenhum áudio informado.'}, status=400)
+
+                # Salva backup original de cada item antes de processar
+                duracoes_antigas = {}
+                for it in itens:
+                    cw = it.get('caminhoWav', '')
+                    if os.path.isfile(cw):
+                        m = calcular_metadados_audio(cw)
+                        duracoes_antigas[cw] = m['duracao_seg']
+                        cs = it.get('caminhoSrt') or (os.path.splitext(cw)[0] + '.srt')
+                        HistoricoSilencioManager.registrar_original_se_necessario(cw, cs)
+
+                res_lote = pipe_runner.executar_ajustar_tempo_lote(
+                    itens,
+                    duracao_alvo=duracao_alvo,
+                    progress_callback=set_progresso
+                )
+
+                if not res_lote.get('success'):
+                    return self.responder_json(res_lote, status=500)
+
+                itens_atualizados = []
+                for it in res_lote.get('itens', []):
+                    cw = it.get('caminhoWav', '')
+                    if not os.path.isfile(cw):
+                        continue
+                    meta = calcular_metadados_audio(cw)
+                    cs = os.path.splitext(cw)[0] + '.srt'
+                    srt_conteudo = ""
+
+                    # Se foi modificado, re-sincroniza SRT com Whisper
+                    if it.get('modificado') and os.path.isfile(cs):
+                        try:
+                            import transcribe_whisper
+                            srt_conteudo, _ = transcribe_whisper.get_transcribe_whisper().gerar_srt_whisper(
+                                cw, texto_referencia="", retornar_meta=True
+                            )
+                            with open(cs, 'w', encoding='utf-8') as sf:
+                                sf.write(srt_conteudo)
+                        except Exception as eW:
+                            sys.stderr.write(f"[AjustarTempoLote] Erro ao re-sincronizar SRT: {eW}\n")
+
+                    item_alvo = float(it.get('duracaoAlvo', duracao_alvo))
+                    meta_label = "1-30" if item_alvo > 70 else f"{int(item_alvo)}s"
+                    pct_val = it.get('porcentagem', 0)
+                    sinal_str = "+" if pct_val > 0 else ""
+                    preset_label = f"Tempo_{meta_label} ({sinal_str}{pct_val:.1f}%)" if it.get('modificado') else "Original" 
+                    nova_v, hist_lista = HistoricoSilencioManager.registrar_novo_corte(
+                        cw, preset_label, duracoes_antigas.get(cw, meta['duracao_seg']), caminho_srt=cs if os.path.isfile(cs) else ""
+                    )
+
+                    ts_cache = int(time.time())
+                    itens_atualizados.append({
+                        'success': True,
+                        'modificado': it.get('modificado', False),
+                        'caminhoWav': cw,
+                        'nome': it.get('nome', os.path.basename(cw)),
+                        'tamanhoFmt': meta['tamanho_fmt'],
+                        'tamanhoBytes': meta['tamanho_bytes'],
+                        'duracaoFmt': meta['duracao_fmt'],
+                        'duracaoSeg': meta['duracao_seg'],
+                        'porcentagem': it.get('porcentagem', 0),
+                        'historico': hist_lista,
+                        'urlAudio': f'/api/audio?path={urllib.parse.quote(cw)}&t={ts_cache}',
+                        'urlWav': f'/api/download?path={urllib.parse.quote(cw)}&t={ts_cache}',
+                        'caminhoSrt': cs if os.path.isfile(cs) else '',
+                        'urlSrt': f'/api/download?path={urllib.parse.quote(cs)}&t={ts_cache}' if os.path.isfile(cs) else '',
+                        'srtConteudo': srt_conteudo
+                    })
+
+                set_progresso(f"Duração ajustada com sucesso em {len(itens_atualizados)} áudio(s)!", pct=100)
+                self.responder_json({
+                    'success': True,
+                    'itens': itens_atualizados
+                })
+            except Exception as e:
+                set_progresso(f"Erro ao ajustar tempo em lote: {e}", pct=0)
+                self.responder_json({'success': False, 'error': str(e)}, status=500)
+
         elif caminho == '/api/audacity/restaurar-versao':
             try:
                 tamanho = int(self.headers.get('Content-Length', 0))
@@ -1104,6 +1482,52 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 set_progresso(f"Erro ao restaurar lote: {e}")
                 self.responder_json({'success': False, 'error': str(e)}, status=500)
 
+
+        elif caminho == '/api/whisper/validar-final':
+            try:
+                import tempfile
+                query = urllib.parse.parse_qs(parsed.query)
+                texto_esperado = query.get('texto', [''])[0]
+                tamanho = int(self.headers.get('Content-Length', 0))
+                wav_bytes = self.rfile.read(tamanho) if tamanho > 0 else b''
+
+                if not wav_bytes or len(wav_bytes) < 1000:
+                    return self.responder_json({'success': False, 'error': 'Áudio não fornecido ou vazio.'}, status=400)
+
+                fatia_wav, duracao_total = fatiar_ultimos_segundos(wav_bytes, segundos=9.0)
+
+                with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp_fatia:
+                    tmp_fatia.write(fatia_wav)
+                    tmp_fatia_path = tmp_fatia.name
+
+                texto_whisper = ""
+                try:
+                    import transcribe_whisper
+                    modelo = transcribe_whisper.obter_modelo("small")
+                    segmentos, _ = modelo.transcribe(tmp_fatia_path, beam_size=1, word_timestamps=True)
+                    textos = [s.text.strip() for s in segmentos]
+                    texto_whisper = " ".join(textos).strip()
+                finally:
+                    try:
+                        if os.path.isfile(tmp_fatia_path):
+                            os.remove(tmp_fatia_path)
+                    except Exception:
+                        pass
+
+                valido, motivo = verificar_final_cortado(texto_esperado, texto_whisper)
+                palavras_esperadas = normalizar_palavras_whisper(texto_esperado)
+                ultimas_palavras = palavras_esperadas[-3:] if palavras_esperadas else []
+
+                self.responder_json({
+                    'success': True,
+                    'valido': valido,
+                    'motivo': motivo,
+                    'texto_whisper': texto_whisper,
+                    'ultimas_palavras_esperadas': ultimas_palavras,
+                    'duracao_total': duracao_total
+                })
+            except Exception as e:
+                self.responder_json({'success': False, 'error': str(e)}, status=500)
 
         elif caminho == '/api/publicar':
             try:

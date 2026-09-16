@@ -9,7 +9,116 @@
        Se o arquivo não existir ao lado deste .html, o navegador só ignora o 404 — nada quebra.
        Se existir, roda ANTES do app e pode pré-preencher o localStorage (chaves, token) pra essa máquina. -->
   <script src="config.local.js" onerror="this.remove()"></script>
+  <!-- JSZip para empacotamento rápido e downloads instantâneos em .zip sem travar o navegador -->
+  <script src="jszip.min.js"></script>
+  <script>
+    if (typeof JSZip === 'undefined') {
+      const s = document.createElement('script');
+      s.src = 'http://127.0.0.1:5006/static/jszip.min.js';
+      document.head.appendChild(s);
+    }
+  </script>
   <style>
+        /* ── ALAVANCAS MODERNAS & SWITCHES DE CONTROLE ── */
+    .alavancas-container {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 9px 14px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+    .switch-alavanca {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+      transition: opacity 0.15s ease;
+    }
+    .switch-alavanca:hover {
+      opacity: 0.9;
+    }
+    .switch-alavanca input[type="checkbox"] {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+      margin: 0;
+      pointer-events: none;
+    }
+    .switch-trilho {
+      position: relative;
+      width: 32px;
+      height: 18px;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      flex-shrink: 0;
+      display: inline-block;
+    }
+    .switch-trilho::after {
+      content: "";
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 12px;
+      height: 12px;
+      background: #cbd5e1;
+      border-radius: 50%;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    }
+    .switch-alavanca input[type="checkbox"]:checked + .switch-trilho {
+      background: var(--accent);
+      border-color: var(--accent);
+      box-shadow: 0 0 10px rgba(124, 106, 247, 0.4);
+    }
+    .switch-alavanca input[type="checkbox"]:checked + .switch-trilho::after {
+      transform: translateX(14px);
+      background: #ffffff;
+    }
+    .switch-label-texto {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .switch-badge-detalhe {
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    .badge-corte-suspeito {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(239, 68, 68, 0.18);
+      border: 1px solid rgba(239, 68, 68, 0.45);
+      color: #f87171;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      animation: pulse-corte 2s infinite ease-in-out;
+    }
+    @keyframes pulse-corte {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
     /* TEMA ESCURO (padrão) */
     :root, :root[data-tema="escuro"] {
       --bg: #0f0f13;
@@ -718,6 +827,27 @@
       background: rgba(56, 189, 248, 0.15);
       border-color: #38bdf8;
     }
+    .badge-aviso-tempo {
+      font-size: 11px;
+      font-weight: 700;
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid rgba(245, 158, 11, 0.45);
+      color: #f59e0b;
+      padding: 2px 7px;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      gap: 3.5px;
+      letter-spacing: 0.02em;
+      box-shadow: 0 0 6px rgba(245, 158, 11, 0.15);
+      animation: pulsarSuaveAviso 3s infinite ease-in-out;
+      cursor: help;
+      user-select: none;
+    }
+    @keyframes pulsarSuaveAviso {
+      0%, 100% { border-color: rgba(245, 158, 11, 0.4); }
+      50% { border-color: rgba(245, 158, 11, 0.85); box-shadow: 0 0 10px rgba(245, 158, 11, 0.3); }
+    }
     .pill-dur-container {
       position: relative;
       display: inline-flex;
@@ -1209,8 +1339,9 @@
         <span class="bloco-perfil-label" style="margin:0">Idiomas para gerar</span>
         <span class="lote-idiomas" id="loteIdiomas"></span>
       </div>
-      <div class="lote-linha" style="margin-top:8px">
+      <div class="lote-linha" style="margin-top:8px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
         <button class="btn-generate" id="loteGerarBtn" onclick="criarBlocosEmLote()">⚡ Criar blocos automaticamente</button>
+        <button class="btn-icon" id="btnPreencherAudiosDocs" onclick="preencherAudiosComDocumentos()" style="display:inline-flex; align-items:center; gap:5px; font-weight:600; padding:6px 12px; font-size:12px; cursor:pointer;" title="Cruza os nomes dos áudios/blocos da mesa (ex: ESCD 1 EN, ESS 1 ES) com os documentos carregados e preenche as narrações">📝 Preencher áudios com textos dos documentos</button>
         <span class="char-count" id="loteResumo">usa os documentos marcados acima × os idiomas marcados aqui</span>
       </div>
     </div>
@@ -1276,10 +1407,38 @@
           <input type="text" id="nomeBase" class="filename-input" placeholder="EU_EP03_AU_PT_L01" style="width:210px">
           <button class="btn-icon" id="btnNomearSeq" onclick="aplicarNomesSequenciais()" title="Numera os blocos a partir deste nome, continuando o número final">↧ Nomear em sequência</button>
           <button class="btn-icon" onclick="document.getElementById('inputImportarAudios').click()" title="Importa múltiplos arquivos de áudio (.wav, .mp3, .m4a, etc.) e coloca na mesa em ordem alfanumérica">🎵 Importar Áudios</button>
+          <button class="btn-icon" id="btnPreencherMesaDocs" onclick="preencherAudiosComDocumentos()" style="display:inline-flex; align-items:center; gap:5px; font-weight:600;" title="Preenche a narração dos áudios importados na mesa cruzando com os documentos enviados">📝 Preencher com documentos</button>
           <button class="btn-generate" id="gerarTodosBtn" onclick="gerarTodos()">▶ Gerar pendentes</button>
           <button class="btn-download" onclick="baixarTodos(false)" style="padding:7px 14px">⬇ Baixar todos</button>
           <button class="btn-download" onclick="baixarTodos(true)" style="padding:7px 14px" title="Só os que você marcou como aceitos">⬇ Baixar aprovados</button>
         </div>
+      </div>
+
+            <!-- ALAVANCAS DE CONTROLE & AUTOMAÇÃO -->
+      <div class="alavancas-container" id="alavancasBarraEstudio">
+        <span style="font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-muted); display:inline-flex; align-items:center; gap:5px;">
+          ⚙️ Filtros & Automações:
+        </span>
+        <label class="switch-alavanca" title="Exibe marcação visual de silêncios: 1,0s a 1,5s (amarelo), 1,5s a 2,0s (laranja escuro) e ≥ 2,0s (vermelho)">
+          <input type="checkbox" id="checkDestacarSilencio" onchange="alternarDestacarSilencio(this.checked)">
+          <span class="switch-trilho"></span>
+          <span class="switch-label-texto">👁️ Destacar silêncio <span class="switch-badge-detalhe">> 1.0s</span></span>
+        </label>
+        <label class="switch-alavanca" title="Refaz a geração do áudio automaticamente caso o áudio gerado contenha silêncio contínuo igual ou superior a 2,0s">
+          <input type="checkbox" id="checkAutoRefazerSilencio" onchange="alternarAutoRefazerSilencio(this.checked)">
+          <span class="switch-trilho"></span>
+          <span class="switch-label-texto">🔄 Auto-refazer se silêncio <span class="switch-badge-detalhe">≥ 2.0s</span></span>
+        </label>
+        <label class="switch-alavanca" title="Usa o Whisper para transcrever o final do áudio e validar se a narração foi interrompida antes do término do texto. Se cortado, sinaliza com alerta e refaz automaticamente caso o auto-refazer esteja ativo.">
+          <input type="checkbox" id="checkValidarFinalWhisper" onchange="alternarValidarFinalWhisper(this.checked)">
+          <span class="switch-trilho"></span>
+          <span class="switch-label-texto">🎯 Validar final com Whisper <span class="switch-badge-detalhe">Opção C+A</span></span>
+        </label>
+        <label class="switch-alavanca" title="Exibe avisos visuais de duração para áudios fora da faixa recomendada de Shorts/Reels (< 60s ou > 1:30)">
+          <input type="checkbox" id="checkLimitesTempoEstudio" onchange="alternarLimitesTempo(this.checked)">
+          <span class="switch-trilho"></span>
+          <span class="switch-label-texto">⏱️ Alertas de Duração <span class="switch-badge-detalhe">60s - 1:30</span></span>
+        </label>
       </div>
 
       <!-- CONTAINER DO MODO UNIFICADO (BLOCOS DE ÁUDIO UNIFICADOS POR EPISÓDIO) -->
@@ -1329,28 +1488,37 @@
             ✂️ Travar em Todos
           </button>
         </div>
+        <button class="btn-download hidden" id="btnAjustarTempoTodos" onclick="ajustarTempoTodosMasterizados()" style="padding:6px 13px; border-color:rgba(245,158,11,0.5); color:#f59e0b; background:rgba(245,158,11,0.12); font-weight:600; font-size:11.5px; cursor:pointer; transition:all 0.15s ease; font-family:inherit; white-space:nowrap; display:inline-flex; align-items:center; gap:5px;" onmouseover="this.style.background='#f59e0b';this.style.color='#111';" onmouseout="this.style.background='rgba(245,158,11,0.12)';this.style.color='#f59e0b';" title="Ajusta o tempo proporcional de todos os áudios fora dos limites (longos para 1:30 e curtos para 61s)">
+          ⏱️ Ajustar Duração (60s - 1:30)
+        </button>
         <button class="btn-download hidden" id="btnRestaurarSilencioTodos" onclick="restaurarSilencioTodosMasterizados()" style="padding:6px 13px; border-color:rgba(148,163,184,0.35); color:#94a3b8; background:rgba(148,163,184,0.08); font-weight:600; font-size:11.5px; cursor:pointer; transition:all 0.15s ease; font-family:inherit; white-space:nowrap;" onmouseover="this.style.background='rgba(148,163,184,0.18)';this.style.color='#f1f5f9';" onmouseout="this.style.background='rgba(148,163,184,0.08)';this.style.color='#94a3b8';" title="Restaura todos os áudios modificados para a versão Original (desfazendo o corte de silêncio)">
           ↩️ Desfazer Silêncio (Todos)
         </button>
+        <div style="height:20px; width:1px; background:var(--border); margin:0 4px;"></div>
+        <label class="switch-alavanca" title="Exibe marcação visual de silêncios: 1,0s a 1,5s (amarelo), 1,5s a 2,0s (laranja escuro) e ≥ 2,0s (vermelho)">
+          <input type="checkbox" id="checkDestacarSilencioMaster" onchange="alternarDestacarSilencio(this.checked)">
+          <span class="switch-trilho"></span>
+          <span class="switch-label-texto">👁️ Destacar silêncio <span class="switch-badge-detalhe">> 1.0s</span></span>
+        </label>
+        <label class="switch-alavanca" title="Exibe avisos visuais e botões de ajuste de tempo para áudios fora da faixa recomendada de Shorts/Reels (< 60s ou > 1:30)">
+          <input type="checkbox" id="checkLimitesTempoMaster" onchange="alternarLimitesTempo(this.checked)">
+          <span class="switch-trilho"></span>
+          <span class="switch-label-texto">⏱️ Alertas de Duração <span class="switch-badge-detalhe">60s - 1:30</span></span>
+        </label>
       </div>
 
       <!-- Estado vazio -->
       <div id="masterVazio" class="master-empty-state">
         <span style="font-size:38px; opacity:.4;">🎚️</span>
-        <div style="font-weight:600; font-size:14px;">Nenhum áudio masterizado ainda</div>
-        <div style="font-size:12px; opacity:.7; max-width:440px; text-align:center; line-height:1.5;">
-          Gere os blocos no Estúdio de Gravação e clique em <b>⚡ Processar no Audacity & Whisper</b> para que os áudios tratados com o TDR Nova e as legendas sincronizadas apareçam aqui.
-        </div>
-        <button class="btn-icon" onclick="trocarAbaWorkspace('estudio')" style="margin-top:10px; padding:6px 14px;">
-          ← Voltar para o Estúdio de Gravação
-        </button>
+        <span style="font-size:14px; font-weight:600; color:var(--text-muted);" id="masterVazioTexto">Nenhum áudio masterizado ainda.</span>
+        <span style="font-size:11.5px; opacity:.75;">Gere ou selecione áudios no estúdio para aplicar automações do Audacity e Whisper.</span>
       </div>
 
-      <!-- Lista de Cards Masterizados -->
-      <div id="masterizadosLista" style="display:flex; flex-direction:column; gap:12px; margin-top:14px;"></div>
+      <!-- Grade / Lista de Cards de Áudios Masterizados -->
+      <div id="masterizadosLista" class="master-grade"></div>
     </div>
 
-    <div class="output-area hidden" id="outputArea">
+    <div class="bottom-bar">
       <span id="statusMsg"></span>
     </div>
   </main>
@@ -1358,29 +1526,21 @@
 
 <div class="toast" id="toast"></div>
 
-<!-- BARRINHA DE PROGRESSO FIXA NA PARTE INFERIOR (VERDE PASTEL - LEGENDA SRT) -->
-<div id="barraProgressoSrtContainer" class="hidden" style="position:fixed; bottom:0; left:0; width:100%; z-index:99999; background:rgba(18, 24, 27, 0.96); backdrop-filter:blur(10px); border-top:1px solid #2d6a4f; box-shadow:0 -4px 20px rgba(0,0,0,0.5); padding:10px 24px; display:flex; align-items:center; gap:16px; font-family:inherit;">
-  <div style="display:flex; align-items:center; gap:9px; font-size:13px; font-weight:600; color:#d8f3dc; white-space:nowrap;">
-    <span class="emoji-girando" style="font-size:16px;">⏳</span>
-    <span id="barraProgressoSrtTexto">Gerando legendas (.srt)...</span>
+<!-- BARRINHA DE PROGRESSO E AVISO FIXA NA PARTE INFERIOR COM BOTÃO X FECHAR -->
+<div id="barraProgressoInferiorContainer" class="hidden" style="position:fixed; bottom:0; left:0; width:100%; z-index:99999; background:rgba(18, 22, 25, 0.97); backdrop-filter:blur(12px); border-top:1px solid #52b788; box-shadow:0 -6px 24px rgba(0,0,0,0.6); padding:10px 24px; display:flex; align-items:center; gap:16px; font-family:inherit; transition:border-color 0.2s ease;">
+  <div style="display:flex; align-items:center; gap:9px; font-size:13px; font-weight:600; color:#f1f5f9; white-space:nowrap;">
+    <span id="barraProgressoInferiorIcone" style="font-size:16px;">⏳</span>
+    <span id="barraProgressoInferiorTexto">Processando...</span>
   </div>
-  <div style="flex:1; height:9px; background:rgba(255,255,255,0.07); border-radius:99px; overflow:hidden; position:relative; box-shadow:inset 0 1px 2px rgba(0,0,0,0.4);">
-    <div id="barraProgressoSrtPreenchimento" style="width:0%; height:100%; background:linear-gradient(90deg, #40916c, #52b788, #74c69d); border-radius:99px; transition:width 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow:0 0 12px rgba(82, 183, 136, 0.55);"></div>
+  <div style="flex:1; height:9px; background:rgba(255,255,255,0.08); border-radius:99px; overflow:hidden; position:relative; box-shadow:inset 0 1px 2px rgba(0,0,0,0.4);">
+    <div id="barraProgressoInferiorPreenchimento" style="width:0%; height:100%; background:linear-gradient(90deg, #40916c, #52b788, #74c69d); border-radius:99px; transition:width 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow:0 0 12px rgba(82, 183, 136, 0.55);"></div>
   </div>
-  <span id="barraProgressoSrtPct" style="font-size:13px; font-weight:700; color:#74c69d; min-width:42px; text-align:right;">0%</span>
+  <span id="barraProgressoInferiorPct" style="font-size:13px; font-weight:700; color:#74c69d; min-width:42px; text-align:right;">0%</span>
+  <button id="btnFecharBarraInferior" onclick="fecharBarraProgressoInferior()" title="Fechar aviso" style="background:rgba(239, 68, 68, 0.15); border:1px solid rgba(239, 68, 68, 0.4); color:#ef4444; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:13px; font-weight:700; line-height:1; padding:0; margin-left:4px; transition:all 0.15s ease; flex-shrink:0;" onmouseover="this.style.background='#ef4444';this.style.color='#fff';" onmouseout="this.style.background='rgba(239, 68, 68, 0.15)';this.style.color='#ef4444';">✕</button>
 </div>
-
-<!-- BARRINHA DE PROGRESSO FIXA NA PARTE INFERIOR (AMARELO PASTEL - TRAVANDO SILÊNCIO) -->
-<div id="barraProgressoSilencioContainer" class="hidden" style="position:fixed; bottom:0; left:0; width:100%; z-index:99999; background:rgba(27, 24, 16, 0.96); backdrop-filter:blur(10px); border-top:1px solid #b5830d; box-shadow:0 -4px 20px rgba(0,0,0,0.5); padding:10px 24px; display:flex; align-items:center; gap:16px; font-family:inherit;">
-  <div style="display:flex; align-items:center; gap:9px; font-size:13px; font-weight:600; color:#fef3c7; white-space:nowrap;">
-    <span class="emoji-girando" style="font-size:16px;">✂️</span>
-    <span id="barraProgressoSilencioTexto">Travando silêncio...</span>
-  </div>
-  <div style="flex:1; height:9px; background:rgba(255,255,255,0.07); border-radius:99px; overflow:hidden; position:relative; box-shadow:inset 0 1px 2px rgba(0,0,0,0.4);">
-    <div id="barraProgressoSilencioPreenchimento" style="width:0%; height:100%; background:linear-gradient(90deg, #d97706, #f59e0b, #fde047); border-radius:99px; transition:width 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow:0 0 12px rgba(245, 158, 11, 0.55);"></div>
-  </div>
-  <span id="barraProgressoSilencioPct" style="font-size:13px; font-weight:700; color:#fbbf24; min-width:42px; text-align:right;">0%</span>
-</div>
+<!-- Shims ocultos para compatibilidade com eventuais buscas por ID antigo -->
+<div id="barraProgressoSrtContainer" class="hidden" style="display:none;"></div>
+<div id="barraProgressoSilencioContainer" class="hidden" style="display:none;"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
@@ -2597,6 +2757,52 @@ async function picosDoBlob(blob, nPadrao = 300) {
           }
           const res = picos.map(p => p / (teto || 0.001));
           res.duracao = duracao;
+
+          // Detecção precisa de trechos de silêncio contínuo (> 1.0s)
+          try {
+            const sampleRate = audioBuf.sampleRate || 24000;
+            const janelaAmostras = Math.floor(sampleRate * 0.05); // janelas de 50ms
+            const limiarSilencio = 0.012; // amplitude RMS abaixo de ~ -38dB
+            const silencios = [];
+            let inicioSilencio = null;
+
+            for (let s = 0; s < amostras; s += janelaAmostras) {
+              const fimS = Math.min(amostras, s + janelaAmostras);
+              let somaQuadrados = 0;
+              const step = Math.max(1, Math.floor((fimS - s) / 50));
+              let count = 0;
+              for (let k = s; k < fimS; k += step) {
+                const v = data[k];
+                somaQuadrados += v * v;
+                count++;
+              }
+              const rms = Math.sqrt(somaQuadrados / (count || 1));
+              const tempoSeg = s / sampleRate;
+
+              if (rms < limiarSilencio) {
+                if (inicioSilencio === null) inicioSilencio = tempoSeg;
+              } else {
+                if (inicioSilencio !== null) {
+                  const durSil = tempoSeg - inicioSilencio;
+                  if (durSil >= 1.0) {
+                    silencios.push({ inicio: inicioSilencio, fim: tempoSeg, duracao: durSil });
+                  }
+                  inicioSilencio = null;
+                }
+              }
+            }
+            if (inicioSilencio !== null) {
+              const durSil = duracao - inicioSilencio;
+              if (durSil >= 1.0) {
+                silencios.push({ inicio: inicioSilencio, fim: duracao, duracao: durSil });
+              }
+            }
+            res.silencios = silencios;
+            res.maxSilencio = silencios.length ? Math.max(...silencios.map(s => s.duracao)) : 0;
+          } catch (eSil) {
+            console.warn('[picosDoBlob] Erro ao calcular silêncios:', eSil);
+          }
+
           return res;
         }
       } finally {
@@ -2665,6 +2871,81 @@ function desenharOnda(cv, picos, currentTime = 0, duracaoAudio = 0) {
     // Marcador do limite de 1:30 (extremidade direita)
     ctx.fillStyle = 'rgba(128, 128, 128, 0.3)';
     ctx.fillRect(w - 1.5, Math.round((h - 16) / 2), 1.5, 16);
+  }
+
+  // Marcação visual de silêncio contínuo (> 1.0s) em âmbar translúcido
+  if (typeof destacarSilencioHabilitado !== 'undefined' && destacarSilencioHabilitado) {
+    let listaSilencios = picos.silencios;
+    if (!listaSilencios && dur > 0 && n > 0) {
+      // Fallback: calcula silêncios direto das barras se não vieram do decodificador
+      listaSilencios = [];
+      const segPorBarra = dur / n;
+      let barIni = null;
+      for (let bi = 0; bi < n; bi++) {
+        if (picos[bi] < 0.04) {
+          if (barIni === null) barIni = bi;
+        } else {
+          if (barIni !== null) {
+            const durSil = (bi - barIni) * segPorBarra;
+            if (durSil >= 1.0) listaSilencios.push({ inicio: barIni * segPorBarra, fim: bi * segPorBarra, duracao: durSil });
+            barIni = null;
+          }
+        }
+      }
+      if (barIni !== null) {
+        const durSil = (n - barIni) * segPorBarra;
+        if (durSil >= 1.0) listaSilencios.push({ inicio: barIni * segPorBarra, fim: dur, duracao: durSil });
+      }
+    }
+
+    if (listaSilencios && listaSilencios.length > 0) {
+      for (const sil of listaSilencios) {
+        const xIni = ehAte90 ? (w * (sil.inicio / 90)) : (wAudio * (sil.inicio / dur));
+        const xFim = ehAte90 ? (w * (sil.fim / 90)) : (wAudio * (sil.fim / dur));
+        const larguraSil = Math.max(2, xFim - xIni);
+
+        // Classificação dos 3 níveis de silêncio:
+        // 1) 1.0s a 1.5s: Amarelo/âmbar
+        // 2) 1.5s a 2.0s: Laranja mais escuro
+        // 3) >= 2.0s: Vermelho
+        let corFundo = 'rgba(245, 158, 11, 0.18)';
+        let corBorda = 'rgba(245, 158, 11, 0.75)';
+        let corTexto = '#f59e0b';
+
+        if (sil.duracao >= 2.0) {
+          corFundo = 'rgba(239, 68, 68, 0.26)';
+          corBorda = 'rgba(239, 68, 68, 0.90)';
+          corTexto = '#ef4444';
+        } else if (sil.duracao >= 1.5) {
+          corFundo = 'rgba(234, 88, 12, 0.24)';
+          corBorda = 'rgba(234, 88, 12, 0.85)';
+          corTexto = '#ea580c';
+        }
+
+        // Fundo translúcido - cada um no seu quadrado delimitado e clean
+        ctx.fillStyle = corFundo;
+        ctx.fillRect(xIni, 0, larguraSil, h);
+
+        // Bordas delimitadoras verticais
+        ctx.fillStyle = corBorda;
+        ctx.fillRect(xIni, 0, 1.5, h);
+        ctx.fillRect(xFim - 1.5, 0, 1.5, h);
+
+        // Rótulo discreto com duração em segundos e fundo escuro suave para leitura nítida
+        if (larguraSil >= 20) {
+          const xCentro = xIni + (larguraSil / 2);
+          ctx.font = 'bold 9px system-ui, -apple-system, sans-serif';
+          ctx.textAlign = 'center';
+
+          // Pílula escura de contraste atrás do texto
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+          ctx.fillRect(xCentro - 13, 1, 26, 11);
+
+          ctx.fillStyle = corTexto;
+          ctx.fillText(sil.duracao.toFixed(1) + 's', xCentro, 10);
+        }
+      }
+    }
   }
 
   // Desenha as barras da onda sonora com espaçamento proporcional fixo
@@ -3206,6 +3487,9 @@ function sincronizarBloco(b) {
   const podeSubstituirTexto = !b.texto.trim() || b.texto === b._autoTexto;
   if (podeSubstituirTexto && b.texto !== narracao) {
     b.texto = narracao; b._autoTexto = narracao; mudou = true;
+    if (b.blob && (!b.textoGerado || b.textoGerado === '')) {
+      b.textoGerado = narracao;
+    }
   }
 
   const canalAtivo = document.getElementById('profileSelect') ? document.getElementById('profileSelect').value : '';
@@ -3226,6 +3510,98 @@ function sincronizarBloco(b) {
   el.syncInfo.className = 'bloco-sync-info' + (avisos.length ? '' : ' ok');
 
   if (mudou) { atualizarBloco(b); atualizarResumo(); }
+}
+
+// ── Preenche os áudios/blocos da mesa com os textos de narração dos documentos enviados
+// Cruza o nome de cada bloco (ex: "ESCD 1 EN", "ESS 1 ES", "JAE 2 PT") com os episódios e idiomas
+function preencherAudiosComDocumentos(silencioso = false) {
+  if (!documentos.length) {
+    if (!silencioso) showToast('⚠️ Nenhum documento de referência (.md ou .xlsx) carregado ainda.');
+    return;
+  }
+
+  let totalPreenchidos = 0;
+  let totalAuditados = 0;
+
+  // 1. Processa blocos individuais da mesa
+  if (blocos.length > 0) {
+    blocos.forEach(b => {
+      totalAuditados++;
+      const { episodio, idioma, canal } = extrairEpisodioIdiomaDoNome(b.nome);
+      if (episodio == null || !idioma) return;
+
+      let candidatos = documentosParaEpisodio(episodio);
+      if (!candidatos.length) return;
+
+      if (candidatos.length > 1 && canal) {
+        const filtrados = candidatos.filter(d => grupoCombinaComToken(d.canalGrupo, canal));
+        if (filtrados.length) candidatos = filtrados;
+      }
+
+      const doc = candidatos[candidatos.length - 1];
+      const narracao = doc.idiomas && doc.idiomas[idioma];
+      if (narracao) {
+        b.texto = narracao;
+        b._autoTexto = narracao;
+        if (b.blob) {
+          b.textoGerado = narracao;
+        }
+        const canalDoc = doc.canalGrupo || canalGrupoPadrao;
+        if (canalDoc) {
+          const perfilAuto = perfilParaGrupoIdioma(canalDoc, idioma);
+          if (perfilAuto && !b._perfilManual) b.perfil = perfilAuto;
+        }
+        if (b._el) {
+          if (b._el.txt) b._el.txt.value = narracao;
+          if (b._el.syncInfo) {
+            b._el.syncInfo.textContent = `📄 ${doc.nomeArquivo}`;
+            b._el.syncInfo.className = 'bloco-sync-info ok';
+          }
+          atualizarBloco(b);
+        }
+        totalPreenchidos++;
+      }
+    });
+  }
+
+  // 2. Processa grupos unificados (caso esteja no modo Juntar Áudios)
+  if (gruposUnificados.length > 0) {
+    gruposUnificados.forEach(g => {
+      totalAuditados++;
+      const { episodio, idioma, canal } = extrairEpisodioIdiomaDoNome(g.nome);
+      if (episodio == null || !idioma) return;
+
+      let candidatos = documentosParaEpisodio(episodio);
+      if (!candidatos.length) return;
+
+      if (candidatos.length > 1 && canal) {
+        const filtrados = candidatos.filter(d => grupoCombinaComToken(d.canalGrupo, canal));
+        if (filtrados.length) candidatos = filtrados;
+      }
+
+      const doc = candidatos[candidatos.length - 1];
+      const narracao = doc.idiomas && doc.idiomas[idioma];
+      if (narracao) {
+        g.texto = narracao;
+        totalPreenchidos++;
+      }
+    });
+    if (typeof renderModoUnificado === 'function') {
+      renderModoUnificado();
+    }
+  }
+
+  atualizarResumo();
+
+  if (!silencioso) {
+    if (totalPreenchidos > 0) {
+      showToast(`📝 ${totalPreenchidos} áudio(s) preenchido(s) com as narrações dos documentos!`);
+    } else if (totalAuditados > 0) {
+      showToast('⚠️ Nenhum áudio correspondeu aos documentos. Verifique se os nomes dos áudios e episódios batem (ex: ESCD 1 EN).');
+    } else {
+      showToast('⚠️ Nenhum áudio na mesa para preencher.');
+    }
+  }
 }
 
 // Extrai arquivos mesmo se forem pastas arrastadas no Chrome/Edge, sem perder o DataTransfer síncrono
@@ -3709,6 +4085,11 @@ async function importarArquivosAudio(fileList) {
   renderBlocos();
   atualizarResumo();
 
+  // Se já houver documentos carregados, preenche os textos dos áudios automaticamente
+  if (documentos.length > 0) {
+    preencherAudiosComDocumentos(true);
+  }
+
   const area = document.getElementById('blocosArea');
   if (area) {
     area.classList.remove('hidden');
@@ -3810,7 +4191,10 @@ function criarItemAudioUnificado(g, a) {
   durSpan.className = 'unificado-audio-dur';
   durSpan.style.cssText = 'font-size:11px; color:var(--text-muted); white-space:nowrap;';
 
-  topo.append(nomeLbl, durSpan);
+  const badgeAvisoTempo = document.createElement('span');
+  badgeAvisoTempo.className = 'badge-aviso-tempo hidden';
+
+  topo.append(nomeLbl, durSpan, badgeAvisoTempo);
 
   const audio = document.createElement('audio');
   audio.controls = true;
@@ -3819,16 +4203,36 @@ function criarItemAudioUnificado(g, a) {
   if (a.url) audio.src = a.url;
 
   const atualizarDur = () => {
-    if (audio.duration && isFinite(audio.duration)) {
-      const min = Math.floor(audio.duration / 60);
-      const sec = Math.floor(audio.duration % 60);
+    if (audio.duration && isFinite(audio.duration) && audio.duration > 0) {
+      const dur = audio.duration;
+      a.duracaoSeg = dur;
+      const min = Math.floor(dur / 60);
+      const sec = Math.floor(dur % 60);
       durSpan.textContent = `⏱ ${min}:${String(sec).padStart(2, '0')}`;
       a.duracao = durSpan.textContent;
+
+      if (limitesTempoHabilitado) {
+        const tipo = obterClassificacaoTempo({ duracaoSeg: dur });
+        if (tipo === 'longo') {
+          badgeAvisoTempo.innerHTML = '⚠️ > 1:30';
+          badgeAvisoTempo.title = 'Este áudio excede 1:30 (88,8s)';
+          badgeAvisoTempo.classList.remove('hidden');
+        } else if (tipo === 'curto') {
+          badgeAvisoTempo.innerHTML = '⚠️ < 60s';
+          badgeAvisoTempo.title = 'Este áudio é menor que 60s';
+          badgeAvisoTempo.classList.remove('hidden');
+        } else {
+          badgeAvisoTempo.classList.add('hidden');
+        }
+      } else {
+        badgeAvisoTempo.classList.add('hidden');
+      }
     }
   };
   audio.addEventListener('loadedmetadata', atualizarDur);
   audio.addEventListener('durationchange', atualizarDur);
   if (audio.duration && isFinite(audio.duration)) atualizarDur();
+  a._atualizarDur = atualizarDur;
 
   corpo.append(topo, audio);
 
@@ -4228,16 +4632,63 @@ function criarLinha(b) {
     baixarBlob(b.blob, (b.nome || `bloco_${i + 1}`) + '.wav');
   };
 
+  const pillDur = document.createElement('span');
+  pillDur.className = 'bloco-duracao-pill';
+  pillDur.style.cssText = 'font-size:11px; font-weight:600; color:#38bdf8; background:var(--surface2); border:1px solid rgba(56,189,248,0.3); padding:2px 7px; border-radius:4px; white-space:nowrap; display:none; align-items:center; gap:4px;';
+
+  const badgeAvisoTempo = document.createElement('span');
+  badgeAvisoTempo.className = 'badge-aviso-tempo hidden';
+
+  const badgeCorte = document.createElement('span');
+  badgeCorte.className = 'badge-corte-suspeito hidden';
+  badgeCorte.textContent = '⚠️ Final suspeito';
+  badgeCorte.title = 'O Whisper identificou que a narração terminou antes do texto esperado.';
+
   const badgeRefeito = document.createElement('span');
   badgeRefeito.className = 'badge-refeito hidden';
   badgeRefeito.textContent = '↻ refeito';
   badgeRefeito.title = 'Esse áudio já foi gerado de novo pelo menos uma vez — não é o primeiro take';
 
-  rodape.append(audio, canvas, badgeRefeito, btnOk, btnRefazer, btnDescartar, btnDl);
+  rodape.append(audio, canvas, pillDur, badgeAvisoTempo, badgeRefeito, badgeCorte, btnOk, btnRefazer, btnDescartar, btnDl);
 
   // sincronia onda × player
   let raf = 0;
-  const obterDuracao = () => audio.duration || (b.picos ? b.picos.duracao : 0);
+  const obterDuracao = () => audio.duration || (b.picos ? b.picos.duracao : (b.duracaoSeg || 0));
+
+  const atualizarTempoEBloco = () => {
+    const dur = obterDuracao();
+    if (dur && isFinite(dur) && dur > 0) {
+      b.duracaoSeg = dur;
+      const min = Math.floor(dur / 60);
+      const sec = Math.floor(dur % 60);
+      pillDur.textContent = `⏱️ ${min}:${String(sec).padStart(2, '0')}`;
+      pillDur.style.display = 'inline-flex';
+
+      if (limitesTempoHabilitado) {
+        const tipo = obterClassificacaoTempo({ duracaoSeg: dur });
+        if (tipo === 'longo') {
+          badgeAvisoTempo.innerHTML = '⚠️ > 1:30';
+          badgeAvisoTempo.title = 'Este áudio excede 1:30 (88,8s)';
+          badgeAvisoTempo.classList.remove('hidden');
+        } else if (tipo === 'curto') {
+          badgeAvisoTempo.innerHTML = '⚠️ < 60s';
+          badgeAvisoTempo.title = 'Este áudio é menor que 60s';
+          badgeAvisoTempo.classList.remove('hidden');
+        } else {
+          badgeAvisoTempo.classList.add('hidden');
+        }
+      } else {
+        badgeAvisoTempo.classList.add('hidden');
+      }
+    } else {
+      pillDur.style.display = 'none';
+      badgeAvisoTempo.classList.add('hidden');
+    }
+  };
+
+  audio.addEventListener('loadedmetadata', () => { pintar(); atualizarTempoEBloco(); });
+  audio.addEventListener('durationchange', atualizarTempoEBloco);
+  b._atualizarTempoEBloco = atualizarTempoEBloco;
   const pintar = () => desenharOnda(canvas, b.picos, audio.currentTime, obterDuracao());
   const loop = () => { pintar(); if (!audio.paused && !audio.ended) raf = requestAnimationFrame(loop); };
   audio.addEventListener('play',   () => { cancelAnimationFrame(raf); loop(); });
@@ -4260,7 +4711,7 @@ function criarLinha(b) {
   b._pintar = pintar;
 
   row.append(num, colNome, txt, dir, rodape);
-  b._el = { row, num, nomeInput, syncInfo, selPerfil, vozInfo, cnt, txt, st, btnGerar, btnDel, rodape, audio, canvas, btnOk, btnRefazer, btnDl, badgeRefeito };
+  b._el = { row, num, nomeInput, syncInfo, selPerfil, vozInfo, cnt, txt, st, btnGerar, btnDel, rodape, audio, canvas, btnOk, btnRefazer, btnDl, badgeRefeito, badgeCorte };
 }
 
 function atualizarBloco(b) {
@@ -4304,6 +4755,8 @@ function atualizarBloco(b) {
     el.btnRefazer.disabled = (b.status === 'gerando');
     el.btnDl.title = `${(b.blob.size / 1024).toFixed(0)} KB`;
     el.badgeRefeito.classList.toggle('hidden', !b.foiRefeito);
+    if (el.badgeCorte) el.badgeCorte.classList.toggle('hidden', !b.corteSuspeito);
+    if (typeof b._atualizarTempoEBloco === 'function') b._atualizarTempoEBloco();
     if (b.picos) b._pintar();
   }
 }
@@ -4317,7 +4770,7 @@ function guardarAudio(b, blob) {
   b.textoGerado = b.texto;
   b.aprovado = false;          // áudio novo volta a precisar do seu aval
   atualizarBloco(b);
-  picosDoBlob(blob).then(p => { b.picos = p; if (b._pintar) b._pintar(); });
+  picosDoBlob(blob).then(p => { b.picos = p; if (p && p.duracao) b.duracaoSeg = p.duracao; if (b._pintar) b._pintar(); if (b._atualizarTempoEBloco) b._atualizarTempoEBloco(); });
 }
 
 function limparAudio(b) {
@@ -4368,8 +4821,54 @@ async function gerarBloco(id, ctx, chaveFixa) {
 
   if (avulso) chavesEmUso.delete(chave);
 
-  if (r.ok) { b.status = 'ok'; b.erro = ''; guardarAudio(b, r.blob); }
-  else {
+  if (r.ok) {
+    b.status = 'ok';
+    b.erro = '';
+    b.corteSuspeito = false;
+    guardarAudio(b, r.blob);
+
+    // Extrai picos e analisa silêncios para as automações
+    const picosAudio = await picosDoBlob(r.blob);
+    b.picos = picosAudio;
+    if (b._pintar) b._pintar();
+
+    // 1. Auto-refazer se silêncio contínuo >= 2.0s
+    if (autoRefazerSilencioHabilitado && (picosAudio.maxSilencio || 0) >= 2.0) {
+      b._tentativasAutoSilencio = (b._tentativasAutoSilencio || 0) + 1;
+      if (b._tentativasAutoSilencio <= 2) {
+        showToast(`🔄 Silêncio de ${picosAudio.maxSilencio.toFixed(1)}s no Bloco ${b.id}. Refazendo take (${b._tentativasAutoSilencio}/2)...`);
+        console.log(`[Auto-Refazer] Silêncio de ${picosAudio.maxSilencio.toFixed(1)}s no bloco ${b.id}. Refazendo...`);
+        await sleep(750);
+        return await gerarBloco(id, ctx, chaveFixa);
+      }
+    }
+    b._tentativasAutoSilencio = 0;
+
+    // 2. Validação de corte de fala final com Whisper (Opção C + A)
+    if (validarFinalWhisperHabilitado && bridgeOnline) {
+      try {
+        const valWhisper = await validarFinalComWhisper(r.blob, b.texto);
+        if (valWhisper && valWhisper.success && valWhisper.valido === false) {
+          b.corteSuspeito = true;
+          b.corteMotivo = valWhisper.motivo;
+          console.warn(`[Whisper Validar] Bloco ${b.id} final suspeito (${valWhisper.motivo})`);
+
+          // Se auto-refazer estiver ativo, regera automaticamente (Opção C)
+          if (autoRefazerSilencioHabilitado) {
+            b._tentativasAutoCorte = (b._tentativasAutoCorte || 0) + 1;
+            if (b._tentativasAutoCorte <= 2) {
+              showToast(`🔄 Final cortado detectado pelo Whisper no Bloco ${b.id}. Refazendo take (${b._tentativasAutoCorte}/2)...`);
+              await sleep(750);
+              return await gerarBloco(id, ctx, chaveFixa);
+            }
+          }
+        }
+      } catch (errW) {
+        console.warn('[Whisper Validar] Erro na validação:', errW);
+      }
+    }
+    b._tentativasAutoCorte = 0;
+  } else {
     b.status = 'erro'; b.erro = r.erro;
     if (r.todasChavesEstouraram) avisarTodasChavesEstouraram(c.chaves.length);
   }
@@ -4507,16 +5006,164 @@ async function baixarTodos(apenasAprovados) {
     showToast(apenasAprovados ? '⚠️ Nenhum áudio aprovado ainda' : '⚠️ Nenhum áudio gerado ainda');
     return;
   }
-  for (const { b, i } of prontos) {
-    baixarBlob(b.blob, (b.nome || `bloco_${i + 1}`) + '.wav');
-    await sleep(350);   // o navegador bloqueia downloads simultâneos
+
+  // Se for apenas 1 arquivo: baixa direto sem empacotar em .zip
+  if (prontos.length === 1) {
+    const { b, i } = prontos[0];
+    const nome = (b.nome || `bloco_${i + 1}`).replace(/\.wav$/i, '') + '.wav';
+    baixarBlob(b.blob, nome);
+    showToast(`⬇ Baixando ${nome}`);
+    return;
   }
-  showToast(`⬇ ${prontos.length} arquivos`);
+
+  // Mais de 1 arquivo: empacota tudo em .zip com data e hora para download instantâneo
+  if (typeof JSZip !== 'undefined') {
+    showToast(`📦 Compactando ${prontos.length} áudios em .zip...`);
+    atualizarBarraProgressoInferior(20, `📦 Compactando ${prontos.length} áudios em .zip...`, 'zip');
+    const zip = new JSZip();
+    for (const { b, i } of prontos) {
+      const nome = (b.nome || `bloco_${i + 1}`).replace(/\.wav$/i, '') + '.wav';
+      zip.file(nome, b.blob);
+    }
+    atualizarBarraProgressoInferior(65, `Gerando arquivo .zip comprimido...`, 'zip');
+    const blobZip = await zip.generateAsync({ type: 'blob' });
+    const ts = formatarTimestampDataHora();
+    const prefixo = apenasAprovados ? 'Audios_Aprovados' : 'Audios_Estudio';
+    baixarBlob(blobZip, `${prefixo}_${ts}.zip`);
+    concluirBarraProgressoInferior(`✅ Pacote com ${prontos.length} áudio(s) (.zip) baixado!`, 'zip', true);
+    showToast(`✅ ${prontos.length} áudios baixados em .zip!`);
+  } else {
+    // Fallback caso JSZip falhe
+    for (const { b, i } of prontos) {
+      baixarBlob(b.blob, (b.nome || `bloco_${i + 1}`) + '.wav');
+      await sleep(350);
+    }
+    showToast(`⬇ ${prontos.length} arquivos`);
+  }
 }
 
 // ════════════════════════════════════════════════════════
 // PÓS-PROCESSAMENTO: AUDACITY & WHISPER (LOCAL BRIDGE)
 // ════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
+// ESTADO E CONTROLE DAS ALAVANCAS DE AUTOMAÇÃO
+// ════════════════════════════════════════════════════════
+var destacarSilencioHabilitado = localStorage.getItem('gemini_tts_destacar_silencio') === '1';
+var autoRefazerSilencioHabilitado = localStorage.getItem('gemini_tts_auto_refazer_silencio') === '1';
+var validarFinalWhisperHabilitado = localStorage.getItem('gemini_tts_validar_final_whisper') !== '0'; // default true
+var limitesTempoHabilitado = localStorage.getItem('gemini_tts_limites_tempo') !== '0'; // default true
+
+function inicializarAlavancas() {
+  const cDest = document.getElementById('checkDestacarSilencio');
+  const cDestM = document.getElementById('checkDestacarSilencioMaster');
+  const cAuto = document.getElementById('checkAutoRefazerSilencio');
+  const cVal = document.getElementById('checkValidarFinalWhisper');
+  const cLimEst = document.getElementById('checkLimitesTempoEstudio');
+  const cLimMas = document.getElementById('checkLimitesTempoMaster');
+
+  if (cDest) cDest.checked = destacarSilencioHabilitado;
+  if (cDestM) cDestM.checked = destacarSilencioHabilitado;
+  if (cAuto) cAuto.checked = autoRefazerSilencioHabilitado;
+  if (cVal) cVal.checked = validarFinalWhisperHabilitado;
+  if (cLimEst) cLimEst.checked = limitesTempoHabilitado;
+  if (cLimMas) cLimMas.checked = limitesTempoHabilitado;
+}
+
+function alternarLimitesTempo(ativo) {
+  limitesTempoHabilitado = !!ativo;
+  localStorage.setItem('gemini_tts_limites_tempo', limitesTempoHabilitado ? '1' : '0');
+  const cLimEst = document.getElementById('checkLimitesTempoEstudio');
+  const cLimMas = document.getElementById('checkLimitesTempoMaster');
+  if (cLimEst && cLimEst.checked !== limitesTempoHabilitado) cLimEst.checked = limitesTempoHabilitado;
+  if (cLimMas && cLimMas.checked !== limitesTempoHabilitado) cLimMas.checked = limitesTempoHabilitado;
+
+  // Atualiza blocos da Aba 1
+  if (Array.isArray(blocos)) {
+    blocos.forEach(b => {
+      if (b._atualizarTempoEBloco) b._atualizarTempoEBloco();
+    });
+  }
+
+  // Atualiza unificados da Aba 1
+  if (Array.isArray(gruposUnificados)) {
+    gruposUnificados.forEach(g => {
+      if (Array.isArray(g.audios)) {
+        g.audios.forEach(a => {
+          if (a._atualizarDur) a._atualizarDur();
+        });
+      }
+    });
+  }
+
+  // Atualiza Aba 2
+  if (typeof renderizarMasterizados === 'function' && Array.isArray(masterizadosItens)) {
+    renderizarMasterizados(masterizadosItens);
+  }
+
+  showToast(limitesTempoHabilitado ? '⏱️ Alertas de Duração (60s - 1:30) ativados.' : '⏱️ Alertas de Duração desativados.');
+}
+
+function alternarDestacarSilencio(ativo) {
+  destacarSilencioHabilitado = !!ativo;
+  localStorage.setItem('gemini_tts_destacar_silencio', destacarSilencioHabilitado ? '1' : '0');
+  const c1 = document.getElementById('checkDestacarSilencio');
+  const c2 = document.getElementById('checkDestacarSilencioMaster');
+  if (c1 && c1.checked !== destacarSilencioHabilitado) c1.checked = destacarSilencioHabilitado;
+  if (c2 && c2.checked !== destacarSilencioHabilitado) c2.checked = destacarSilencioHabilitado;
+  redesenharOndas();
+  if (typeof redesenharOndasMasterizados === 'function') redesenharOndasMasterizados();
+}
+
+function alternarAutoRefazerSilencio(ativo) {
+  autoRefazerSilencioHabilitado = !!ativo;
+  localStorage.setItem('gemini_tts_auto_refazer_silencio', autoRefazerSilencioHabilitado ? '1' : '0');
+  const c = document.getElementById('checkAutoRefazerSilencio');
+  if (c && c.checked !== autoRefazerSilencioHabilitado) c.checked = autoRefazerSilencioHabilitado;
+}
+
+function alternarValidarFinalWhisper(ativo) {
+  validarFinalWhisperHabilitado = !!ativo;
+  localStorage.setItem('gemini_tts_validar_final_whisper', validarFinalWhisperHabilitado ? '1' : '0');
+  const c = document.getElementById('checkValidarFinalWhisper');
+  if (c && c.checked !== validarFinalWhisperHabilitado) c.checked = validarFinalWhisperHabilitado;
+}
+
+async function validarFinalComWhisper(blob, textoEsperado) {
+  try {
+    if (!bridgeOnline) return { success: false, motivo: 'bridge_offline' };
+    const res = await fetch(`${BRIDGE_URL}/api/whisper/validar-final?texto=${encodeURIComponent(textoEsperado)}`, {
+      method: 'POST',
+      body: blob
+    });
+    if (!res.ok) return { success: false, motivo: 'http_' + res.status };
+    return await res.json();
+  } catch (err) {
+    console.warn('[validarFinalComWhisper] Erro de rede:', err);
+    return { success: false, motivo: err.message };
+  }
+}
+
+function formatarTimestampDataHora() {
+  const agora = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const Y = agora.getFullYear();
+  const M = pad(agora.getMonth() + 1);
+  const D = pad(agora.getDate());
+  const h = pad(agora.getHours());
+  const m = pad(agora.getMinutes());
+  const s = pad(agora.getSeconds());
+  return `${Y}${M}${D}_${h}${m}${s}`;
+}
+
+async function baixarArquivoUnico(url, nomeArquivo) {
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nomeArquivo;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
 const BRIDGE_URL = 'http://127.0.0.1:5006';
 let bridgeOnline = false;
 
@@ -4700,6 +5347,57 @@ function redesenharOndasMasterizados() {
   });
 }
 
+function obterClassificacaoTempo(item) {
+  if (!item) return 'normal';
+  let seg = 0;
+  if (typeof item.duracaoSeg === 'number' && item.duracaoSeg > 0) seg = item.duracaoSeg;
+  else if (typeof item.duracao_seg === 'number' && item.duracao_seg > 0) seg = item.duracao_seg;
+  else if (typeof item.duracao === 'number' && item.duracao > 0) seg = item.duracao;
+  else if (typeof item.duracaoFmt === 'string') {
+    const parts = item.duracaoFmt.trim().split(':');
+    if (parts.length === 2) {
+      seg = parseInt(parts[0], 10) * 60 + parseFloat(parts[1]);
+    }
+  }
+  if (seg <= 0) return 'normal';
+  if (seg > 88.8) return 'longo'; // > 1:30
+  if (seg < 60.0 && seg >= 5.0) return 'curto'; // < 60s
+  return 'normal';
+}
+
+function verificarEhAudioLongo(item) {
+  return obterClassificacaoTempo(item) === 'longo';
+}
+
+function verificarEhAudioCurto(item) {
+  return obterClassificacaoTempo(item) === 'curto';
+}
+
+function atualizarBotoesLoteLimitesTempo() {
+  const btnLote = document.getElementById('btnAjustarTempoTodos');
+  const btnCurtos = document.getElementById('btnAjustarCurtosTodos');
+  if (btnCurtos) btnCurtos.classList.add('hidden');
+
+  if (!btnLote) return;
+  if (!limitesTempoHabilitado || !Array.isArray(masterizadosItens)) {
+    btnLote.classList.add('hidden');
+    return;
+  }
+
+  const temLongos = masterizadosItens.some(it => verificarEhAudioLongo(it));
+  const temCurtos = masterizadosItens.some(it => verificarEhAudioCurto(it));
+
+  if (temLongos || temCurtos) {
+    btnLote.classList.remove('hidden');
+    let textoBtn = '⏱️ Ajustar Duração (60s - 1:30)';
+    if (temLongos && !temCurtos) textoBtn = '⏱️ Ajustar Longos para 1:30';
+    else if (!temLongos && temCurtos) textoBtn = '⏱️ Ajustar Curtos para 61s';
+    btnLote.innerHTML = textoBtn;
+  } else {
+    btnLote.classList.add('hidden');
+  }
+}
+
 function renderizarMasterizados(itens, macroNome) {
   masterizadosItens = (itens || []).map(it => {
     if (it.srtConteudo) it.srtConteudo = limparTagsDeSrt(it.srtConteudo);
@@ -4764,6 +5462,29 @@ function renderizarMasterizados(itens, macroNome) {
     const pillTam = document.createElement('span');
     pillTam.className = 'master-pill tamanho';
     pillTam.textContent = `💾 ${item.tamanhoFmt || '0 KB'}`;
+
+    const badgeAvisoTempo = document.createElement('span');
+    badgeAvisoTempo.className = 'badge-aviso-tempo';
+
+    const atualizarBadgeTempo = () => {
+      if (!limitesTempoHabilitado) {
+        badgeAvisoTempo.classList.add('hidden');
+        return;
+      }
+      const tipo = obterClassificacaoTempo(item);
+      if (tipo === 'longo') {
+        badgeAvisoTempo.innerHTML = '⚠️ > 1:30';
+        badgeAvisoTempo.title = 'Este áudio excede 1:30 (88,8s). Clique em "⚡ Ajustar Tempo (1:30)" para encurtá-lo no Audacity mantendo a qualidade.';
+        badgeAvisoTempo.classList.remove('hidden');
+      } else if (tipo === 'curto') {
+        badgeAvisoTempo.innerHTML = '⚠️ < 60s';
+        badgeAvisoTempo.title = 'Este áudio é menor que 60s. Clique em "⚡ Ajustar Tempo (61s)" para expandi-lo para 61s no Audacity mantendo a voz natural.';
+        badgeAvisoTempo.classList.remove('hidden');
+      } else {
+        badgeAvisoTempo.classList.add('hidden');
+      }
+    };
+    atualizarBadgeTempo();
 
     let audio, pintar, renderizarSecaoSrt, atualizarAcoesSrt;
 
@@ -4834,7 +5555,7 @@ function renderizarMasterizados(itens, macroNome) {
             btnRestaurar.title = `Restaurar para a versão ${v.label}`;
             btnRestaurar.onclick = async (e) => {
               e.stopPropagation();
-              await restaurarVersaoAudio(item, v.id, card, audio, pintar, renderizarSecaoSrt, atualizarAcoesSrt, atualizarPillDurEHistorico, pillTam);
+              await restaurarVersaoAudio(item, v.id, card, audio, pintar, renderizarSecaoSrt, atualizarAcoesSrt, atualizarPillDurEHistorico, pillTam, atualizarBadgeTempo, atualizarBtnTempoCard);
             };
             row.append(infoDiv, btnRestaurar);
           }
@@ -4862,7 +5583,7 @@ function renderizarMasterizados(itens, macroNome) {
       pillMacro.textContent = `🎚️ ${mItem || 'Audacity'}`;
     }
 
-    info.append(numBadge, titulo, pillDurContainer, pillTam, pillMacro);
+    info.append(numBadge, titulo, pillDurContainer, badgeAvisoTempo, pillTam, pillMacro);
 
     const acoes = document.createElement('div');
     acoes.style.cssText = 'display:flex; align-items:center; gap:8px; flex-wrap:wrap;';
@@ -5030,6 +5751,37 @@ function renderizarMasterizados(itens, macroNome) {
     grupoSilencio.append(selSilencio, btnTravarSilencio);
     acoes.appendChild(grupoSilencio);
 
+    const btnAjustarTempoCard = document.createElement('button');
+    btnAjustarTempoCard.className = 'btn-download btn-ajustar-tempo';
+    btnAjustarTempoCard.style.cssText = 'padding:5px 11px; font-weight:600; font-size:11px; border-color:rgba(245,158,11,0.5); color:#f59e0b; background:rgba(245,158,11,0.12); cursor:pointer; transition:all 0.15s ease; font-family:inherit; white-space:nowrap; display:inline-flex; align-items:center; gap:4px;';
+
+    const atualizarBtnTempoCard = () => {
+      if (!limitesTempoHabilitado) {
+        btnAjustarTempoCard.classList.add('hidden');
+        return;
+      }
+      const tipo = obterClassificacaoTempo(item);
+      if (tipo === 'longo') {
+        btnAjustarTempoCard.innerHTML = '⚡ Ajustar Tempo (1:30)';
+        btnAjustarTempoCard.title = 'Ajusta o tempo deste áudio no Audacity para 1:30 (88,8s) com alta qualidade (ChangeTempo + SBSMS), preservando timbre e afinação.';
+        btnAjustarTempoCard.onclick = () => {
+          executarAcaoAjustarTempo(item, btnAjustarTempoCard, 88.8, pillDur, pillTam, card, audio, pintar, renderizarSecaoSrt, atualizarAcoesSrt, atualizarPillDurEHistorico, atualizarBadgeTempo, atualizarBtnTempoCard);
+        };
+        btnAjustarTempoCard.classList.remove('hidden');
+      } else if (tipo === 'curto') {
+        btnAjustarTempoCard.innerHTML = '⚡ Ajustar Tempo (61s)';
+        btnAjustarTempoCard.title = 'Ajusta o tempo deste áudio no Audacity para 61s com alta qualidade (ChangeTempo + SBSMS), desacelerando suavemente a fala sem alterar o timbre.';
+        btnAjustarTempoCard.onclick = () => {
+          executarAcaoAjustarTempo(item, btnAjustarTempoCard, 61.0, pillDur, pillTam, card, audio, pintar, renderizarSecaoSrt, atualizarAcoesSrt, atualizarPillDurEHistorico, atualizarBadgeTempo, atualizarBtnTempoCard);
+        };
+        btnAjustarTempoCard.classList.remove('hidden');
+      } else {
+        btnAjustarTempoCard.classList.add('hidden');
+      }
+    };
+    atualizarBtnTempoCard();
+    acoes.appendChild(btnAjustarTempoCard);
+
     top.append(info, acoes);
 
     // 2. Linha do Player de Áudio nativo + Onda Sonora Interativa
@@ -5148,6 +5900,9 @@ function renderizarMasterizados(itens, macroNome) {
     renderizarSecaoSrt();
     lista.appendChild(card);
   });
+
+  atualizarBotoesLoteLimitesTempo();
+  atualizarBotaoDesfazerTodos();
 }
 
 async function gerarSrtParaPendentes() {
@@ -5192,11 +5947,9 @@ async function gerarSrtParaPendentes() {
   }
 
   if (concluidos > 0) {
-    atualizarBarraProgressoSrt(100, `✅ ${concluidos} legenda(s) SRT concluída(s)!`);
-    fecharBarraProgressoSrt(true);
-    tocarSomConclusao();
+    concluirBarraProgressoInferior(`✅ ${concluidos} legenda(s) SRT concluída(s)!`, 'srt', true);
   } else {
-    fecharBarraProgressoSrt(false, 1000);
+    fecharBarraProgressoInferior();
   }
 
   if (btn) {
@@ -5290,13 +6043,10 @@ async function executarAcaoTravarSilencio(item, btn, preset, pillDur, pillTam, c
     atualizarBotaoDesfazerTodos();
     const reducaoMsg = item.reducaoFmt ? ` (Encurtou ${item.reducaoFmt})` : '';
     showToast(`✅ Silêncio (${nomePreset}) aplicado em "${item.nome}" com sucesso! Nova duração: ${item.duracaoFmt}${reducaoMsg}`);
-
-    atualizarBarraProgressoSilencio(100, `✅ Silêncio travado em "${item.nome}"!`);
-    fecharBarraProgressoSilencio(true, 2500);
-    tocarSomSilencioConcluido();
+    concluirBarraProgressoInferior(`✅ Silêncio (${nomePreset}) travado em "${item.nome}"!`, 'silencio', true);
   } catch (err) {
     if (pollSilencio) { clearInterval(pollSilencio); pollSilencio = null; }
-    fecharBarraProgressoSilencio(false, 1500);
+    fecharBarraProgressoInferior();
     showToast(`❌ Erro ao travar silêncio: ${err.message}`);
   } finally {
     if (pollSilencio) clearInterval(pollSilencio);
@@ -5307,7 +6057,7 @@ async function executarAcaoTravarSilencio(item, btn, preset, pillDur, pillTam, c
   }
 }
 
-async function restaurarVersaoAudio(item, versaoId, card, audio, pintar, renderizarSecaoSrt, atualizarAcoesSrt, atualizarPillDurEHistorico, pillTam) {
+async function restaurarVersaoAudio(item, versaoId, card, audio, pintar, renderizarSecaoSrt, atualizarAcoesSrt, atualizarPillDurEHistorico, pillTam, atualizarBadgeTempo, atualizarBtnTempoCard) {
   if (!item || !item.caminhoWav) return;
   showToast(`⏳ Restaurando versão no áudio "${item.nome}"...`);
 
@@ -5369,10 +6119,225 @@ async function restaurarVersaoAudio(item, versaoId, card, audio, pintar, renderi
 
     atualizarBotaoDesfazerTodos();
     const vNome = (item.historico.find(h => h.id === versaoId) || {}).label || `v${versaoId}`;
+    if (typeof atualizarBadgeTempo === 'function') atualizarBadgeTempo();
+    if (typeof atualizarBtnTempoCard === 'function') atualizarBtnTempoCard();
+    atualizarBotoesLoteLimitesTempo();
     showToast(`✅ "${item.nome}" restaurado com sucesso para a versão ${vNome}! Duração: ${item.duracaoFmt}`);
   } catch (err) {
     showToast(`❌ Erro ao restaurar versão: ${err.message}`);
   }
+}
+
+async function executarAcaoAjustarTempo(item, btn, duracaoAlvo, pillDur, pillTam, card, audio, pintar, renderizarSecaoSrt, atualizarAcoesSrt, atualizarPillDurEHistorico, atualizarBadgeTempo, atualizarBtnTempoCard) {
+  if (!item || !item.caminhoWav) return;
+  const alvo = typeof duracaoAlvo === 'number' ? duracaoAlvo : 88.8;
+  const metaLabel = alvo > 70 ? '1:30' : `${Math.round(alvo)}s`;
+
+  const textoOriginal = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="emoji-girando">⏳</span> Ajustando...';
+  }
+  showToast(`⚡ Ajustando tempo de "${item.nome}" para ${metaLabel} no Audacity...`);
+  atualizarBarraProgressoSilencio(15, `Ajustando tempo de "${item.nome}" para ${metaLabel} (alta qualidade)...`);
+
+  let pollTempo = setInterval(async () => {
+    try {
+      const respP = await fetch(`${BRIDGE_URL}/api/progresso`);
+      if (respP.ok) {
+        const dadosP = await respP.json();
+        if (dadosP && dadosP.progresso) {
+          atualizarBarraProgressoSilencio(dadosP.pct || 35, dadosP.progresso);
+        }
+      }
+    } catch (_) {}
+  }, 400);
+
+  try {
+    const resp = await fetch(`${BRIDGE_URL}/api/audacity/ajustar-tempo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        caminhoWav: item.caminhoWav,
+        duracaoAlvo: alvo
+      })
+    });
+    const dados = await resp.json();
+    if (!dados.success) throw new Error(dados.error || 'Falha ao ajustar tempo no Audacity');
+
+    if (pollTempo) { clearInterval(pollTempo); pollTempo = null; }
+
+    if (!dados.modificado) {
+      showToast(`ℹ️ "${item.nome}" já está dentro do limite configurado.`);
+      fecharBarraProgressoSilencio(true, 1000);
+      return;
+    }
+
+    item.duracaoFmt = dados.duracaoFmt;
+    item.duracaoSeg = dados.duracaoSeg;
+    item.tamanhoFmt = dados.tamanhoFmt;
+    item.tamanhoBytes = dados.tamanhoBytes;
+    item.urlAudio = dados.urlAudio;
+    item.urlWav = dados.urlWav;
+    item.historico = dados.historico || [];
+
+    if (dados.caminhoSrt) {
+      item.caminhoSrt = dados.caminhoSrt;
+      item.urlSrt = dados.urlSrt;
+      if (dados.srtConteudo) item.srtConteudo = limparTagsDeSrt(dados.srtConteudo);
+    }
+
+    if (pillTam) pillTam.textContent = `💾 ${item.tamanhoFmt}`;
+    if (typeof atualizarPillDurEHistorico === 'function') atualizarPillDurEHistorico();
+
+    if (card) {
+      const linkWav = card.querySelector('a.btn-download');
+      if (linkWav) linkWav.href = `${BRIDGE_URL}${item.urlWav}`;
+    }
+
+    if (typeof atualizarAcoesSrt === 'function') atualizarAcoesSrt();
+    if (typeof renderizarSecaoSrt === 'function') renderizarSecaoSrt();
+
+    if (typeof atualizarBadgeTempo === 'function') atualizarBadgeTempo();
+    if (typeof atualizarBtnTempoCard === 'function') atualizarBtnTempoCard();
+
+    try {
+      const resAudio = await fetch(`${BRIDGE_URL}${item.urlAudio}`);
+      if (resAudio.ok) {
+        const blob = await resAudio.blob();
+        item.blob = blob;
+        if (audio) audio.src = URL.createObjectURL(blob);
+        item.picos = await picosDoBlobUniversal(blob);
+        if (typeof pintar === 'function') pintar();
+      }
+    } catch (errAudio) {
+      console.warn('[Audio/Wave] Erro ao recarregar onda pós ajuste de tempo:', errAudio);
+    }
+
+    atualizarBotoesLoteLimitesTempo();
+    atualizarBotaoDesfazerTodos();
+
+    showToast(`✅ Tempo de "${item.nome}" ajustado para ${metaLabel} com sucesso! Nova duração: ${item.duracaoFmt}`);
+    concluirBarraProgressoInferior(`✅ Tempo de "${item.nome}" ajustado para ${metaLabel}!`, 'tempo', true);
+  } catch (err) {
+    if (pollTempo) { clearInterval(pollTempo); pollTempo = null; }
+    fecharBarraProgressoInferior();
+    showToast(`❌ Erro ao ajustar tempo: ${err.message}`);
+  } finally {
+    if (pollTempo) clearInterval(pollTempo);
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = textoOriginal || `⚡ Ajustar Tempo (${metaLabel})`;
+    }
+  }
+}
+
+async function ajustarTempoTodosMasterizados() {
+  if (!masterizadosItens.length) {
+    showToast('⚠️ Nenhum áudio masterizado disponível.');
+    return;
+  }
+  const foraDosLimites = masterizadosItens.filter(it => verificarEhAudioLongo(it) || verificarEhAudioCurto(it));
+  if (!foraDosLimites.length) {
+    showToast('ℹ️ Todos os áudios já estão dentro dos limites recomendados (60s a 1:30).');
+    return;
+  }
+
+  const btn = document.getElementById('btnAjustarTempoTodos');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="emoji-girando">⏳</span> Ajustando ${foraDosLimites.length} áudio(s)...`;
+  }
+
+  const longos = foraDosLimites.filter(it => verificarEhAudioLongo(it));
+  const curtos = foraDosLimites.filter(it => verificarEhAudioCurto(it));
+  showToast(`⏱️ Ajustando tempo de ${foraDosLimites.length} áudio(s) (${longos.length} longo(s) para 1:30, ${curtos.length} curto(s) para 61s)...`);
+  atualizarBarraProgressoInferior(5, `Iniciando ajuste de duração em ${foraDosLimites.length} áudio(s)...`, 'tempo');
+
+  let pollTempoLote = setInterval(async () => {
+    try {
+      const respP = await fetch(`${BRIDGE_URL}/api/progresso`, { cache: 'no-store' });
+      if (respP.ok) {
+        const dadosP = await respP.json();
+        if (dadosP && dadosP.progresso) {
+          atualizarBarraProgressoInferior(dadosP.pct || 15, dadosP.progresso, 'tempo');
+        }
+      }
+    } catch (_) {}
+  }, 400);
+
+  try {
+    const listaPayload = foraDosLimites.map(it => ({
+      caminhoWav: it.caminhoWav,
+      nome: it.nome,
+      caminhoSrt: it.caminhoSrt || '',
+      duracaoAlvo: verificarEhAudioLongo(it) ? 88.8 : 61.0
+    }));
+
+    const resp = await fetch(`${BRIDGE_URL}/api/audacity/ajustar-tempo-lote`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        itens: listaPayload,
+        duracaoAlvo: 88.8
+      })
+    });
+    const dados = await resp.json();
+    if (!dados.success) {
+      throw new Error(dados.error || 'Falha ao processar ajuste de duração em lote no Audacity');
+    }
+
+    if (pollTempoLote) { clearInterval(pollTempoLote); pollTempoLote = null; }
+
+    let ajustadosCount = 0;
+    if (Array.isArray(dados.itens)) {
+      dados.itens.forEach(ret => {
+        const original = masterizadosItens.find(it => it.caminhoWav === ret.caminhoWav || it.nome === ret.nome);
+        if (original && ret.success) {
+          original.duracaoFmt = ret.duracaoFmt;
+          original.duracaoSeg = ret.duracaoSeg;
+          original.tamanhoFmt = ret.tamanhoFmt;
+          original.tamanhoBytes = ret.tamanhoBytes;
+          original.historico = ret.historico || [];
+          original.urlAudio = ret.urlAudio;
+          original.urlWav = ret.urlWav;
+          if (ret.caminhoSrt) {
+            original.caminhoSrt = ret.caminhoSrt;
+            original.urlSrt = ret.urlSrt;
+            if (ret.srtConteudo) original.srtConteudo = limparTagsDeSrt(ret.srtConteudo);
+          }
+          delete original.picos;
+          ajustadosCount++;
+        }
+      });
+    }
+
+    renderizarMasterizados(masterizadosItens);
+    if (ajustadosCount > 0) {
+      concluirBarraProgressoInferior(`✅ Duração ajustada com sucesso em ${ajustadosCount} áudio(s)!`, 'tempo', true);
+      showToast(`✅ ${ajustadosCount} áudio(s) ajustado(s) com sucesso dentro dos limites!`);
+    } else {
+      fecharBarraProgressoInferior();
+    }
+  } catch (e) {
+    if (pollTempoLote) { clearInterval(pollTempoLote); pollTempoLote = null; }
+    fecharBarraProgressoInferior();
+    console.error('[AjustarTempoLote] Erro:', e);
+    showToast(`❌ Erro ao ajustar tempo em lote: ${e.message}`);
+  } finally {
+    if (pollTempoLote) clearInterval(pollTempoLote);
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '⏱️ Ajustar Duração (60s - 1:30)';
+    }
+    atualizarBotoesLoteLimitesTempo();
+    atualizarBotaoDesfazerTodos();
+    fetch(`${BRIDGE_URL}/api/audacity/fechar`, { method: 'POST' }).catch(() => {});
+  }
+}
+
+async function ajustarCurtosTodosMasterizados() {
+  return ajustarTempoTodosMasterizados();
 }
 
 async function travarSilencioTodosMasterizados() {
@@ -5452,16 +6417,14 @@ async function travarSilencioTodosMasterizados() {
 
     renderizarMasterizados(masterizadosItens);
     if (atualizadosCount > 0) {
-      atualizarBarraProgressoSilencio(100, `✅ Silêncio travado em ${atualizadosCount} áudio(s)!`);
-      fecharBarraProgressoSilencio(true, 3000);
-      tocarSomSilencioConcluido();
+      concluirBarraProgressoInferior(`✅ Silêncio (${nomePreset}) travado em ${atualizadosCount} áudio(s)!`, 'silencio', true);
     } else {
-      fecharBarraProgressoSilencio(false, 1500);
+      fecharBarraProgressoInferior();
     }
     showToast(`✅ Silêncio (${nomePreset}) travado com sucesso em ${atualizadosCount} áudio(s)!`);
   } catch (e) {
     if (pollSilencioLote) { clearInterval(pollSilencioLote); pollSilencioLote = null; }
-    fecharBarraProgressoSilencio(false, 1500);
+    fecharBarraProgressoInferior();
     console.error('[TravarSilencioLote] Erro:', e);
     showToast(`❌ Erro ao travar silêncio em lote: ${e.message}`);
   } finally {
@@ -5565,42 +6528,97 @@ function atualizarBotaoDesfazerTodos() {
 }
 
 async function baixarTodosWavMasterizados() {
-  if (!masterizadosItens.length) {
+  const itensWav = masterizadosItens.filter(it => it.urlWav || it.caminhoWav);
+  if (!itensWav.length) {
     showToast('⚠️ Nenhum áudio masterizado para baixar');
     return;
   }
-  showToast(`⏳ Baixando ${masterizadosItens.length} áudio(s)...`);
-  for (const item of masterizadosItens) {
-    if (item.urlWav) {
-      const a = document.createElement('a');
-      a.href = `${BRIDGE_URL}${item.urlWav}`;
-      a.download = `${item.nome}.wav`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      await sleep(350);
-    }
+
+  // 1 arquivo: baixa direto
+  if (itensWav.length === 1) {
+    const it = itensWav[0];
+    baixarArquivoUnico(`${BRIDGE_URL}${it.urlWav}`, `${it.nome}.wav`);
+    showToast(`🎵 Baixando ${it.nome}.wav`);
+    return;
   }
-  showToast(`✅ ${masterizadosItens.length} áudio(s) .wav baixados com sucesso!`);
+
+  const caminhos = itensWav.map(it => it.caminhoWav).filter(Boolean);
+  if (!caminhos.length) {
+    showToast('⚠️ Nenhum arquivo WAV local encontrado para download.');
+    return;
+  }
+
+  // Mais de 1 arquivo: empacota em .zip com data e hora
+  showToast(`📦 Baixando ${itensWav.length} áudios em .zip...`);
+  atualizarBarraProgressoInferior(20, `📦 Empacotando ${itensWav.length} áudios em .zip...`, 'zip');
+  try {
+    const res = await fetch(`${BRIDGE_URL}/api/processados/baixar-zip`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tipo: 'wav', caminhos })
+    });
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.error || ('Erro na ponte: ' + res.status));
+    }
+    atualizarBarraProgressoInferior(75, `Recebendo pacote .zip...`, 'zip');
+    const blob = await res.blob();
+    const ts = formatarTimestampDataHora();
+    baixarBlob(blob, `Audios_Masterizados_${ts}.zip`);
+    concluirBarraProgressoInferior(`✅ ${itensWav.length} áudios masterizados baixados em .zip!`, 'zip', true);
+    showToast(`✅ ${itensWav.length} áudios baixados em .zip!`);
+  } catch (err) {
+    fecharBarraProgressoInferior();
+    console.error('[BaixarWavsZip] Erro:', err);
+    showToast(`❌ Falha ao baixar .zip: ${err.message}`);
+  }
 }
 
 async function baixarTodasLegendasMasterizadas() {
-  const comSrt = masterizadosItens.filter(it => it.urlSrt);
+  const comSrt = masterizadosItens.filter(it => it.urlSrt || it.caminhoSrt);
   if (!comSrt.length) {
     showToast('⚠️ Nenhuma legenda SRT disponível para baixar');
     return;
   }
-  showToast(`⏳ Baixando ${comSrt.length} legenda(s)...`);
-  for (const item of comSrt) {
-    const a = document.createElement('a');
-    a.href = `${BRIDGE_URL}${item.urlSrt}`;
-    a.download = `${item.nome}.srt`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    await sleep(350);
+
+  // 1 arquivo: baixa direto
+  if (comSrt.length === 1) {
+    const it = comSrt[0];
+    baixarArquivoUnico(`${BRIDGE_URL}${it.urlSrt}`, `${it.nome}.srt`);
+    showToast(`📄 Baixando ${it.nome}.srt`);
+    return;
   }
-  showToast(`✅ ${comSrt.length} legenda(s) .srt baixadas com sucesso!`);
+
+  const caminhos = comSrt.map(it => it.caminhoSrt).filter(Boolean);
+  if (!caminhos.length) {
+    showToast('⚠️ Nenhum arquivo SRT local encontrado para download.');
+    return;
+  }
+
+  // Mais de 1 arquivo: empacota em .zip com data e hora
+  showToast(`📦 Baixando ${comSrt.length} legendas em .zip...`);
+  atualizarBarraProgressoInferior(20, `📦 Empacotando ${comSrt.length} legendas em .zip...`, 'zip');
+  try {
+    const res = await fetch(`${BRIDGE_URL}/api/processados/baixar-zip`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tipo: 'srt', caminhos })
+    });
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.error || ('Erro na ponte: ' + res.status));
+    }
+    atualizarBarraProgressoInferior(75, `Recebendo pacote .zip...`, 'zip');
+    const blob = await res.blob();
+    const ts = formatarTimestampDataHora();
+    baixarBlob(blob, `Legendas_SRT_${ts}.zip`);
+    concluirBarraProgressoInferior(`✅ ${comSrt.length} legendas (.srt) baixadas em .zip!`, 'zip', true);
+    showToast(`✅ ${comSrt.length} legendas baixadas em .zip!`);
+  } catch (err) {
+    fecharBarraProgressoInferior();
+    console.error('[BaixarSrtsZip] Erro:', err);
+    showToast(`❌ Falha ao baixar legendas .zip: ${err.message}`);
+  }
 }
 
 async function baixarTudoMasterizado() {
@@ -5608,28 +6626,59 @@ async function baixarTudoMasterizado() {
     showToast('⚠️ Nenhum arquivo masterizado para baixar');
     return;
   }
-  showToast('⏳ Baixando pacote completo (Áudios + Legendas .SRT)...');
-  for (const item of masterizadosItens) {
-    if (item.urlWav) {
-      const a = document.createElement('a');
-      a.href = `${BRIDGE_URL}${item.urlWav}`;
-      a.download = `${item.nome}.wav`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      await sleep(350);
-    }
-    if (item.urlSrt) {
-      const a = document.createElement('a');
-      a.href = `${BRIDGE_URL}${item.urlSrt}`;
-      a.download = `${item.nome}.srt`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      await sleep(350);
-    }
+
+  const itensWav = masterizadosItens.filter(it => it.urlWav || it.caminhoWav);
+  const itensSrt = masterizadosItens.filter(it => it.urlSrt || it.caminhoSrt);
+  const totalArquivos = itensWav.length + itensSrt.length;
+
+  if (totalArquivos === 0) {
+    showToast('⚠️ Nenhum arquivo disponível');
+    return;
   }
-  showToast('✅ Todos os áudios e legendas foram baixados com sucesso!');
+
+  // 1 único arquivo em toda a lista: baixa direto
+  if (totalArquivos === 1) {
+    if (itensWav.length === 1) {
+      baixarArquivoUnico(`${BRIDGE_URL}${itensWav[0].urlWav}`, `${itensWav[0].nome}.wav`);
+    } else {
+      baixarArquivoUnico(`${BRIDGE_URL}${itensSrt[0].urlSrt}`, `${itensSrt[0].nome}.srt`);
+    }
+    return;
+  }
+
+  const caminhos = [
+    ...itensWav.map(it => it.caminhoWav).filter(Boolean),
+    ...itensSrt.map(it => it.caminhoSrt).filter(Boolean)
+  ];
+  if (!caminhos.length) {
+    showToast('⚠️ Nenhum arquivo local encontrado para download.');
+    return;
+  }
+
+  // Mais de 1 arquivo: empacota pacote completo em .zip com data e hora
+  showToast(`📦 Baixando pacote completo (${totalArquivos} arquivos) em .zip...`);
+  atualizarBarraProgressoInferior(20, `📦 Empacotando pacote completo (${totalArquivos} arquivos) em .zip...`, 'zip');
+  try {
+    const res = await fetch(`${BRIDGE_URL}/api/processados/baixar-zip`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tipo: 'tudo', caminhos })
+    });
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.error || ('Erro na ponte: ' + res.status));
+    }
+    atualizarBarraProgressoInferior(75, `Recebendo pacote .zip...`, 'zip');
+    const blob = await res.blob();
+    const ts = formatarTimestampDataHora();
+    baixarBlob(blob, `Audios_e_Legendas_${ts}.zip`);
+    concluirBarraProgressoInferior(`✅ Pacote com ${totalArquivos} arquivos baixado em .zip!`, 'zip', true);
+    showToast(`✅ Pacote com ${totalArquivos} arquivos baixado em .zip!`);
+  } catch (err) {
+    fecharBarraProgressoInferior();
+    console.error('[BaixarTudoZip] Erro:', err);
+    showToast(`❌ Falha ao baixar pacote .zip: ${err.message}`);
+  }
 }
 
 async function limparHistoricoProcessados() {
@@ -5696,70 +6745,143 @@ function tocarSomConclusao() {
   } catch (e) {}
 }
 
-function atualizarBarraProgressoSrt(pct, texto) {
-  const container = document.getElementById('barraProgressoSrtContainer');
-  const bar = document.getElementById('barraProgressoSrtPreenchimento');
-  const txt = document.getElementById('barraProgressoSrtTexto');
-  const pctEl = document.getElementById('barraProgressoSrtPct');
+// ════════════════════════════════════════════════════════
+// BARRINHA DE PROGRESSO E AVISO INFERIOR PERSISTENTE (COM X FECHAR)
+// ════════════════════════════════════════════════════════
+const TEMAS_BARRA_INFERIOR = {
+  srt: {
+    icone: '📄',
+    borda: 'rgba(56, 189, 248, 0.5)',
+    texto: '#38bdf8',
+    gradiente: 'linear-gradient(90deg, #0284c7, #38bdf8, #7dd3fc)',
+    sombra: 'rgba(56, 189, 248, 0.5)'
+  },
+  silencio: {
+    icone: '✂️',
+    borda: 'rgba(245, 158, 11, 0.5)',
+    texto: '#fbbf24',
+    gradiente: 'linear-gradient(90deg, #d97706, #f59e0b, #fbbf24)',
+    sombra: 'rgba(245, 158, 11, 0.5)'
+  },
+  tempo: {
+    icone: '⏱️',
+    borda: 'rgba(168, 85, 247, 0.5)',
+    texto: '#c084fc',
+    gradiente: 'linear-gradient(90deg, #7e22ce, #a855f7, #c084fc)',
+    sombra: 'rgba(168, 85, 247, 0.5)'
+  },
+  master: {
+    icone: '⚡',
+    borda: 'rgba(16, 185, 129, 0.5)',
+    texto: '#34d399',
+    gradiente: 'linear-gradient(90deg, #059669, #10b981, #34d399)',
+    sombra: 'rgba(16, 185, 129, 0.5)'
+  },
+  zip: {
+    icone: '📦',
+    borda: 'rgba(236, 72, 153, 0.5)',
+    texto: '#f472b6',
+    gradiente: 'linear-gradient(90deg, #db2777, #ec4899, #f472b6)',
+    sombra: 'rgba(236, 72, 153, 0.5)'
+  },
+  padrao: {
+    icone: '⏳',
+    borda: 'rgba(82, 183, 136, 0.5)',
+    texto: '#74c69d',
+    gradiente: 'linear-gradient(90deg, #40916c, #52b788, #74c69d)',
+    sombra: 'rgba(82, 183, 136, 0.55)'
+  }
+};
+
+function atualizarBarraProgressoInferior(pct, texto, tipo = 'padrao') {
+  const container = document.getElementById('barraProgressoInferiorContainer');
+  const bar = document.getElementById('barraProgressoInferiorPreenchimento');
+  const txt = document.getElementById('barraProgressoInferiorTexto');
+  const pctEl = document.getElementById('barraProgressoInferiorPct');
+  const iconEl = document.getElementById('barraProgressoInferiorIcone');
   if (!container || !bar) return;
 
+  const cfg = TEMAS_BARRA_INFERIOR[tipo] || TEMAS_BARRA_INFERIOR.padrao;
+
   container.classList.remove('hidden');
+  container.style.borderTopColor = cfg.borda;
+
   const clamped = Math.max(0, Math.min(100, Math.round(pct)));
   bar.style.width = clamped + '%';
-  if (pctEl) pctEl.textContent = clamped + '%';
+  bar.style.background = cfg.gradiente;
+  bar.style.boxShadow = `0 0 12px ${cfg.sombra}`;
+
+  if (pctEl) {
+    pctEl.textContent = clamped + '%';
+    pctEl.style.color = cfg.texto;
+  }
+  if (iconEl) iconEl.textContent = cfg.icone;
   if (texto && txt) txt.textContent = texto;
+}
+
+function concluirBarraProgressoInferior(textoSucesso, tipo = 'padrao', tocarSom = true) {
+  const container = document.getElementById('barraProgressoInferiorContainer');
+  const bar = document.getElementById('barraProgressoInferiorPreenchimento');
+  const txt = document.getElementById('barraProgressoInferiorTexto');
+  const pctEl = document.getElementById('barraProgressoInferiorPct');
+  const iconEl = document.getElementById('barraProgressoInferiorIcone');
+  if (!container) return;
+
+  container.classList.remove('hidden');
+  container.style.borderTopColor = 'rgba(16, 185, 129, 0.6)';
+
+  if (bar) {
+    bar.style.width = '100%';
+    bar.style.background = 'linear-gradient(90deg, #059669, #10b981, #34d399)';
+    bar.style.boxShadow = '0 0 16px rgba(16, 185, 129, 0.7)';
+  }
+  if (pctEl) {
+    pctEl.textContent = '100%';
+    pctEl.style.color = '#34d399';
+  }
+  if (iconEl) iconEl.textContent = '✅';
+  if (txt) txt.textContent = textoSucesso || '✅ Concluído com sucesso!';
+
+  // Permanece na interface como aviso concluído até o usuário clicar no botão vermelho ✕
+  if (tocarSom) {
+    tocarSomSilencioConcluido();
+  }
+}
+
+function fecharBarraProgressoInferior() {
+  const container = document.getElementById('barraProgressoInferiorContainer');
+  const bar = document.getElementById('barraProgressoInferiorPreenchimento');
+  const pctEl = document.getElementById('barraProgressoInferiorPct');
+  if (!container) return;
+
+  container.classList.add('hidden');
+  if (bar) bar.style.width = '0%';
+  if (pctEl) pctEl.textContent = '0%';
+}
+
+// Aliases para manter 100% de compatibilidade em todo o app
+function atualizarBarraProgressoSrt(pct, texto) {
+  atualizarBarraProgressoInferior(pct, texto, 'srt');
 }
 
 function fecharBarraProgressoSrt(sucesso = true, delay = 2500) {
-  const container = document.getElementById('barraProgressoSrtContainer');
-  const txt = document.getElementById('barraProgressoSrtTexto');
-  const bar = document.getElementById('barraProgressoSrtPreenchimento');
-  const pctEl = document.getElementById('barraProgressoSrtPct');
-  if (!container) return;
-
   if (sucesso) {
-    if (bar) bar.style.width = '100%';
-    if (pctEl) pctEl.textContent = '100%';
-    if (txt) txt.textContent = '✅ Legendas (.srt) geradas com sucesso!';
+    concluirBarraProgressoInferior('✅ Legendas (.srt) geradas com sucesso!', 'srt', true);
+  } else {
+    fecharBarraProgressoInferior();
   }
-  setTimeout(() => {
-    container.classList.add('hidden');
-    if (bar) bar.style.width = '0%';
-    if (pctEl) pctEl.textContent = '0%';
-  }, delay);
 }
 
 function atualizarBarraProgressoSilencio(pct, texto) {
-  const container = document.getElementById('barraProgressoSilencioContainer');
-  const bar = document.getElementById('barraProgressoSilencioPreenchimento');
-  const txt = document.getElementById('barraProgressoSilencioTexto');
-  const pctEl = document.getElementById('barraProgressoSilencioPct');
-  if (!container || !bar) return;
-
-  container.classList.remove('hidden');
-  const clamped = Math.max(0, Math.min(100, Math.round(pct)));
-  bar.style.width = clamped + '%';
-  if (pctEl) pctEl.textContent = clamped + '%';
-  if (texto && txt) txt.textContent = texto;
+  atualizarBarraProgressoInferior(pct, texto, 'silencio');
 }
 
 function fecharBarraProgressoSilencio(sucesso = true, delay = 2500) {
-  const container = document.getElementById('barraProgressoSilencioContainer');
-  const txt = document.getElementById('barraProgressoSilencioTexto');
-  const bar = document.getElementById('barraProgressoSilencioPreenchimento');
-  const pctEl = document.getElementById('barraProgressoSilencioPct');
-  if (!container) return;
-
   if (sucesso) {
-    if (bar) bar.style.width = '100%';
-    if (pctEl) pctEl.textContent = '100%';
-    if (txt) txt.textContent = '✅ Silêncio travado com sucesso!';
+    concluirBarraProgressoInferior('✅ Silêncio travado com sucesso!', 'silencio', true);
+  } else {
+    fecharBarraProgressoInferior();
   }
-  setTimeout(() => {
-    container.classList.add('hidden');
-    if (bar) bar.style.width = '0%';
-    if (pctEl) pctEl.textContent = '0%';
-  }, delay);
 }
 
 // Efeito sonoro Liecio Minimalista embutido em Base64 (100% autônomo, funciona em qualquer PC sem pastas externas)
@@ -5862,7 +6984,8 @@ async function processarComAudacityEWhisper() {
 
   if (!bridgeOnline) {
     msgEl.textContent = 'Verificando ponte local...';
-    await checarBridgeStatus();
+    await inicializarAlavancas();
+  checarBridgeStatus();
     if (!bridgeOnline) {
       showToast('⚠️ Ponte local offline. Abra pelo atalho Gemini TTS Studio (DEV)');
       processandoAudacity = false;
@@ -5909,7 +7032,10 @@ async function processarComAudacityEWhisper() {
         const pRes = await fetch(`${BRIDGE_URL}/api/progresso`, { cache: 'no-store' });
         if (pRes.ok) {
           const pData = await pRes.json();
-          if (pData.progresso) msgEl.textContent = pData.progresso;
+          if (pData.progresso) {
+            msgEl.textContent = pData.progresso;
+            atualizarBarraProgressoInferior(pData.pct || 40, pData.progresso, 'master');
+          }
         }
       } catch {}
       await sleep(500);
@@ -6096,6 +7222,7 @@ async function processarComAudacityEWhisper() {
     msgEl.textContent = '✅ Concluído com sucesso!';
     msgEl.style.color = 'var(--success)';
     showToast('✅ Processamento concluído! Abrindo Áudios Masterizados...');
+    concluirBarraProgressoInferior('✅ Áudios masterizados com sucesso!', 'master', true);
     tocarSomConclusao();
 
     resArea.classList.remove('hidden');
@@ -6139,6 +7266,7 @@ async function processarComAudacityEWhisper() {
     }, 600);
 
   } catch (err) {
+    fecharBarraProgressoInferior();
     const msg = (err.message === 'Failed to fetch' || err.name === 'TypeError')
       ? 'Não foi possível conectar ao servidor local (porta 5006). Verifique se o servidor está rodando no terminal.'
       : err.message;
