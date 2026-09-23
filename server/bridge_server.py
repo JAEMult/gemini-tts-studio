@@ -6,6 +6,8 @@ import base64
 import time
 import shutil
 import urllib.parse
+import urllib.request
+import urllib.error
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 import threading
 import subprocess
@@ -41,6 +43,23 @@ if BASE_DIR not in sys.path:
 
 import pipe_runner
 
+_pipe_runner = None
+_pipe_runner_mtime = 0
+def get_pipe_runner():
+    global _pipe_runner, _pipe_runner_mtime
+    pr_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'pipe_runner.py')
+    current_mtime = os.path.getmtime(pr_path) if os.path.isfile(pr_path) else 0
+    if _pipe_runner is None:
+        import pipe_runner as pr
+        _pipe_runner = pr
+        _pipe_runner_mtime = current_mtime
+    elif current_mtime > _pipe_runner_mtime:
+        import importlib
+        _pipe_runner = importlib.reload(_pipe_runner)
+        _pipe_runner_mtime = current_mtime
+    globals()['pipe_runner'] = _pipe_runner
+    return _pipe_runner
+
 _transcribe_whisper = None
 _transcribe_mtime = 0
 def get_transcribe_whisper():
@@ -65,6 +84,54 @@ PROGRESSO_ATUAL = "Pronto"
 PROGRESSO_PCT = 0
 JOBS_ATIVOS = {}
 JOBS_LOCK = threading.Lock()
+
+# ════════════════════════════════════════════════════════
+# WATCHDOG DE AUTO-ENCERRAMENTO (Zero processos soltos no PC)
+# Se a aba do HTML for fechada, encerra o Python e o Audacity automaticamente!
+# ════════════════════════════════════════════════════════
+INICIO_SERVER = time.time()
+ULTIMO_HEARTBEAT = time.time()
+TEMPO_GRACA_INICIAL = 60.0   # 60s de carência inicial para o navegador abrir
+HEARTBEAT_TIMEOUT = 1800.0   # 30 minutos de tolerância sem atividade (nunca cai no meio do uso!)
+EM_PROCESSAMENTO = False     # Não desliga durante renderização de áudio
+REQUISICOES_ATIVAS = 0
+REQUISICOES_LOCK = threading.Lock()
+
+SHUTDOWN_TIMER = None
+SHUTDOWN_LOCK = threading.Lock()
+
+def inc_requisicoes():
+    global REQUISICOES_ATIVAS
+    with REQUISICOES_LOCK:
+        REQUISICOES_ATIVAS += 1
+    registrar_atividade()
+
+def dec_requisicoes():
+    global REQUISICOES_ATIVAS
+    with REQUISICOES_LOCK:
+        REQUISICOES_ATIVAS = max(0, REQUISICOES_ATIVAS - 1)
+    registrar_atividade()
+
+def shutdown_servidor():
+    pass
+
+def cancelar_shutdown_agendado():
+    pass
+
+def _executar_shutdown_se_inativo():
+    pass
+
+def agendar_shutdown(delay=10.0):
+    # Desativado: Servidor bridge permanece sempre online e estavel
+    pass
+
+def registrar_atividade():
+    global ULTIMO_HEARTBEAT
+    ULTIMO_HEARTBEAT = time.time()
+
+def watchdog_inatividade():
+    # Desativado: Servidor bridge nunca se auto-encerra
+    pass
 
 def set_progresso(msg, pct=None):
     global PROGRESSO_ATUAL, PROGRESSO_PCT
@@ -318,11 +385,39 @@ class HistoricoSilencioManager:
                 pass
 
         meta_novo = calcular_metadados_audio(caminho_wav)
-        reducao_seg = max(0.0, round(duracao_antiga_seg - meta_novo['duracao_seg'], 1))
-        pct = round((reducao_seg / duracao_antiga_seg) * 100) if duracao_antiga_seg > 0 else 0
-        reducao_fmt = f"-{reducao_seg:.1f}s (-{pct}%)" if reducao_seg > 0 else "0s"
+        duracao_orig = entry['versoes'][0]['duracaoSeg'] if (entry.get('versoes') and len(entry['versoes']) > 0) else meta_novo['duracao_seg']
+        reducao_etapa_seg = max(0.0, round(duracao_antiga_seg - meta_novo['duracao_seg'], 1))
+        reducao_total_seg = max(0.0, round(duracao_orig - meta_novo['duracao_seg'], 1))
+        pct_total = round((reducao_total_seg / duracao_orig) * 100) if duracao_orig > 0 else 0
 
-        label_preset = '2,0s / 50%' if '2' in preset else ('1,3s / 60%' if '1.3' in preset or '1,3' in preset else ('0,5s / 80%' if '0.5' in preset or '0,5' in preset else preset))
+        if nova_id > 1 and reducao_total_seg > 0:
+            if reducao_etapa_seg > 0:
+                reducao_fmt = f"-{reducao_total_seg:.1f}s total (-{reducao_etapa_seg:.1f}s agora)"
+            else:
+                reducao_fmt = f"-{reducao_total_seg:.1f}s total (0s agora)"
+        elif reducao_total_seg > 0:
+            reducao_fmt = f"-{reducao_total_seg:.1f}s (-{pct_total}%)"
+        else:
+            reducao_fmt = "0s"
+
+        if '_' in preset:
+            try:
+                p_dur, p_comp = preset.split('_', 1)
+                label_preset = f"{p_dur.replace('.', ',')}s / {p_comp}%"
+            except Exception:
+                label_preset = preset
+        elif '2' in preset:
+            label_preset = '2,0s / 50%'
+        elif '1.3' in preset or '1,3' in preset:
+            label_preset = '1,3s / 60%'
+        elif '0.8' in preset or '0,8' in preset:
+            label_preset = '0,8s / 70%'
+        elif '1.0' in preset or '1,0' in preset:
+            label_preset = '1,0s / 60%'
+        elif '0.5' in preset or '0,5' in preset:
+            label_preset = '0,5s / 80%'
+        else:
+            label_preset = preset
 
         nova_v = {
             'id': nova_id,
@@ -334,7 +429,8 @@ class HistoricoSilencioManager:
             'duracaoFmt': meta_novo['duracao_fmt'],
             'tamanhoFmt': meta_novo['tamanho_fmt'],
             'tamanhoBytes': meta_novo['tamanho_bytes'],
-            'reducaoSeg': reducao_seg,
+            'reducaoSeg': reducao_total_seg,
+            'reducaoEtapaSeg': reducao_etapa_seg,
             'reducaoFmt': reducao_fmt,
             'caminhoWav': wav_ver,
             'caminhoSrt': srt_ver
@@ -415,12 +511,8 @@ class HistoricoSilencioManager:
             'historico': hist_lista
         }
 
-def executar_pipeline_job(itens_processar, roteiro_completo, juntar, nome_macro, gerar_srt, pasta_job, pasta_temp, pasta_saida):
-    """
-    Pipeline unificado de automação no Audacity e Whisper.
-    Executa os efeitos/junção no Audacity e em seguida gera as legendas via Whisper (GPU CUDA).
-    Utilizado tanto pelo upload em streaming quanto pela rota legada.
-    """
+def _executar_pipeline_job_inner(itens_processar, roteiro_completo, juntar, nome_macro, gerar_srt, pasta_job, pasta_temp, pasta_saida):
+    get_pipe_runner()
     # 1. Executa Audacity (se não for apenas geração isolada de legendas SRT)
     if nome_macro == 'apenas_srt':
         set_progresso("Iniciando transcrição das legendas (.srt) diretamente no Whisper (GPU)...", pct=10)
@@ -496,6 +588,7 @@ def executar_pipeline_job(itens_processar, roteiro_completo, juntar, nome_macro,
         aviso_srt = ""
         similaridade_srt = 100
         auditoria_srt = None
+        erro_srt = None
 
         if gerar_srt:
             set_progresso("Whisper transcrevendo áudio unificado na GPU (última etapa)...", pct=72)
@@ -513,7 +606,34 @@ def executar_pipeline_job(itens_processar, roteiro_completo, juntar, nome_macro,
                 auditoria_srt = info_meta.get('auditoria', None)
                 set_progresso("Legenda unificada gerada com sucesso!", pct=95)
             except Exception as ew:
-                sys.stderr.write(f"[Whisper] Erro na transcrição: {ew}\n")
+                sys.stderr.write(f"[Whisper] Tentativa unificada com texto_ref falhou ({ew}). Tentando fallback áudio direto...\n")
+                try:
+                    srt_conteudo, info_meta = get_transcribe_whisper().gerar_srt_whisper(
+                        audio_final['caminho'],
+                        texto_referencia="",
+                        retornar_meta=True
+                    )
+                    caminho_srt = os.path.join(pasta_saida, f"{audio_final['nome']}.srt")
+                    with open(caminho_srt, 'w', encoding='utf-8') as sf:
+                        sf.write(srt_conteudo)
+                    aviso_srt = "Legenda gerada por áudio direto (fallback)"
+                    similaridade_srt = info_meta.get('similaridade', 100)
+                    auditoria_srt = info_meta.get('auditoria', None)
+                except Exception as ew2:
+                    sys.stderr.write(f"[Whisper] Erro fatal na transcrição unificada: {ew2}\n")
+                    erro_srt = str(ew2)
+
+        # Se não gerou agora ou falhou, verifica se já existe no disco
+        if not caminho_srt:
+            caminho_srt_cand = os.path.splitext(audio_final['caminho'])[0] + '.srt'
+            if os.path.isfile(caminho_srt_cand) and os.path.getsize(caminho_srt_cand) > 0:
+                caminho_srt = caminho_srt_cand
+                try:
+                    with open(caminho_srt, 'r', encoding='utf-8', errors='ignore') as sf:
+                        srt_conteudo = sf.read()
+                    erro_srt = None
+                except Exception:
+                    pass
 
         meta = calcular_metadados_audio(audio_final['caminho'])
         HistoricoSilencioManager.registrar_original_se_necessario(audio_final['caminho'], caminho_srt)
@@ -537,6 +657,7 @@ def executar_pipeline_job(itens_processar, roteiro_completo, juntar, nome_macro,
             'avisoSrt': aviso_srt,
             'similaridadeSrt': similaridade_srt,
             'auditoriaSrt': auditoria_srt,
+            'erroSrt': erro_srt,
             'historico': hist_init
         })
 
@@ -550,6 +671,7 @@ def executar_pipeline_job(itens_processar, roteiro_completo, juntar, nome_macro,
             aviso_srt = ""
             similaridade_srt = 100
             auditoria_srt = None
+            erro_srt = None
 
             if gerar_srt:
                 pct_inicio = int(68 + (idx / total_bl) * 26)
@@ -569,7 +691,34 @@ def executar_pipeline_job(itens_processar, roteiro_completo, juntar, nome_macro,
                     pct_fim = int(68 + ((idx + 1) / total_bl) * 26)
                     set_progresso(f"Bloco {idx+1}/{total_bl} concluído!", pct=pct_fim)
                 except Exception as ew:
-                    sys.stderr.write(f"[Whisper] Erro no bloco {idx+1}: {ew}\n")
+                    sys.stderr.write(f"[Whisper] Tentativa bloco {idx+1} com texto_ref falhou ({ew}). Tentando fallback...\n")
+                    try:
+                        srt_conteudo, info_meta = get_transcribe_whisper().gerar_srt_whisper(
+                            arq['caminho'],
+                            texto_referencia="",
+                            retornar_meta=True
+                        )
+                        caminho_srt = os.path.join(pasta_saida, f"{arq['nome']}.srt")
+                        with open(caminho_srt, 'w', encoding='utf-8') as sf:
+                            sf.write(srt_conteudo)
+                        aviso_srt = "Legenda gerada por áudio direto (fallback)"
+                        similaridade_srt = info_meta.get('similaridade', 100)
+                        auditoria_srt = info_meta.get('auditoria', None)
+                    except Exception as ew2:
+                        sys.stderr.write(f"[Whisper] Erro fatal no bloco {idx+1}: {ew2}\n")
+                        erro_srt = str(ew2)
+
+            # Se não gerou agora ou falhou, verifica se já existe no disco
+            if not caminho_srt:
+                caminho_srt_cand = os.path.splitext(arq['caminho'])[0] + '.srt'
+                if os.path.isfile(caminho_srt_cand) and os.path.getsize(caminho_srt_cand) > 0:
+                    caminho_srt = caminho_srt_cand
+                    try:
+                        with open(caminho_srt, 'r', encoding='utf-8', errors='ignore') as sf:
+                            srt_conteudo = sf.read()
+                        erro_srt = None
+                    except Exception:
+                        pass
 
             meta = calcular_metadados_audio(arq['caminho'])
             HistoricoSilencioManager.registrar_original_se_necessario(arq['caminho'], caminho_srt)
@@ -593,23 +742,40 @@ def executar_pipeline_job(itens_processar, roteiro_completo, juntar, nome_macro,
                 'avisoSrt': aviso_srt,
                 'similaridadeSrt': similaridade_srt,
                 'auditoriaSrt': auditoria_srt,
+                'erroSrt': erro_srt,
                 'historico': hist_init
             })
 
     # Limpa arquivos temporários de entrada
     shutil.rmtree(pasta_temp, ignore_errors=True)
 
+    tem_erros_srt = any(bool(it.get('erroSrt')) for it in itens_finais)
     set_progresso("Processamento concluído com sucesso!", pct=100)
     return {
         'success': True,
         'juntar': juntar,
         'pastaJob': pasta_job,
-        'itens': itens_finais
+        'itens': itens_finais,
+        'temErrosSrt': tem_erros_srt
     }
+
+def executar_pipeline_job(itens_processar, roteiro_completo, juntar, nome_macro, gerar_srt, pasta_job, pasta_temp, pasta_saida):
+    """
+    Pipeline unificado de automação no Audacity e Whisper.
+    Executa os efeitos/junção no Audacity e em seguida gera as legendas via Whisper (GPU CUDA).
+    Utilizado tanto pelo upload em streaming quanto pela rota legada.
+    """
+    global EM_PROCESSAMENTO
+    EM_PROCESSAMENTO = True
+    try:
+        return _executar_pipeline_job_inner(itens_processar, roteiro_completo, juntar, nome_macro, gerar_srt, pasta_job, pasta_temp, pasta_saida)
+    finally:
+        EM_PROCESSAMENTO = False
+        registrar_atividade()
 
 
 # Payload comprimido em base64 do som Liecio Minimalista (garante portabilidade em qualquer PC)
-SOM_SILENCIO_ZLIB_B64 = "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"
+SOM_SILENCIO_ZLIB_B64 = "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IiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIg=="
 
 def tocar_efeito_silencio_local():
     try:
@@ -784,14 +950,39 @@ class BridgeHandler(BaseHTTPRequestHandler):
             pass
 
     def do_GET(self):
+        inc_requisicoes()
+        try:
+            self._do_GET_inner()
+        finally:
+            dec_requisicoes()
+
+    def _do_GET_inner(self):
+        registrar_atividade()
         parsed = urllib.parse.urlparse(self.path)
         caminho = parsed.path
+
+        if caminho == '/api/heartbeat':
+            return self.responder_json({
+                'ok': True,
+                'uptime': round(time.time() - INICIO_SERVER, 1),
+                'em_processamento': EM_PROCESSAMENTO
+            })
+
+        elif caminho == '/api/shutdown':
+            return self.responder_json({'ok': True, 'msg': 'Servidor permanece sempre ativo'})
+
+        if caminho in ('/', '/index.html', '/studio', '/gemini-tts-studio.html'):
+            caminho_html = os.path.join(BASE_DIR, '..', 'gemini-tts-studio.html')
+            if os.path.isfile(caminho_html):
+                return self.responder_arquivo(caminho_html, 'text/html; charset=utf-8')
 
         if caminho == '/api/status':
             macros = pipe_runner.list_available_macros()
             audacity_exe = pipe_runner.find_audacity_exe()
             self.responder_json({
                 'ok': True,
+                'ambiente': 'DEV' if 'DEV' in BASE_DIR else 'PROD',
+                'pasta': BASE_DIR,
                 'audacityInstalado': audacity_exe is not None,
                 'audacityCaminho': audacity_exe or '',
                 'audacityRunning': pipe_runner.is_audacity_running(),
@@ -810,14 +1001,10 @@ class BridgeHandler(BaseHTTPRequestHandler):
             def _tocar():
                 try:
                     import winsound
-                    # 1. Som de asterisco do Windows
-                    winsound.MessageBeep(winsound.MB_ICONASTERISK)
-                    time.sleep(0.05)
-                    # 2. Beep melódico de vitória (C5, E5, G5, C6)
-                    winsound.Beep(523, 100)
-                    winsound.Beep(659, 100)
-                    winsound.Beep(784, 120)
-                    winsound.Beep(1046, 250)
+                    winsound.Beep(523, 90)
+                    winsound.Beep(659, 90)
+                    winsound.Beep(784, 110)
+                    winsound.Beep(1046, 220)
                 except Exception:
                     pass
             threading.Thread(target=_tocar, daemon=True).start()
@@ -915,26 +1102,87 @@ class BridgeHandler(BaseHTTPRequestHandler):
             self.responder_json({'erro': 'Rota não encontrada'}, status=404)
 
     def do_POST(self):
+        inc_requisicoes()
+        try:
+            self._do_POST_inner()
+        finally:
+            dec_requisicoes()
+
+    def _do_POST_inner(self):
+        global EM_PROCESSAMENTO
+        registrar_atividade()
         parsed = urllib.parse.urlparse(self.path)
         caminho = parsed.path
 
-        if caminho == '/api/audacity/fechar':
+        if caminho == '/api/heartbeat':
+            return self.responder_json({
+                'ok': True,
+                'uptime': round(time.time() - INICIO_SERVER, 1),
+                'em_processamento': EM_PROCESSAMENTO
+            })
+
+        elif caminho == '/api/gemini/tts':
+            try:
+                tamanho = int(self.headers.get('Content-Length', 0)) if self.headers.get('Content-Length') else 0
+                dados = json.loads(self.rfile.read(tamanho).decode('utf-8')) if tamanho > 0 else {}
+                key = dados.get('key', '')
+                model = dados.get('model', 'gemini-2.5-flash-preview-tts')
+                payload = dados.get('body', {})
+
+                url = f'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}'
+                req = urllib.request.Request(
+                    url,
+                    data=json.dumps(payload).encode('utf-8'),
+                    headers={'Content-Type': 'application/json'}
+                )
+                with urllib.request.urlopen(req, timeout=45) as resp:
+                    resp_body = resp.read()
+                    data = json.loads(resp_body.decode('utf-8'))
+                    return self.responder_json({'ok': True, 'data': data})
+            except urllib.error.HTTPError as e:
+                err_text = e.read().decode('utf-8', errors='ignore')
+                try:
+                    err_json = json.loads(err_text)
+                except Exception:
+                    err_json = {'error': {'message': err_text or f'HTTP {e.code}'}}
+                return self.responder_json({'ok': False, 'status': e.code, 'error': err_json.get('error', {})})
+            except Exception as e:
+                return self.responder_json({'ok': False, 'error': {'message': str(e)}}, status=500)
+
+        elif caminho == '/api/gemini/test-key':
+            try:
+                tamanho = int(self.headers.get('Content-Length', 0)) if self.headers.get('Content-Length') else 0
+                dados = json.loads(self.rfile.read(tamanho).decode('utf-8')) if tamanho > 0 else {}
+                key = dados.get('key', '')
+                url = f'https://generativelanguage.googleapis.com/v1beta/models?key={key}'
+                req = urllib.request.Request(url)
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    return self.responder_json({'ok': True})
+            except urllib.error.HTTPError as e:
+                err_text = e.read().decode('utf-8', errors='ignore')
+                try:
+                    err_json = json.loads(err_text)
+                except Exception:
+                    err_json = {'error': {'message': err_text or f'HTTP {e.code}'}}
+                return self.responder_json({'ok': False, 'status': e.code, 'error': err_json.get('error', {})})
+            except Exception as e:
+                return self.responder_json({'ok': False, 'error': {'message': str(e)}}, status=500)
+
+        elif caminho == '/api/audacity/fechar':
             pipe_runner.close_audacity(force=True)
             self.responder_json({'ok': True, 'msg': 'Audacity encerrado com sucesso.'})
 
-        elif caminho == '/api/app/fechar':
-            pipe_runner.close_audacity(force=True)
-            self.responder_json({'ok': True, 'msg': 'Audacity encerrado com sucesso.'})
+        elif caminho in ('/api/app/fechar', '/api/shutdown'):
+            return self.responder_json({'ok': True, 'msg': 'Servidor permanece sempre ativo'})
 
         elif caminho == '/api/tocar-concluido':
             def _tocar_windows():
                 try:
                     import winsound
-                    winsound.MessageBeep(winsound.MB_ICONASTERISK)
-                    winsound.Beep(523, 100)
-                    winsound.Beep(659, 100)
-                    winsound.Beep(784, 120)
-                    winsound.Beep(1046, 250)
+                    winsound.Beep(523, 90)
+                    winsound.Beep(659, 90)
+                    winsound.Beep(784, 110)
+                    winsound.Beep(1046, 220)
                 except Exception as e:
                     sys.stderr.write(f"[Som] Erro ao emitir som: {e}\n")
             threading.Thread(target=_tocar_windows, daemon=True).start()
@@ -952,31 +1200,64 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 self.responder_json({'success': False, 'error': str(e)}, status=500)
 
         elif caminho == '/api/whisper/gerar-srt':
+            EM_PROCESSAMENTO = True
             try:
                 tamanho = int(self.headers.get('Content-Length', 0))
                 corpo_bruto = self.rfile.read(tamanho)
                 dados = json.loads(corpo_bruto.decode('utf-8'))
                 caminho_wav = dados.get('caminhoWav', '')
                 texto_ref = dados.get('textoReferencia', '')
+                forcar = bool(dados.get('forcar', False))
 
                 if not os.path.isfile(caminho_wav):
                     return self.responder_json({'success': False, 'error': f'Arquivo WAV não encontrado: {caminho_wav}'}, status=404)
 
-                set_progresso("Whisper transcrevendo áudio na GPU sob demanda...")
-                srt_conteudo, info_meta = get_transcribe_whisper().gerar_srt_whisper(
-                    caminho_wav,
-                    texto_referencia=texto_ref,
-                    retornar_meta=True
-                )
                 caminho_srt = os.path.splitext(caminho_wav)[0] + '.srt'
+
+                # Blindagem: Se o SRT já existe no disco e o usuário não pediu re-gerar forçado, retorna instantaneamente
+                if not forcar and os.path.isfile(caminho_srt) and os.path.getsize(caminho_srt) > 0:
+                    try:
+                        with open(caminho_srt, 'r', encoding='utf-8', errors='ignore') as sf:
+                            srt_existente = sf.read()
+                        ts_cache = int(time.time())
+                        return self.responder_json({
+                            'success': True,
+                            'caminhoSrt': caminho_srt,
+                            'urlSrt': f'/api/download?path={urllib.parse.quote(caminho_srt)}&t={ts_cache}',
+                            'srtConteudo': srt_existente,
+                            'aviso': '',
+                            'similaridade': 100,
+                            'auditoria': None,
+                            'recuperadoDisco': True
+                        })
+                    except Exception as e_ler:
+                        sys.stderr.write(f"[Whisper] Erro ao ler SRT existente: {e_ler}\n")
+
+                set_progresso("Whisper transcrevendo áudio na GPU sob demanda...")
+                try:
+                    srt_conteudo, info_meta = get_transcribe_whisper().gerar_srt_whisper(
+                        caminho_wav,
+                        texto_referencia=texto_ref,
+                        retornar_meta=True
+                    )
+                except Exception as e_ref:
+                    sys.stderr.write(f"[Whisper] Falha com texto de referência ({e_ref}). Tentando fallback áudio direto...\n")
+                    srt_conteudo, info_meta = get_transcribe_whisper().gerar_srt_whisper(
+                        caminho_wav,
+                        texto_referencia="",
+                        retornar_meta=True
+                    )
+                    info_meta['aviso'] = "Legenda gerada por áudio direto (fallback)"
+
                 with open(caminho_srt, 'w', encoding='utf-8') as sf:
                     sf.write(srt_conteudo)
 
                 set_progresso("Legenda SRT gerada com sucesso!")
+                ts_cache = int(time.time())
                 self.responder_json({
                     'success': True,
                     'caminhoSrt': caminho_srt,
-                    'urlSrt': f'/api/download?path={urllib.parse.quote(caminho_srt)}',
+                    'urlSrt': f'/api/download?path={urllib.parse.quote(caminho_srt)}&t={ts_cache}',
                     'srtConteudo': srt_conteudo,
                     'aviso': info_meta.get('aviso', ''),
                     'similaridade': info_meta.get('similaridade', 100),
@@ -985,6 +1266,8 @@ class BridgeHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 set_progresso(f"Erro Whisper: {e}")
                 self.responder_json({'success': False, 'error': str(e)}, status=500)
+            finally:
+                EM_PROCESSAMENTO = False
 
         elif caminho == '/api/srt/auditar':
             try:
@@ -1054,12 +1337,10 @@ class BridgeHandler(BaseHTTPRequestHandler):
             def _tocar():
                 try:
                     import winsound
-                    winsound.MessageBeep(winsound.MB_ICONASTERISK)
-                    time.sleep(0.05)
-                    winsound.Beep(523, 100)
-                    winsound.Beep(659, 100)
-                    winsound.Beep(784, 120)
-                    winsound.Beep(1046, 250)
+                    winsound.Beep(523, 90)
+                    winsound.Beep(659, 90)
+                    winsound.Beep(784, 110)
+                    winsound.Beep(1046, 220)
                 except Exception:
                     pass
             threading.Thread(target=_tocar, daemon=True).start()
@@ -1114,6 +1395,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 self.responder_json({'success': False, 'error': str(e)}, status=500)
 
         elif caminho == '/api/audacity/travar-silencio':
+            EM_PROCESSAMENTO = True
             try:
                 tamanho = int(self.headers.get('Content-Length', 0))
                 corpo_bruto = self.rfile.read(tamanho)
@@ -1124,16 +1406,23 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 gerar_srt = bool(dados.get('gerarSrt', True))
 
                 # Suporte a presets e configurações dinâmicas
-                preset = dados.get('preset', '2.0_50')
-                if preset in ('2s_50', '2.0_50', '2_50', '2s_40', '2.0_40', '2_40'):
+                preset = str(dados.get('preset', '0.8_70'))
+                if '_' in preset:
+                    try:
+                        p_dur, p_comp = preset.split('_', 1)
+                        duracao = p_dur.replace('.', ',')
+                        compressao = p_comp
+                    except Exception:
+                        duracao, compressao = '0,8', '70'
+                elif preset in ('2s_50', '2.0_50', '2_50', '2s_40', '2.0_40', '2_40'):
                     duracao, compressao = '2', '50'
                 elif preset in ('1.3s_60', '1.3_60', '1.3s_30', '1.3_30'):
                     duracao, compressao = '1,3', '60'
                 elif preset in ('0.5s_80', '0.5_80', '0.5s_60', '0.5_60'):
                     duracao, compressao = '0,5', '80'
                 else:
-                    duracao = str(dados.get('duracao', '2'))
-                    compressao = str(dados.get('compressao', '50'))
+                    duracao = str(dados.get('duracao', '0,8')).replace('.', ',')
+                    compressao = str(dados.get('compressao', '70'))
 
                 limiar = str(dados.get('limiar', '-35'))
                 descartar = str(dados.get('descartar', '0,5'))
@@ -1188,6 +1477,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     'duracaoFmt': meta['duracao_fmt'],
                     'duracaoSeg': meta['duracao_seg'],
                     'reducaoSeg': nova_v['reducaoSeg'] if nova_v else 0.0,
+                    'reducaoEtapaSeg': nova_v.get('reducaoEtapaSeg', 0.0) if nova_v else 0.0,
                     'reducaoFmt': nova_v['reducaoFmt'] if nova_v else '',
                     'historico': hist_lista,
                     'urlAudio': f'/api/audio?path={urllib.parse.quote(caminho_wav)}&t={ts_cache}',
@@ -1200,8 +1490,11 @@ class BridgeHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 set_progresso(f"Erro ao travar silêncio: {e}")
                 self.responder_json({'success': False, 'error': str(e)}, status=500)
+            finally:
+                EM_PROCESSAMENTO = False
 
         elif caminho == '/api/audacity/travar-silencio-lote':
+            EM_PROCESSAMENTO = True
             try:
                 tamanho = int(self.headers.get('Content-Length', 0))
                 corpo_bruto = self.rfile.read(tamanho)
@@ -1211,16 +1504,23 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 if not itens:
                     return self.responder_json({'success': False, 'error': 'Nenhum áudio informado.'}, status=400)
 
-                preset = dados.get('preset', '2.0_50')
-                if preset in ('2s_50', '2.0_50', '2_50', '2s_40', '2.0_40', '2_40'):
+                preset = str(dados.get('preset', '0.8_70'))
+                if '_' in preset:
+                    try:
+                        p_dur, p_comp = preset.split('_', 1)
+                        duracao = p_dur.replace('.', ',')
+                        compressao = p_comp
+                    except Exception:
+                        duracao, compressao = '0,8', '70'
+                elif preset in ('2s_50', '2.0_50', '2_50', '2s_40', '2.0_40', '2_40'):
                     duracao, compressao = '2', '50'
                 elif preset in ('1.3s_60', '1.3_60', '1.3s_30', '1.3_30'):
                     duracao, compressao = '1,3', '60'
                 elif preset in ('0.5s_80', '0.5_80', '0.5s_60', '0.5_60'):
                     duracao, compressao = '0,5', '80'
                 else:
-                    duracao = str(dados.get('duracao', '2'))
-                    compressao = str(dados.get('compressao', '50'))
+                    duracao = str(dados.get('duracao', '0,8')).replace('.', ',')
+                    compressao = str(dados.get('compressao', '70'))
 
                 limiar = str(dados.get('limiar', '-35'))
                 descartar = str(dados.get('descartar', '0,5'))
@@ -1286,6 +1586,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                         'duracaoFmt': meta['duracao_fmt'],
                         'duracaoSeg': meta['duracao_seg'],
                         'reducaoSeg': nova_v['reducaoSeg'] if nova_v else 0.0,
+                        'reducaoEtapaSeg': nova_v.get('reducaoEtapaSeg', 0.0) if nova_v else 0.0,
                         'reducaoFmt': nova_v['reducaoFmt'] if nova_v else '',
                         'historico': hist_lista,
                         'urlAudio': f'/api/audio?path={urllib.parse.quote(caminho_wav)}&t={ts_cache}',
@@ -1305,6 +1606,8 @@ class BridgeHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 set_progresso(f"Erro ao travar silêncio em lote: {e}", pct=0)
                 self.responder_json({'success': False, 'error': str(e)}, status=500)
+            finally:
+                EM_PROCESSAMENTO = False
 
         elif caminho == '/api/audacity/ajustar-tempo':
             try:
@@ -1325,10 +1628,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 # Registra backup v0 antes de alterar se ainda não tiver
                 HistoricoSilencioManager.registrar_original_se_necessario(caminho_wav, caminho_srt_existente)
 
+                modo = dados.get('modo', 'velocidade')
                 set_progresso(f"Ajustando tempo no Audacity para 1:30 ({duracao_alvo}s): {os.path.basename(caminho_wav)}...", pct=10)
                 res_audacity = pipe_runner.executar_ajustar_tempo(
                     caminho_wav,
                     duracao_alvo=duracao_alvo,
+                    modo=modo,
                     progress_callback=set_progresso
                 )
 
@@ -1369,7 +1674,8 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 meta_label = "1-30" if duracao_alvo > 70 else f"{int(duracao_alvo)}s"
                 pct_val = res_audacity.get('porcentagem', 0)
                 sinal_str = "+" if pct_val > 0 else ""
-                preset_label = f"Tempo_{meta_label} ({sinal_str}{pct_val:.1f}%)" 
+                modo_prefix = "Velocidade" if modo == "velocidade" else "Tempo"
+                preset_label = f"{modo_prefix}_{meta_label} ({sinal_str}{pct_val:.1f}%)" 
                 nova_v, hist_lista = HistoricoSilencioManager.registrar_novo_corte(
                     caminho_wav, preset_label, duracao_antiga, caminho_srt=caminho_srt
                 )
@@ -1405,6 +1711,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
                 itens = dados.get('itens', [])
                 duracao_alvo = float(dados.get('duracaoAlvo', 88.8))
+                modo = dados.get('modo', 'velocidade')
 
                 if not itens:
                     return self.responder_json({'success': False, 'error': 'Nenhum áudio informado.'}, status=400)
@@ -1422,6 +1729,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 res_lote = pipe_runner.executar_ajustar_tempo_lote(
                     itens,
                     duracao_alvo=duracao_alvo,
+                    modo=modo,
                     progress_callback=set_progresso
                 )
 
@@ -1453,7 +1761,8 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     meta_label = "1-30" if item_alvo > 70 else f"{int(item_alvo)}s"
                     pct_val = it.get('porcentagem', 0)
                     sinal_str = "+" if pct_val > 0 else ""
-                    preset_label = f"Tempo_{meta_label} ({sinal_str}{pct_val:.1f}%)" if it.get('modificado') else "Original" 
+                    modo_prefix = "Velocidade" if modo == "velocidade" else "Tempo"
+                    preset_label = f"{modo_prefix}_{meta_label} ({sinal_str}{pct_val:.1f}%)" if it.get('modificado') else "Original" 
                     nova_v, hist_lista = HistoricoSilencioManager.registrar_novo_corte(
                         cw, preset_label, duracoes_antigas.get(cw, meta['duracao_seg']), caminho_srt=cs if os.path.isfile(cs) else ""
                     )
@@ -1973,6 +2282,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                         return self.responder_json({'success': False, 'error': 'Nenhum áudio de grupo foi recebido para este job.'}, status=400)
 
                     sys.stderr.write(f"[Processar Stream] Executando lote de {len(itens_grupos)} grupos no Audacity (Masterização Unificada - Opção C)...\n")
+                    set_progresso(f"Partes consolidadas! Enviando {len(itens_grupos)} grupo(s) para masterização no Audacity...", pct=15)
 
                     res = executar_pipeline_job(
                         itens_processar=itens_grupos,

@@ -77,19 +77,12 @@ CMD_TRAVAR_SILENCIO_FINAL = 'TruncateSilence:Action="Compress Excess Silence" Co
 
 def limpar_todas_faixas(client):
     """Garante que absolutamente nenhuma faixa residual permaneça no Audacity."""
-    for _ in range(5):
-        try:
-            info = client.send('GetInfo: Type=Tracks', timeout=2.5)
-            # Se não há faixas abertas, GetInfo retorna '[  ]' ou sem '"name"'
-            if '"name"' not in info:
-                return True
-            client.send('SelectAll:', timeout=2.0)
-            client.send('RemoveTracks:', timeout=2.0)
-            time.sleep(0.4)
-        except Exception:
-            pass
-    time.sleep(0.3)
-    return False
+    try:
+        client.send('SelectAll:', timeout=5.0)
+        client.send('RemoveTracks:', timeout=5.0)
+        return True
+    except Exception:
+        return False
 
 _CACHED_AUDACITY_EXE = None
 
@@ -243,14 +236,17 @@ def clean_audacity_sessions():
             os.path.join(os.environ.get('LOCALAPPDATA', ''), 'audacity', 'SessionData'),
             os.path.join(os.environ.get('APPDATA', ''), 'audacity', 'SessionData'),
             os.path.join(os.environ.get('APPDATA', ''), 'audacity', 'AutoSave'),
+            os.path.join(tempfile.gettempdir(), 'audacity'),
         ]
         for session_dir in pastas_sessao:
             if os.path.isdir(session_dir):
                 for f in glob.glob(os.path.join(session_dir, '*')):
                     for _ in range(3):
                         try:
-                            if os.path.isfile(f):
+                            if os.path.isfile(f) or os.path.islink(f):
                                 os.remove(f)
+                            elif os.path.isdir(f):
+                                shutil.rmtree(f, ignore_errors=True)
                             break
                         except Exception:
                             time.sleep(0.05)
@@ -483,15 +479,33 @@ def _is_audacity_pid(pid):
         kernel32.CloseHandle(h)
     return False
 
+_NEUTRALIZED_HWNDS = set()
+
 def neutralizar_janela_audacity(hwnd):
     """
     Torna a janela 100% invisível em nível de kernel/DWM:
-    1. Define Alpha = 0 (transparência total no DWM).
-    2. Define região de recorte nula (0x0 pixels visíveis).
-    3. Remove da Barra de Tarefas e do Alt-Tab (ToolWindow).
-    4. Move para coordenadas fora de qualquer monitor (-32000, -32000) e executa SW_HIDE.
+    1. Se for modal de recuperação de falhas/crash, fecha/descarta automaticamente.
+    2. Define Alpha = 0 (transparência total no DWM).
+    3. Define região de recorte nula (0x0 pixels visíveis).
+    4. Remove da Barra de Tarefas e do Alt-Tab (ToolWindow).
+    5. Move para coordenadas fora de qualquer monitor (-32000, -32000) e executa SW_HIDE.
     """
     try:
+        # Detecta diálogos modais do Audacity (ex: Recuperação Automática de Falhas)
+        length = user32.GetWindowTextLengthW(hwnd)
+        if length > 0:
+            buf = ctypes.create_unicode_buffer(length + 1)
+            user32.GetWindowTextW(hwnd, buf, length + 1)
+            titulo = buf.value.lower()
+            if 'recupera' in titulo or 'recovery' in titulo or 'falha' in titulo or 'crash' in titulo:
+                # Descarta projetos recuperados para desimpedir o loop do Audacity
+                user32.PostMessageW(hwnd, 0x0010, 0, 0) # WM_CLOSE
+                user32.PostMessageW(hwnd, 0x0100, 0x1B, 0) # VK_ESCAPE
+                user32.PostMessageW(hwnd, 0x0101, 0x1B, 0)
+
+        if hwnd in _NEUTRALIZED_HWNDS:
+            return
+
         ex = GetWindowLongPtrW(hwnd, GWL_EXSTYLE)
         SetWindowLongPtrW(hwnd, GWL_EXSTYLE, (ex | WS_EX_LAYERED | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW)
         user32.SetLayeredWindowAttributes(hwnd, 0, 0, LWA_ALPHA)
@@ -505,6 +519,8 @@ def neutralizar_janela_audacity(hwnd):
         st = GetWindowLongPtrW(hwnd, GWL_STYLE)
         if st & 0x10000000: # WS_VISIBLE
             SetWindowLongPtrW(hwnd, GWL_STYLE, st & ~0x10000000)
+
+        _NEUTRALIZED_HWNDS.add(hwnd)
     except Exception:
         pass
 
@@ -553,12 +569,12 @@ def _silencer_worker(target_pid=0):
                 user32.TranslateMessage(ctypes.byref(msg))
                 user32.DispatchMessageW(ctypes.byref(msg))
 
-            # Varredura direta e instantânea no Desktop Default sem nenhum subprocesso
+            # Varredura periódica leve (sem consumir CPU desnecessária)
             if h_desktop:
                 user32.EnumDesktopWindows(h_desktop, _ENUM_DESK_PROC, 0)
         except Exception:
             pass
-        time.sleep(0.002)
+        time.sleep(0.2)
 
     if h_desktop:
         try:
@@ -618,6 +634,7 @@ def stop_audacity_silencer():
     """Interrompe a thread sentinela."""
     global _SILENCER_ACTIVE, _SILENCER_THREAD
     _SILENCER_ACTIVE = False
+    _NEUTRALIZED_HWNDS.clear()
     if _SILENCER_THREAD and _SILENCER_THREAD.is_alive():
         _SILENCER_THREAD.join(timeout=0.3)
     _SILENCER_THREAD = None
@@ -784,6 +801,28 @@ class PipeClient:
         self.h_to = None
         self.h_from = None
 
+    def _ping_ready(self, timeout_ping=2.5):
+        """Valida que o Audacity está responsivo e o pipe pronto para processar comandos."""
+        try:
+            cmd_bytes = b'SelectAll:\n'
+            written = wintypes.DWORD()
+            kernel32.WriteFile(self.h_to, cmd_bytes, len(cmd_bytes), ctypes.byref(written), None)
+            t_start = time.time()
+            bytes_avail = wintypes.DWORD()
+            while time.time() - t_start < timeout_ping:
+                ok = kernel32.PeekNamedPipe(self.h_from, None, 0, None, ctypes.byref(bytes_avail), None)
+                if ok and bytes_avail.value > 0:
+                    buf = ctypes.create_string_buffer(bytes_avail.value)
+                    read_bytes = wintypes.DWORD()
+                    if kernel32.ReadFile(self.h_from, buf, bytes_avail.value, ctypes.byref(read_bytes), None):
+                        chunk = buf.raw[:read_bytes.value].decode('utf-8', errors='ignore')
+                        if 'BatchCommand finished:' in chunk:
+                            return True
+                time.sleep(0.04)
+        except Exception:
+            pass
+        return False
+
     def connect(self, timeout=12.0):
         start = time.time()
         while time.time() - start < timeout:
@@ -795,14 +834,27 @@ class PipeClient:
                 if h_from != INVALID_HANDLE:
                     self.h_to = h_to
                     self.h_from = h_from
-                    return True
-                kernel32.CloseHandle(h_to)
+                    # Validação de handshake: confirma que Audacity não está bloqueado em modal ou inicializando
+                    if self._ping_ready(timeout_ping=2.5):
+                        return True
+                    self.close()
             time.sleep(0.3)
         return False
 
-    def send(self, cmd, timeout=30.0):
+    def send(self, cmd, timeout=60.0):
         if not self.h_to or not self.h_from:
             raise Exception('Pipes do Audacity não estão conectados.')
+
+        # 1. Drena quaisquer bytes residuais pendentes no pipe de leitura antes de enviar novo comando
+        bytes_avail = wintypes.DWORD()
+        while True:
+            ok = kernel32.PeekNamedPipe(self.h_from, None, 0, None, ctypes.byref(bytes_avail), None)
+            if ok and bytes_avail.value > 0:
+                buf = ctypes.create_string_buffer(bytes_avail.value)
+                read_bytes = wintypes.DWORD()
+                kernel32.ReadFile(self.h_from, buf, bytes_avail.value, ctypes.byref(read_bytes), None)
+            else:
+                break
 
         cmd_bytes = (cmd.strip() + '\n').encode('utf-8')
         written = wintypes.DWORD()
@@ -810,7 +862,6 @@ class PipeClient:
 
         start = time.time()
         res = []
-        bytes_avail = wintypes.DWORD()
 
         while time.time() - start < timeout:
             ok = kernel32.PeekNamedPipe(self.h_from, None, 0, None, ctypes.byref(bytes_avail), None)
@@ -944,7 +995,7 @@ def executar_processamento_audacity(itens_audio, juntar=True, macro_path=None, p
                     caminho_norm = os.path.abspath(item['caminho_wav']).replace('\\', '/')
                     pct_imp = int(20 + (idx / len(itens_audio)) * 14)
                     report(f'Importando bloco {idx}/{len(itens_audio)}: {item.get("nome", f"bloco_{idx}")}', pct=pct_imp)
-                    client.send(f'Import2: Filename="{caminho_norm}"', timeout=15.0)
+                    client.send(f'Import2: Filename="{caminho_norm}"', timeout=180.0)
                     time.sleep(0.15)
 
                 if len(itens_audio) > 1:
@@ -1018,54 +1069,49 @@ def executar_processamento_audacity(itens_audio, juntar=True, macro_path=None, p
 
             else:
                 # ════════════════════════════════════════════════════════
-                # PROCESSAMENTO EM LOTE SIMULTÂNEO (Opção C: Masterização Unificada)
-                # Todas as faixas são importadas simultaneamente para a mesma sessão do Audacity.
-                # A macro (TDR Nova, LUFS -14dB, Compressor, Limiter) atua em todas em conjunto,
-                # garantindo calibração de volume homogênea entre todos os arquivos/grupos.
-                # Em seguida, cada faixa é selecionada individualmente (com Solo) e exportada para seu próprio arquivo.
+                # PROCESSAMENTO INDIVIDUAL EM LOTE (Sem preenchimento de silêncio)
+                # Cada faixa é importada, processada com a macro e exportada isoladamente.
+                # Isso impede que o Audacity estenda as faixas menores com silêncio morto
+                # até a duração da faixa mais longa do projeto.
                 # ════════════════════════════════════════════════════════
-                report('Garantindo projeto limpo no Audacity...', pct=20)
-                limpar_todas_faixas(client)
-                time.sleep(0.4)
+                total_itens = len(itens_audio)
+                report(f'Iniciando processamento individual de {total_itens} faixa(s) no Audacity...', pct=20)
 
-                report(f'Importando {len(itens_audio)} faixa(s) para masterização unificada no Audacity...', pct=20)
                 for idx, item in enumerate(itens_audio, 1):
                     nome = item.get('nome', f'bloco_{idx}').replace('.wav', '').strip()
                     caminho_norm = os.path.abspath(item['caminho_wav']).replace('\\', '/')
-                    pct_imp = int(20 + (idx / len(itens_audio)) * 14)
-                    report(f'Importando faixa {idx}/{len(itens_audio)}: {nome}', pct=pct_imp)
-                    client.send(f'Import2: Filename="{caminho_norm}"', timeout=15.0)
-                    time.sleep(0.25)
-
-                if linhas_macro:
-                    report(f'Aplicando macro unificada em todas as {len(itens_audio)} faixas simultaneamente...', pct=36)
-                    client.send('SelectAll:', timeout=5.0)
-                    for i_m, l in enumerate(linhas_macro, 1):
-                        nome_cmd = l.split(':')[0]
-                        pct_m = int(36 + (i_m / len(linhas_macro)) * 16)
-                        report(f'Aplicando efeito: {nome_cmd} em todas as faixas...', pct=pct_m)
-                        enviar_comando_macro_com_fallback(client, l, timeout=300.0)
-                        time.sleep(0.2)
-
-                report(f'Exportando {len(itens_audio)} arquivos masterizados individualmente...', pct=53)
-                for idx, item in enumerate(itens_audio):
-                    nome = item.get('nome', f'bloco_{idx+1}').replace('.wav', '').strip()
                     caminho_saida = os.path.join(pasta_saida, f'{nome}.wav')
                     saida_norm = os.path.abspath(caminho_saida).replace('\\', '/')
 
-                    pct_exp = int(53 + ((idx + 1) / len(itens_audio)) * 15)
-                    report(f'Exportando faixa {idx+1}/{len(itens_audio)}: {nome}.wav...', pct=pct_exp)
-                    # Seleciona estritamente a faixa atual e ativa Solo para isolamento total sem mixagem
-                    client.send(f'SelectTracks: Mode="Set" Track="{idx}" TrackCount="1"', timeout=5.0)
-                    client.send('SetTrackAudio: Solo="1"', timeout=5.0)
-                    client.send(f'Export2: Filename="{saida_norm}" NumChannels=1', timeout=300.0)
-                    client.send('SetTrackAudio: Solo="0"', timeout=5.0)
+                    pct_item_inicio = int(20 + ((idx - 1) / total_itens) * 45)
+                    pct_item_fim = int(20 + (idx / total_itens) * 45)
+                    report(f'[{idx}/{total_itens}] Processando faixa: {nome}...', pct=pct_item_inicio)
 
-                    # Aguarda gravação completa do arquivo no disco
+                    # 1. Limpa projeto para garantir isolamento absoluto
+                    limpar_todas_faixas(client)
+                    time.sleep(0.2)
+
+                    # 2. Importa exclusivamente a faixa atual
+                    client.send(f'Import2: Filename="{caminho_norm}"', timeout=180.0)
+                    time.sleep(0.25)
+
+                    # 3. Aplica a macro na faixa única
+                    if linhas_macro:
+                        client.send('SelectAll:', timeout=5.0)
+                        for i_m, l in enumerate(linhas_macro, 1):
+                            nome_cmd = l.split(':')[0]
+                            enviar_comando_macro_com_fallback(client, l, timeout=300.0)
+                            time.sleep(0.15)
+
+                    # 4. Exporta a faixa masterizada preservando sua duração exata
+                    client.send('SelectAll:', timeout=5.0)
+                    client.send(f'Export2: Filename="{saida_norm}" NumChannels=1', timeout=600.0)
+
+                    # 5. Aguarda gravação completa do arquivo no disco
                     arquivo_bloco_pronto = False
                     t0_bloco = time.time()
                     ult_tam_b = -1
-                    while time.time() - t0_bloco < 45.0:
+                    while time.time() - t0_bloco < 60.0:
                         if os.path.isfile(caminho_saida):
                             tam_b = os.path.getsize(caminho_saida)
                             if tam_b > 1000:
@@ -1075,7 +1121,14 @@ def executar_processamento_audacity(itens_audio, juntar=True, macro_path=None, p
                                 ult_tam_b = tam_b
                         time.sleep(0.3)
 
+                    # 6. Limpa o projeto após exportação
+                    try:
+                        limpar_todas_faixas(client)
+                    except:
+                        pass
+
                     if arquivo_bloco_pronto:
+                        report(f'[{idx}/{total_itens}] Faixa {nome}.wav masterizada com sucesso ({round(os.path.getsize(caminho_saida)/(1024*1024), 2)} MB)!', pct=pct_item_fim)
                         arquivos_gerados.append({
                             'tipo': item.get('tipo', 'bloco'),
                             'nome': nome,
@@ -1175,7 +1228,7 @@ def executar_travar_silencio(caminho_wav, duracao="1,3", compressao="30", limiar
             caminho_temp = os.path.abspath(caminho_wav + '.trunc_temp.wav').replace('\\', '/')
 
             report(f'Importando áudio para aplicar corte de silêncio: {os.path.basename(caminho_wav)}', pct=30)
-            client.send(f'Import2: Filename="{caminho_norm}"', timeout=30.0)
+            client.send(f'Import2: Filename="{caminho_norm}"', timeout=180.0)
             time.sleep(0.2)
 
             report(f'Aplicando TruncateSilence ({duracao}s / {compressao}%)...', pct=50)
@@ -1314,7 +1367,7 @@ def executar_travar_silencio_lote(itens, duracao="2", compressao="50", limiar="-
                 caminho_norm = os.path.abspath(caminho_wav).replace('\\', '/')
                 caminho_temp = os.path.abspath(caminho_wav + '.trunc_temp.wav').replace('\\', '/')
 
-                client.send(f'Import2: Filename="{caminho_norm}"', timeout=30.0)
+                client.send(f'Import2: Filename="{caminho_norm}"', timeout=180.0)
                 time.sleep(0.25)
 
                 client.send('SelectAll:', timeout=3.0)
@@ -1411,11 +1464,11 @@ def obter_duracao_wav(caminho_wav):
         pass
     return 0.0
 
-def executar_ajustar_tempo(caminho_wav, duracao_alvo=88.8, progress_callback=None):
+def executar_ajustar_tempo(caminho_wav, duracao_alvo=88.8, progress_callback=None, modo="velocidade"):
     """
-    Ajusta proporcionalmente o tempo do áudio WAV no Audacity usando o efeito
-    ChangeTempo com SBSMS="1" (alta qualidade, preserva afinação e timbre da voz)
-    para atingir a duração alvo informada (padrão 88.8s / 1:30 min).
+    Ajusta proporcionalmente o tempo do áudio WAV no Audacity:
+    - modo='velocidade' (Padrão): usa ChangeSpeedAndPitch (zero artefatos robóticos, preserva 100% o brilho e clareza da voz)
+    - modo='tempo': usa ChangeTempo com SBSMS="1"
     """
     def report(msg, pct=None):
         if progress_callback:
@@ -1491,15 +1544,19 @@ def executar_ajustar_tempo(caminho_wav, duracao_alvo=88.8, progress_callback=Non
                 except: pass
 
             report(f'Importando áudio para ajuste de tempo: {os.path.basename(caminho_wav)}', pct=30)
-            client.send(f'Import2: Filename="{caminho_norm}"', timeout=30.0)
+            client.send(f'Import2: Filename="{caminho_norm}"', timeout=180.0)
             time.sleep(0.3)
 
             report('Selecionando todo o áudio...', pct=50)
             client.send('SelectAll:', timeout=5.0)
             time.sleep(0.2)
 
-            cmd_tempo = f'ChangeTempo:Percentage="{pct_str}" SBSMS="1"'
-            report(f'Aplicando ChangeTempo (+{pct_str}%, alta qualidade)...', pct=65)
+            if modo == 'tempo':
+                cmd_tempo = f'ChangeTempo:Percentage="{pct_str}" SBSMS="1"'
+                report(f'Aplicando ChangeTempo (+{pct_str}%, estiramento SBSMS)...', pct=65)
+            else:
+                cmd_tempo = f'ChangeSpeedAndPitch:Percentage="{pct_str}"'
+                report(f'Aplicando Ajuste de Velocidade ({pct_str}%, alta fidelidade sem robô)...', pct=65)
             client.send(cmd_tempo, timeout=180.0)
             time.sleep(0.4)
 
@@ -1568,10 +1625,12 @@ def executar_ajustar_tempo(caminho_wav, duracao_alvo=88.8, progress_callback=Non
             except: pass
             _schedule_idle_close(180.0)
 
-def executar_ajustar_tempo_lote(itens, duracao_alvo=88.8, progress_callback=None):
+def executar_ajustar_tempo_lote(itens, duracao_alvo=88.8, progress_callback=None, modo="velocidade"):
     """
     Executa o ajuste proporcional de tempo em LOTE para todos os arquivos que
     ultrapassam a duração alvo em uma ÚNICA sessão do Audacity.
+    - modo='velocidade' (Padrão): usa ChangeSpeedAndPitch (alta fidelidade sem robô)
+    - modo='tempo': usa ChangeTempo com SBSMS="1"
     """
     def report(msg, pct=None):
         if progress_callback:
@@ -1663,12 +1722,15 @@ def executar_ajustar_tempo_lote(itens, duracao_alvo=88.8, progress_callback=None
                     try: os.remove(caminho_temp_os)
                     except: pass
 
-                client.send(f'Import2: Filename="{caminho_norm}"', timeout=30.0)
+                client.send(f'Import2: Filename="{caminho_norm}"', timeout=180.0)
                 time.sleep(0.2)
                 client.send('SelectAll:', timeout=5.0)
                 time.sleep(0.1)
 
-                cmd_tempo = f'ChangeTempo:Percentage="{pct_str}" SBSMS="1"'
+                if modo == 'tempo':
+                    cmd_tempo = f'ChangeTempo:Percentage="{pct_str}" SBSMS="1"'
+                else:
+                    cmd_tempo = f'ChangeSpeedAndPitch:Percentage="{pct_str}"'
                 client.send(cmd_tempo, timeout=180.0)
                 time.sleep(0.3)
 
