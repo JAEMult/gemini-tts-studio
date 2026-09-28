@@ -329,13 +329,381 @@
     .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
     .main { display: grid; grid-template-columns: 320px 1fr; height: calc(100vh - 45px); }
 
-    /* ── SIDEBAR ── */
+    /* ── SIDEBAR DIVIDIDA 50% / 50% ── */
     .sidebar {
       background: var(--surface);
       border-right: 1px solid var(--border);
       display: flex;
       flex-direction: column;
+      height: calc(100vh - 45px);
+      overflow: hidden;
+    }
+    .sidebar-top {
+      flex: 1 1 50%;
+      min-height: 0;
       overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar-bottom {
+      flex: 1 1 50%;
+      min-height: 0;
+      border-top: 2px solid var(--border);
+      background: var(--surface2);
+      display: flex;
+      flex-direction: column;
+      padding: 10px 12px;
+      gap: 8px;
+      overflow-y: auto;
+    }
+    .sidebar-action-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 9px 11px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    /* ── TELINHA CONSOLE / MONITOR DE STATUS AO VIVO ── */
+    .status-terminal {
+      background: #0d0f14;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
+      font-family: 'Consolas', 'Courier New', monospace;
+    }
+    .terminal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+      padding-bottom: 5px;
+    }
+    .terminal-dots {
+      display: flex;
+      gap: 4px;
+    }
+    .t-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+    }
+    .t-red { background: #ef4444; }
+    .t-yellow { background: #eab308; }
+    .t-green { background: #10b981; }
+    .terminal-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: #94a3b8;
+      text-transform: uppercase;
+    }
+    .terminal-status-badge {
+      font-size: 9px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: rgba(16, 185, 129, 0.15);
+      color: #10b981;
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      text-transform: uppercase;
+    }
+    .terminal-status-badge.processando {
+      background: rgba(245, 158, 11, 0.15);
+      color: #f59e0b;
+      border-color: rgba(245, 158, 11, 0.4);
+    }
+    .terminal-status-badge.erro {
+      background: rgba(239, 68, 68, 0.15);
+      color: #ef4444;
+      border-color: rgba(239, 68, 68, 0.4);
+    }
+    .terminal-contador-badge {
+      font-size: 9.5px;
+      font-weight: 700;
+      padding: 1px 7px;
+      border-radius: 4px;
+      background: rgba(56, 189, 248, 0.15);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      letter-spacing: 0.04em;
+      font-family: 'Consolas', 'Courier New', monospace;
+      white-space: nowrap;
+    }
+    .sidebar-resumo-audios {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 11px;
+    }
+    .resumo-audios-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 4px;
+    }
+    .resumo-audios-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+    }
+    .resumo-audios-status {
+      font-size: 9.5px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: rgba(245, 158, 11, 0.15);
+      color: #f59e0b;
+      border: 1px solid rgba(245, 158, 11, 0.35);
+    }
+    .resumo-audios-status.concluido {
+      background: rgba(16, 185, 129, 0.15);
+      color: #10b981;
+      border-color: rgba(16, 185, 129, 0.35);
+    }
+    .resumo-audios-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 4px;
+      background: var(--surface2);
+      border-radius: 6px;
+      padding: 5px 6px;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+    }
+    .resumo-mini-stat {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 1px;
+    }
+    .resumo-mini-stat .stat-lbl {
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+    .resumo-mini-stat .stat-val {
+      font-size: 10.5px;
+      font-weight: 700;
+      color: var(--text);
+      font-family: 'Consolas', 'Courier New', monospace;
+      white-space: nowrap;
+    }
+    .resumo-audios-footer {
+      font-size: 9.5px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-align: center;
+      line-height: 1.2;
+    }
+    .terminal-main-line {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: #f1f5f9;
+      min-height: 20px;
+    }
+    .terminal-texto {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+    }
+    .terminal-progress-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 4px;
+      height: 7px;
+      overflow: hidden;
+      position: relative;
+    }
+    .terminal-progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #7c6af7, #10b981);
+      transition: width 0.2s ease;
+    }
+    .terminal-progress-pct {
+      position: absolute;
+      right: 4px;
+      top: -1px;
+      font-size: 8px;
+      font-weight: 700;
+      color: #94a3b8;
+      line-height: 9px;
+    }
+    .terminal-log {
+      max-height: 58px;
+      overflow-y: auto;
+      font-size: 9.5px;
+      color: #64748b;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin-top: 2px;
+      padding-top: 4px;
+      border-top: 1px dashed rgba(255, 255, 255, 0.06);
+    }
+    .terminal-log::-webkit-scrollbar {
+      width: 4px;
+    }
+    .terminal-log::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 2px;
+    }
+    .terminal-log-entry {
+      line-height: 1.3;
+      word-break: break-all;
+    }
+
+    /* ── SLEEK MINI AUDIO PLAYER PARA ABA 3 ── */
+    .mini-audio-player {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 12px;
+      margin-top: 8px;
+    }
+    .mini-player-btn-play {
+      background: var(--accent);
+      color: white;
+      border: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      flex-shrink: 0;
+      transition: transform 0.12s ease, background 0.15s ease;
+    }
+    .mini-player-btn-play:hover {
+      transform: scale(1.08);
+      background: var(--accent-hover);
+    }
+    .mini-player-time {
+      font-size: 11px;
+      font-family: 'Consolas', monospace;
+      color: var(--text-muted);
+      white-space: nowrap;
+      min-width: 85px;
+    }
+    .mini-player-track {
+      flex: 1;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      position: relative;
+      cursor: pointer;
+      overflow: hidden;
+    }
+    .mini-player-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 3px;
+      width: 0%;
+      transition: width 0.1s linear;
+    }
+    .mini-player-btn-mute {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 13px;
+      padding: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.15s ease;
+    }
+    .mini-player-btn-mute:hover {
+      color: var(--text);
+    }
+
+    /* ── CAIXA DE VISUALIZAÇÃO DE SRT ESTILIZADA ── */
+    .srt-display-box {
+      margin-top: 10px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .srt-box-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px 10px;
+      background: rgba(255, 255, 255, 0.03);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    .srt-cues-list {
+      max-height: 130px;
+      overflow-y: auto;
+      padding: 6px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .srt-cues-list::-webkit-scrollbar {
+      width: 5px;
+    }
+    .srt-cues-list::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+    .srt-cue-item {
+      display: flex;
+      gap: 8px;
+      font-size: 11.5px;
+      line-height: 1.4;
+      padding-bottom: 4px;
+      border-bottom: 1px dashed rgba(255, 255, 255, 0.04);
+    }
+    .srt-cue-time {
+      font-family: 'Consolas', monospace;
+      font-size: 10px;
+      color: #38bdf8;
+      white-space: nowrap;
+      flex-shrink: 0;
+      padding-top: 1px;
+    }
+    .srt-cue-text {
+      color: #e2e8f0;
+      word-break: break-word;
+    }
+    .srt-vazio-aviso {
+      padding: 14px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 11.5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
     }
     .section { padding: 12px 14px; border-bottom: 1px solid var(--border); }
     .section-title {
@@ -1124,6 +1492,7 @@
 
 <div class="main">
   <aside class="sidebar">
+    <div class="sidebar-top">
 
     <!-- PERFIL DO CANAL -->
     <div class="section">
@@ -1321,6 +1690,94 @@
         <textarea id="voiceBibleText" placeholder="Selecione um perfil para carregar o Voice Bible..."></textarea>
       </div>
     </details>
+    </div> <!-- /.sidebar-top -->
+
+    <!-- METADE DE BAIXO: AÇÕES AUDACITY + TELINHA DE STATUS AO VIVO -->
+    <div class="sidebar-bottom">
+      <div class="sidebar-action-box">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em;">Ponte:</span>
+            <span id="bridgeStatusBadge" class="bridge-badge checking">Verificando...</span>
+          </div>
+          <button class="btn-icon" id="fecharAudacityBtn" onclick="fecharAudacity()" title="Garante que o Audacity seja encerrado caso tenha ficado aberto" style="font-size:10px; padding:2px 7px; height:22px;">✕ Fechar</button>
+        </div>
+
+        <label style="font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:2px; margin-top:2px;">Macro Audacity:</label>
+        <select id="macroSelect" style="font-size:11px; padding:4px 8px; margin-bottom:6px;"></select>
+
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:6px;">
+          <label class="checkbox-label" title="Alinha no Audacity antes de masterizar e unifica os blocos" style="font-size:11px; margin:0;">
+            <input type="checkbox" id="checkJuntarAudios" onchange="atualizarInfoJuntar()">
+            <b>🔗 Juntar</b>
+          </label>
+          <label class="checkbox-label" title="Gera legendas SRT com Whisper simultaneamente após masterizar" style="font-size:11px; margin:0;">
+            <input type="checkbox" id="checkGerarSrt">
+            <b>📄 Gerar SRT</b>
+          </label>
+        </div>
+
+        <button class="btn-processar" id="processarAudacityBtn" onclick="processarComAudacityEWhisper()" style="width:100%; justify-content:center; padding:8px 12px; font-size:12.5px; font-weight:700; box-shadow:0 2px 8px rgba(124,106,247,0.3);">
+          ⚡ Processar no Audacity
+        </button>
+        <span id="posProcMsg" style="font-size:11px; font-weight:500; min-height:16px; display:block; margin-top:2px; text-align:center;"></span>
+      </div>
+
+      <!-- TELINHA MONITOR DE OPERAÇÕES AO VIVO -->
+      <div class="status-terminal" id="statusTerminal">
+        <div class="terminal-header">
+          <div class="terminal-dots">
+            <span class="t-dot t-red"></span>
+            <span class="t-dot t-yellow"></span>
+            <span class="t-dot t-green"></span>
+          </div>
+          <span class="terminal-title">Monitor do Sistema</span>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span class="terminal-contador-badge" id="terminalContadorAudios" title="Contador de áudios concluídos no projeto">0/0</span>
+            <span class="terminal-status-badge" id="terminalStatusBadge">Ocioso</span>
+          </div>
+        </div>
+        <div class="terminal-body">
+          <div class="terminal-main-line">
+            <div class="clean-circle-spinner hidden" id="terminalSpinner"></div>
+            <span class="terminal-icone" id="terminalIcone">🟢</span>
+            <span class="terminal-texto" id="terminalTexto" title="Sistema pronto para processar.">Sistema pronto para processar.</span>
+          </div>
+          <div class="terminal-progress-container">
+            <div class="terminal-progress-bar" id="terminalProgressBar" style="width: 0%;"></div>
+            <span class="terminal-progress-pct" id="terminalProgressPct">0%</span>
+          </div>
+          <div class="terminal-log" id="terminalLog">
+            <div class="terminal-log-entry">[Sistema] Estúdio carregado e pronto.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAINEL PERMANENTE DE STATUS E RESUMO DOS ÁUDIOS -->
+      <div class="sidebar-resumo-audios" id="painelResumoAudiosSidebar">
+        <div class="resumo-audios-header">
+          <span class="resumo-audios-title">📊 Áudios do Projeto</span>
+          <span class="resumo-audios-status" id="resumoAudiosStatusBadge">0 prontos</span>
+        </div>
+        <div class="resumo-audios-grid">
+          <div class="resumo-mini-stat" title="Áudios gerados no Estúdio (Aba 1)">
+            <span class="stat-lbl">🎙️ Gerados:</span>
+            <span class="stat-val" id="statAudiosGerados">0 / 0</span>
+          </div>
+          <div class="resumo-mini-stat" title="Áudios masterizados no Audacity (Aba 2)">
+            <span class="stat-lbl">🎚️ Master:</span>
+            <span class="stat-val" id="statAudiosMaster">0 / 0</span>
+          </div>
+          <div class="resumo-mini-stat" title="Legendas SRT sincronizadas no Whisper (Aba 3)">
+            <span class="stat-lbl">📝 Legendas:</span>
+            <span class="stat-val" id="statAudiosSrt">0 / 0</span>
+          </div>
+        </div>
+        <div class="resumo-audios-footer" id="resumoAudiosFooter">
+          <span>⏳ Nenhum áudio gerado ainda</span>
+        </div>
+      </div>
+    </div> <!-- /.sidebar-bottom -->
 
   </aside>
 
@@ -1484,41 +1941,19 @@
         </div>
       </div>
 
-      <!-- Barra de Controle Audacity: Macros e Disparo -->
-      <div style="display:flex; align-items:center; gap:12px; margin-top:12px; padding:10px 14px; background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius); flex-wrap:wrap;">
-        <div style="display:flex; align-items:center; gap:8px;">
-          <span style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Ponte:</span>
-          <span id="bridgeStatusBadge" class="bridge-badge checking">Verificando...</span>
-        </div>
-        <div style="height:18px; width:1px; background:var(--border);"></div>
-        <div style="display:flex; align-items:center; gap:6px;">
-          <label style="font-size:11.5px; font-weight:600; opacity:.85;">Macro:</label>
-          <select id="macroSelect" style="max-width:320px; font-size:12px;"></select>
-        </div>
-        <label class="checkbox-label" title="Alinha no Audacity antes de masterizar e unifica os blocos" style="font-size:11.5px; margin:0;">
-          <input type="checkbox" id="checkJuntarAudios" onchange="atualizarInfoJuntar()">
-          <b>🔗 Juntar em um só</b>
-        </label>
-        <label class="checkbox-label" title="Gera legendas SRT com Whisper simultaneamente após masterizar" style="font-size:11.5px; margin:0;">
-          <input type="checkbox" id="checkGerarSrt">
-          <b>📄 Gerar SRT</b>
-        </label>
-        <button class="btn-processar" id="processarAudacityBtn" onclick="processarComAudacityEWhisper()" style="margin-left:auto; padding:6px 14px; font-size:12px;">
-          ⚡ Processar no Audacity
-        </button>
-        <span id="posProcMsg" style="font-size:12px; font-weight:500;"></span>
-      </div>
+
 
       <!-- Barra de Ações Rápidas: Silêncio e Velocidade -->
       <div class="master-toolbar-linha" id="masterToolbarLinha" style="display:flex; align-items:center; gap:12px; margin-top:10px; padding:10px 14px; background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius); flex-wrap:wrap;">
         <span style="font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-muted); display:inline-flex; align-items:center; gap:5px;">⚡ Silêncio & Tempo:</span>
         <div style="display:inline-flex; align-items:center; border:1px solid rgba(245,158,11,0.35); border-radius:var(--radius); overflow:hidden; background:var(--surface);" title="Escolha a configuração de corte de silêncio para aplicar em lote">
           <select id="selPresetLote" style="background:transparent; border:none; border-right:1px solid rgba(245,158,11,0.25); color:var(--text); padding:6px 10px; font-size:11.5px; font-weight:500; cursor:pointer; outline:none; font-family:inherit;">
-            <option value="0.8_70" selected style="background:#1a1a24; color:#e2e8f0;">0,8s / 70% (Padrão TTS)</option>
-            <option value="1.0_60" style="background:#1a1a24; color:#e2e8f0;">1,0s / 60% (Pausas Médias)</option>
-            <option value="1.3_60" style="background:#1a1a24; color:#e2e8f0;">1,3s / 60% (Pausas Longas)</option>
             <option value="2.0_50" style="background:#1a1a24; color:#e2e8f0;">2,0s / 50% (Pausas Excessivas)</option>
+            <option value="1.3_60" style="background:#1a1a24; color:#e2e8f0;">1,3s / 60% (Pausas Longas)</option>
+            <option value="1.0_60" style="background:#1a1a24; color:#e2e8f0;">1,0s / 60% (Pausas Médias)</option>
+            <option value="0.8_70" selected style="background:#1a1a24; color:#e2e8f0;">0,8s / 70% (Padrão TTS)</option>
             <option value="0.5_80" style="background:#1a1a24; color:#e2e8f0;">0,5s / 80% (Ritmo Dinâmico)</option>
+            <option value="0.35_85" style="background:#1a1a24; color:#e2e8f0;">0,35s / 85% (Ultra Rápido / Shorts)</option>
           </select>
           <button class="btn-download" id="btnTravarSilencioTodos" onclick="travarSilencioTodosMasterizados()" style="border:none; border-radius:0; padding:6px 13px; background:rgba(245,158,11,0.14); color:#f59e0b; font-weight:600; font-size:11.5px; cursor:pointer;" title="Aplica a configuração selecionada em todos os áudios">
             ✂️ Travar em Todos
@@ -1575,6 +2010,20 @@
           <button class="btn-generate" id="btnBaixarTudo" onclick="baixarTudoMasterizado()" style="padding:7px 16px;" title="Baixar todos os áudios .wav e legendas .srt">
             📦 Baixar Áudios + .SRT (.zip)
           </button>
+        </div>
+      </div>
+
+      <!-- BARRA DE PROGRESSO AO VIVO DA ABA 3 (WHISPER / GPU) -->
+      <div id="legendasProgressoContainer" class="hidden" style="margin-top:10px; margin-bottom:12px; padding:12px 16px; background:var(--surface2); border:1px solid rgba(82, 183, 136, 0.4); border-radius:var(--radius); display:none; flex-direction:column; gap:8px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
+            <span class="clean-circle-spinner" style="width:14px; height:14px; flex-shrink:0;"></span>
+            <span id="legendasProgressoTexto" style="font-size:12.5px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Transcrevendo áudio na GPU com Whisper...</span>
+          </div>
+          <span id="legendasProgressoPct" style="font-size:12px; font-weight:700; color:#52b788; flex-shrink:0;">0%</span>
+        </div>
+        <div style="width:100%; height:6px; background:rgba(255,255,255,0.06); border-radius:9999px; overflow:hidden;">
+          <div id="legendasProgressBar" style="width:0%; height:100%; background:linear-gradient(90deg, #52b788, #7c6af7); transition:width 0.2s ease;"></div>
         </div>
       </div>
 

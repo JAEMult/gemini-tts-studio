@@ -244,16 +244,94 @@ def _alinhar_palavras_audio(palavras_ref_originais, palavras_aud_whisper):
 
     return palavras_finais
 
-def _gerar_blocos_srt(audio_path, texto_usuario="", max_caracteres=42):
+def normalizar_gramatica_srt(texto):
+    if not texto:
+        return ""
+    t = texto
+    # Correções de nomes bíblicos/históricos e erros fonéticos frequentes do Whisper
+    t = re.sub(r'\bZBD\s+o\b', 'Zebedeu', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bZBD\b', 'Zebedeu', t)
+    t = re.sub(r'\bZbdl\b', 'Zebedeu', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bCebedeo\b', 'Zebedeo', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bA\s+Dolecência\b', 'Adolescência', t, flags=re.IGNORECASE)
+    t = re.sub(r'\ba\s+dolescência\b', 'Adolescência', t)
+    t = re.sub(r'\bAdolescents\b', 'Adolescence', t)
+    t = re.sub(r'\bComo\s+o\s+vidro\s+Anaxando\b', 'Comovido, Anaxando', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bComo\s+o\s+vidro\s+Anashando\b', 'Comovido, Anaxando', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bAnashando\b', 'Anaxando', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bSevereia\b', 'Cesareia', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bCésarêia\b', 'Cesareia', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bCesaréia\b', 'Cesareia', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bGhosnode\b', 'Gonod', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bGounad\b', 'Gonod', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bGhanad\b', 'Gonod', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bGannad\b', 'Ganid', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bGannet\b', 'Ganid', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bGonnad\b', 'Ganid', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bGanide\b', 'Ganid', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bGhanide\b', 'Ganid', t, flags=re.IGNORECASE)
+    t = re.sub(r'\ba\s+ganite\b', 'Ganid', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bMelchisedec\b', 'Melquisedeque', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bMelchizedek\b', 'Melquisedec', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bSirene\b', 'Cirene', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bSiren\b', 'Cirene', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bse\s+mão\s+e\s+Judé\b', 'Simão e Judá', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bse\s+mão\s+e\s+Judá\b', 'Simão e Judá', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bse\s+mão\b', 'Simão', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bVim\s+um\b', 'Vinham', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bSalami\b', 'Salome', t)
+    t = re.sub(r'\bInscreva\s*-\s*se\b', 'Inscreva-se', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bInscreva\s+se\b', 'Inscreva-se', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bTornou\s+se\b', 'Tornou-se', t)
+    t = re.sub(r'\btornou\s+se\b', 'tornou-se', t)
+    t = re.sub(r'\bDiz\s+se,\s*apenas\b', 'Disse apenas', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bDiz\s+se\b', 'Disse', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bà\s+Beiramar\b', 'à beira-mar', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bBeiramar\b', 'beira-mar', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bDalindiante\b', 'Dali em diante', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bcontia\b', 'quantia', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bCaffarnaum\b', 'Cafarnaum', t, flags=re.IGNORECASE)
+    t = re.sub(r'\ba\s+Caffarnaum\b', 'Cafarnaum', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bmentário\s+inesperado\b', 'mentor inesperado', t, flags=re.IGNORECASE)
+    t = re.sub(r'\blidar\b', 'lhe dar', t, flags=re.IGNORECASE)
+    t = re.sub(r'\ba\s+via\b', 'havia', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bvinha\s+aí\b', 'vem aí', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bBetzayda\b', 'Betsaida', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bTiberius\b', 'Tiberias', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bKapua\b', 'Capua', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bJapa\b', 'Joppa', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bGrigo\b', 'grego', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bamphitheatro\b', 'anfiteatro', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bJudéia\b', 'Judeia', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bé\s+assista\b', 'e assista', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bSuscríbete\s*-\s*te\b', 'Suscríbete', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bSuscríbete\s*,\s*', 'Suscríbete, ', t, flags=re.IGNORECASE)
+    t = re.sub(r'\bSubscribe\s*,\s*', 'Subscribe, ', t, flags=re.IGNORECASE)
+    t = re.sub(r'[ \t]+', ' ', t)
+    t = re.sub(r'\s+([,.:;!?…])', r'\1', t)
+    return t.strip()
+
+def _gerar_blocos_srt(audio_path, texto_usuario="", max_caracteres=42, progress_callback=None):
     """
     Gera blocos sincronizados contendo (t_inicio, t_fim, texto_bloco)
     respeitando as regras de quebra por fim de frase (.!?…), pausa de áudio ou limite de caracteres.
     """
+    if progress_callback:
+        progress_callback("Carregando modelo Whisper na GPU...", pct=12)
+
     modelo = obter_modelo()
+
+    if progress_callback:
+        progress_callback("Iniciando transcrição de áudio com Whisper...", pct=15)
+
     segments, info = modelo.transcribe(audio_path, word_timestamps=True)
 
+    duracao_total = getattr(info, 'duration', 0.0) or 1.0
     palavras_audio = []
     for seg in segments:
+        if progress_callback:
+            pct = int(min(92, max(15, (seg.end / duracao_total) * 100)))
+            progress_callback(f"Transcrevendo com Whisper ({seg.end:.1f}s / {duracao_total:.1f}s)...", pct=pct)
         for w in (seg.words or []):
             w_limpo = limpar_todas_tags(w.word.strip())
             if w_limpo:
@@ -262,6 +340,9 @@ def _gerar_blocos_srt(audio_path, texto_usuario="", max_caracteres=42):
     n_audio = len(palavras_audio)
     if n_audio == 0:
         raise ValueError("Não foi possível transcrever o áudio. Verifique se o arquivo tem fala audível.")
+
+    if progress_callback:
+        progress_callback("Alinhando legendas com o roteiro...", pct=94)
 
     texto_usuario = limpar_todas_tags(texto_usuario)
     texto_usuario_informado = bool(texto_usuario and texto_usuario.strip())
@@ -289,30 +370,66 @@ def _gerar_blocos_srt(audio_path, texto_usuario="", max_caracteres=42):
         fim_bloco = t_fim
         termina_frase = palavra[-1] in ".!?…"
 
-        # Pausa natural no áudio (ex: silêncio > 0.8s) fecha o bloco para não reter legenda na tela
+        # Pausa natural no áudio (ex: silêncio > 0.8s) fecha o bloco
         pausa_longa = False
         if i + 1 < len(palavras_finais):
             prox_t0 = palavras_finais[i + 1][1]
             if prox_t0 - t_fim > 0.8:
                 pausa_longa = True
 
-        if (termina_frase or atual_n >= max_caracteres or pausa_longa) and atual:
-            texto_bloco = " ".join(atual)
-            blocos.append((inicio_bloco, fim_bloco, texto_bloco))
+        # Prevenção ativa de palavras órfãs no fim da frase:
+        # Se fechar agora for deixar apenas 1 ou 2 palavras sozinhas até o ponto final, segura no bloco atual
+        deve_fechar_por_tamanho = False
+        if atual_n >= max_caracteres and not termina_frase and not pausa_longa:
+            restantes_na_frase = 0
+            for j in range(i + 1, min(i + 8, len(palavras_finais))):
+                restantes_na_frase += 1
+                if palavras_finais[j][0][-1] in ".!?…":
+                    break
+            if restantes_na_frase > 2:
+                deve_fechar_por_tamanho = True
+
+        if (termina_frase or deve_fechar_por_tamanho or pausa_longa) and atual:
+            texto_bloco = normalizar_gramatica_srt(" ".join(atual))
+            if texto_bloco:
+                blocos.append((inicio_bloco, fim_bloco, texto_bloco))
             atual = []
             atual_n = 0
             inicio_bloco = None
 
     if atual:
-        texto_bloco = " ".join(atual)
-        blocos.append((inicio_bloco, fim_bloco, texto_bloco))
+        texto_bloco = normalizar_gramatica_srt(" ".join(atual))
+        if texto_bloco:
+            blocos.append((inicio_bloco, fim_bloco, texto_bloco))
 
     duracao = getattr(info, "duration", None) or (blocos[-1][1] if blocos else 0.0)
+
+    # Passada anti-órfã: funde palavras isoladas (< 3 palavras ou duração < 0.85s) com a fala anterior
+    blocos_sem_orfas = []
+    for b in blocos:
+        t0, t1, txt = b
+        txt = normalizar_gramatica_srt(limpar_todas_tags(txt))
+        if not txt:
+            continue
+        words = txt.split()
+        dur_cue = t1 - t0
+        if len(words) <= 1 and dur_cue < 0.85 and blocos_sem_orfas:
+            p_t0, p_t1, p_txt = blocos_sem_orfas[-1]
+            blocos_sem_orfas[-1] = (p_t0, t1, normalizar_gramatica_srt(f"{p_txt} {txt}"))
+        elif len(words) <= 2 and dur_cue < 0.65 and blocos_sem_orfas:
+            p_t0, p_t1, p_txt = blocos_sem_orfas[-1]
+            blocos_sem_orfas[-1] = (p_t0, t1, normalizar_gramatica_srt(f"{p_txt} {txt}"))
+        elif len(words) <= 1 and dur_cue < 0.85 and not blocos_sem_orfas and len(blocos) > 1:
+            # Palavra órfã inicial (ex: 'Explicou:') - aguarda para fundir na próxima se necessário
+            blocos_sem_orfas.append((t0, t1, txt))
+        else:
+            blocos_sem_orfas.append((t0, t1, txt))
+    blocos = blocos_sem_orfas
 
     # Blindagem temporal estrita (Garante 0 amontoadas, 0 retrocessos e durações legíveis)
     blocos_seguros = []
     for idx_b, (t0, t1, txt) in enumerate(blocos):
-        txt_limpo = limpar_todas_tags(txt)
+        txt_limpo = normalizar_gramatica_srt(limpar_todas_tags(txt))
         if not txt_limpo:
             continue
         if blocos_seguros:
@@ -321,7 +438,7 @@ def _gerar_blocos_srt(audio_path, texto_usuario="", max_caracteres=42):
                 t0 = round(prev_t0 + 0.30, 3)
             if t0 < prev_t1 - 0.05:
                 t0 = round(prev_t1 + 0.02, 3)
-        dur_min = max(0.45, min(7.5, len(txt_limpo) * 0.04))
+        dur_min = max(0.5, min(7.5, len(txt_limpo) * 0.04))
         if t1 <= t0 or (t1 - t0) < dur_min:
             t1 = round(t0 + dur_min, 3)
         elif (t1 - t0) > 8.0:
@@ -338,6 +455,17 @@ def _formatar_srt(blocos):
     idx_real = 1
     for (t0, t1, texto_bloco) in blocos:
         texto_limpo = limpar_todas_tags(texto_bloco)
+        # Normalização gramatical final
+        texto_limpo = re.sub(r'\bInscreva\s*-\s*se\b', 'Inscreva-se', texto_limpo, flags=re.IGNORECASE)
+        texto_limpo = re.sub(r'\bInscreva\s+se\b', 'Inscreva-se', texto_limpo, flags=re.IGNORECASE)
+        texto_limpo = re.sub(r'\bTornou\s+se\b', 'Tornou-se', texto_limpo)
+        texto_limpo = re.sub(r'\btornou\s+se\b', 'tornou-se', texto_limpo)
+        texto_limpo = re.sub(r'\bDiz\s+se,\s*apenas\b', 'Disse apenas', texto_limpo, flags=re.IGNORECASE)
+        texto_limpo = re.sub(r'\bDiz\s+se\b', 'Disse', texto_limpo, flags=re.IGNORECASE)
+        texto_limpo = re.sub(r'\bà\s+Beiramar\b', 'à beira-mar', texto_limpo, flags=re.IGNORECASE)
+        texto_limpo = re.sub(r'\bconvidas\b', 'com vidas', texto_limpo, flags=re.IGNORECASE)
+        texto_limpo = re.sub(r'\bé\s+assista\b', 'e assista', texto_limpo, flags=re.IGNORECASE)
+        texto_limpo = re.sub(r'[ \t]+', ' ', texto_limpo).strip()
         if not texto_limpo:
             continue
         linhas_srt.append(str(idx_real))
@@ -529,21 +657,44 @@ def auditar_srt(srt_conteudo, duracao_audio_seg=None):
 def reparar_srt(srt_conteudo, duracao_audio_seg=None):
     """
     Repara automaticamente qualquer arquivo SRT que possua falas amontoadas,
-    micro-durações, colisões ou mega-durações congeladas.
+    micro-durações, colisões, palavras órfãs, cues vazios ou mega-durações congeladas.
     Retorna (novo_srt_texto, novo_relatorio_auditoria).
     """
     blocos = parse_srt(srt_conteudo)
     if not blocos:
         return srt_conteudo, auditar_srt(srt_conteudo, duracao_audio_seg)
 
-    # 1. Elimina duplicatas exatas consecutivas
-    limpos = [blocos[0]]
-    for b in blocos[1:]:
-        ant = limpos[-1]
-        if b['texto'] == ant['texto'] and abs(b['t0'] - ant['t0']) < 0.1:
+    # 1. Normaliza gramática, elimina cues vazios e duplicatas exatas consecutivas
+    limpos = []
+    for b in blocos:
+        txt = normalizar_gramatica_srt(limpar_todas_tags(b.get('texto', '')))
+        if not txt:
             continue
+        b['texto'] = txt
+        if limpos:
+            ant = limpos[-1]
+            if b['texto'] == ant['texto'] and abs(b['t0'] - ant['t0']) < 0.1:
+                continue
         limpos.append(b)
     blocos = limpos
+    if not blocos:
+        return "", auditar_srt("", duracao_audio_seg)
+
+    # 1.1 Passada anti-órfã: funde palavras isoladas (<= 1 palavra com dur < 0.85s ou <= 2 palavras com dur < 0.65s) no bloco anterior
+    blocos_sem_orfas = []
+    for b in blocos:
+        txt = b['texto']
+        words = txt.split()
+        dur = b['t1'] - b['t0']
+        if len(words) <= 1 and dur < 0.85 and blocos_sem_orfas:
+            blocos_sem_orfas[-1]['t1'] = b['t1']
+            blocos_sem_orfas[-1]['texto'] = normalizar_gramatica_srt(f"{blocos_sem_orfas[-1]['texto']} {txt}")
+        elif len(words) <= 2 and dur < 0.65 and blocos_sem_orfas:
+            blocos_sem_orfas[-1]['t1'] = b['t1']
+            blocos_sem_orfas[-1]['texto'] = normalizar_gramatica_srt(f"{blocos_sem_orfas[-1]['texto']} {txt}")
+        else:
+            blocos_sem_orfas.append(b)
+    blocos = blocos_sem_orfas
 
     # 2. Localiza e redistribui clusters amontoados
     n = len(blocos)
@@ -604,13 +755,13 @@ def reparar_srt(srt_conteudo, duracao_audio_seg=None):
     novo_relatorio = auditar_srt(novo_srt, duracao_audio_seg)
     return novo_srt, novo_relatorio
 
-def gerar_srt_whisper(audio_path, texto_referencia="", max_caracteres=42, retornar_meta=False):
+def gerar_srt_whisper(audio_path, texto_referencia="", max_caracteres=42, retornar_meta=False, progress_callback=None):
     """
     Função principal chamada pela ponte para gerar a legenda SRT completa.
     Gera blocos sincronizados, audita o resultado e garante 100% de integridade.
     """
     texto_referencia = limpar_todas_tags(texto_referencia)
-    blocos, duracao, info_meta = _gerar_blocos_srt(audio_path, texto_referencia, max_caracteres=max_caracteres)
+    blocos, duracao, info_meta = _gerar_blocos_srt(audio_path, texto_referencia, max_caracteres=max_caracteres, progress_callback=progress_callback)
     srt_conteudo = _formatar_srt(blocos)
 
     # Auditoria de integridade matemática (sem ajuste automático silencioso)
@@ -621,6 +772,9 @@ def gerar_srt_whisper(audio_path, texto_referencia="", max_caracteres=42, retorn
         info_meta['aviso'] = f"✅ Legenda 100% íntegra ({auditoria['total_cues']} falas • 0 amontoadas)"
     else:
         info_meta['aviso'] = f"⚠️ Legenda gerada com {auditoria['amontoadas']} fala(s) amontoada(s) (Score: {auditoria['score']}%)"
+
+    if progress_callback:
+        progress_callback("Legenda SRT concluída!", pct=98)
 
     if retornar_meta:
         return srt_conteudo, info_meta

@@ -591,12 +591,20 @@ def _executar_pipeline_job_inner(itens_processar, roteiro_completo, juntar, nome
         erro_srt = None
 
         if gerar_srt:
+            def cb_unif(msg, pct=None):
+                if pct is not None:
+                    p_real = int(72 + (pct / 100.0) * 23)
+                    set_progresso(f"[Unificado] {msg}", pct=p_real)
+                else:
+                    set_progresso(f"[Unificado] {msg}")
+
             set_progresso("Whisper transcrevendo áudio unificado na GPU (última etapa)...", pct=72)
             try:
                 srt_conteudo, info_meta = get_transcribe_whisper().gerar_srt_whisper(
                     audio_final['caminho'],
                     texto_referencia=texto_ref,
-                    retornar_meta=True
+                    retornar_meta=True,
+                    progress_callback=cb_unif
                 )
                 caminho_srt = os.path.join(pasta_saida, f"{audio_final['nome']}.srt")
                 with open(caminho_srt, 'w', encoding='utf-8') as sf:
@@ -611,7 +619,8 @@ def _executar_pipeline_job_inner(itens_processar, roteiro_completo, juntar, nome
                     srt_conteudo, info_meta = get_transcribe_whisper().gerar_srt_whisper(
                         audio_final['caminho'],
                         texto_referencia="",
-                        retornar_meta=True
+                        retornar_meta=True,
+                        progress_callback=cb_unif
                     )
                     caminho_srt = os.path.join(pasta_saida, f"{audio_final['nome']}.srt")
                     with open(caminho_srt, 'w', encoding='utf-8') as sf:
@@ -674,13 +683,27 @@ def _executar_pipeline_job_inner(itens_processar, roteiro_completo, juntar, nome
             erro_srt = None
 
             if gerar_srt:
-                pct_inicio = int(68 + (idx / total_bl) * 26)
+                if nome_macro == 'apenas_srt':
+                    pct_inicio = int(10 + (idx / total_bl) * 85)
+                    pct_fim = int(10 + ((idx + 1) / total_bl) * 85)
+                else:
+                    pct_inicio = int(68 + (idx / total_bl) * 26)
+                    pct_fim = int(68 + ((idx + 1) / total_bl) * 26)
+
+                def cb_bloco(msg, pct=None):
+                    if pct is not None:
+                        p_real = int(pct_inicio + (pct / 100.0) * (pct_fim - pct_inicio))
+                        set_progresso(f"[{idx+1}/{total_bl}] {msg}", pct=p_real)
+                    else:
+                        set_progresso(f"[{idx+1}/{total_bl}] {msg}")
+
                 set_progresso(f"Whisper transcrevendo bloco {idx+1}/{total_bl} na GPU...", pct=pct_inicio)
                 try:
                     srt_conteudo, info_meta = get_transcribe_whisper().gerar_srt_whisper(
                         arq['caminho'],
                         texto_referencia=texto_ref,
-                        retornar_meta=True
+                        retornar_meta=True,
+                        progress_callback=cb_bloco
                     )
                     caminho_srt = os.path.join(pasta_saida, f"{arq['nome']}.srt")
                     with open(caminho_srt, 'w', encoding='utf-8') as sf:
@@ -688,7 +711,6 @@ def _executar_pipeline_job_inner(itens_processar, roteiro_completo, juntar, nome
                     aviso_srt = info_meta.get('aviso', '')
                     similaridade_srt = info_meta.get('similaridade', 100)
                     auditoria_srt = info_meta.get('auditoria', None)
-                    pct_fim = int(68 + ((idx + 1) / total_bl) * 26)
                     set_progresso(f"Bloco {idx+1}/{total_bl} concluído!", pct=pct_fim)
                 except Exception as ew:
                     sys.stderr.write(f"[Whisper] Tentativa bloco {idx+1} com texto_ref falhou ({ew}). Tentando fallback...\n")
@@ -696,7 +718,8 @@ def _executar_pipeline_job_inner(itens_processar, roteiro_completo, juntar, nome
                         srt_conteudo, info_meta = get_transcribe_whisper().gerar_srt_whisper(
                             arq['caminho'],
                             texto_referencia="",
-                            retornar_meta=True
+                            retornar_meta=True,
+                            progress_callback=cb_bloco
                         )
                         caminho_srt = os.path.join(pasta_saida, f"{arq['nome']}.srt")
                         with open(caminho_srt, 'w', encoding='utf-8') as sf:
@@ -1233,26 +1256,28 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     except Exception as e_ler:
                         sys.stderr.write(f"[Whisper] Erro ao ler SRT existente: {e_ler}\n")
 
-                set_progresso("Whisper transcrevendo áudio na GPU sob demanda...")
+                set_progresso(f"Whisper transcrevendo áudio na GPU: {os.path.basename(caminho_wav)}...", pct=10)
                 try:
                     srt_conteudo, info_meta = get_transcribe_whisper().gerar_srt_whisper(
                         caminho_wav,
                         texto_referencia=texto_ref,
-                        retornar_meta=True
+                        retornar_meta=True,
+                        progress_callback=set_progresso
                     )
                 except Exception as e_ref:
                     sys.stderr.write(f"[Whisper] Falha com texto de referência ({e_ref}). Tentando fallback áudio direto...\n")
                     srt_conteudo, info_meta = get_transcribe_whisper().gerar_srt_whisper(
                         caminho_wav,
                         texto_referencia="",
-                        retornar_meta=True
+                        retornar_meta=True,
+                        progress_callback=set_progresso
                     )
                     info_meta['aviso'] = "Legenda gerada por áudio direto (fallback)"
 
                 with open(caminho_srt, 'w', encoding='utf-8') as sf:
                     sf.write(srt_conteudo)
 
-                set_progresso("Legenda SRT gerada com sucesso!")
+                set_progresso("Legenda SRT gerada com sucesso!", pct=100)
                 ts_cache = int(time.time())
                 self.responder_json({
                     'success': True,
@@ -1658,9 +1683,16 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     try:
                         set_progresso("Re-sincronizando legenda SRT na GPU com nova velocidade...", pct=85)
                         import transcribe_whisper
+                        texto_ref_ajustar = ""
+                        try:
+                            with open(caminho_srt, 'r', encoding='utf-8', errors='ignore') as sf:
+                                srt_blocos = transcribe_whisper.parse_srt(sf.read())
+                                texto_ref_ajustar = " ".join([b['texto'] for b in srt_blocos if b.get('texto')])
+                        except Exception:
+                            pass
                         srt_novo, _ = transcribe_whisper.get_transcribe_whisper().gerar_srt_whisper(
                             caminho_wav,
-                            texto_referencia="",
+                            texto_referencia=texto_ref_ajustar,
                             retornar_meta=True
                         )
                         with open(caminho_srt, 'w', encoding='utf-8') as sf:
@@ -1749,8 +1781,15 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     if it.get('modificado') and os.path.isfile(cs):
                         try:
                             import transcribe_whisper
+                            texto_ref_lote = ""
+                            try:
+                                with open(cs, 'r', encoding='utf-8', errors='ignore') as sf:
+                                    srt_blocos = transcribe_whisper.parse_srt(sf.read())
+                                    texto_ref_lote = " ".join([b['texto'] for b in srt_blocos if b.get('texto')])
+                            except Exception:
+                                pass
                             srt_conteudo, _ = transcribe_whisper.get_transcribe_whisper().gerar_srt_whisper(
-                                cw, texto_referencia="", retornar_meta=True
+                                cw, texto_referencia=texto_ref_lote, retornar_meta=True
                             )
                             with open(cs, 'w', encoding='utf-8') as sf:
                                 sf.write(srt_conteudo)
