@@ -16,6 +16,16 @@ import re
 import wave
 import io
 
+LOG_FILE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'bridge_server.log')
+
+def _escrever_log_servidor(msg):
+    try:
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open(LOG_FILE_PATH, 'a', encoding='utf-8') as f:
+            f.write(f"[{ts}] {msg}\n")
+    except Exception:
+        pass
+
 class SafeStream:
     def __init__(self, target):
         self.target = target
@@ -24,6 +34,11 @@ class SafeStream:
             if self.target:
                 self.target.write(s)
                 self.target.flush()
+        except Exception:
+            pass
+        try:
+            if s and s.strip():
+                _escrever_log_servidor(s.strip())
         except Exception:
             pass
     def flush(self):
@@ -47,15 +62,21 @@ _pipe_runner = None
 _pipe_runner_mtime = 0
 def get_pipe_runner():
     global _pipe_runner, _pipe_runner_mtime
+    import importlib
     pr_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'pipe_runner.py')
     current_mtime = os.path.getmtime(pr_path) if os.path.isfile(pr_path) else 0
     if _pipe_runner is None:
         import pipe_runner as pr
-        _pipe_runner = pr
+        try:
+            _pipe_runner = importlib.reload(pr)
+        except Exception:
+            _pipe_runner = pr
         _pipe_runner_mtime = current_mtime
     elif current_mtime > _pipe_runner_mtime:
-        import importlib
-        _pipe_runner = importlib.reload(_pipe_runner)
+        try:
+            _pipe_runner = importlib.reload(_pipe_runner)
+        except Exception:
+            pass
         _pipe_runner_mtime = current_mtime
     globals()['pipe_runner'] = _pipe_runner
     return _pipe_runner
@@ -357,7 +378,7 @@ class HistoricoSilencioManager:
         return v0
 
     @classmethod
-    def registrar_novo_corte(cls, caminho_wav, preset, duracao_antiga_seg, caminho_srt=""):
+    def registrar_novo_corte(cls, caminho_wav, preset, duracao_antiga_seg, caminho_srt="", vezes=1):
         if not os.path.isfile(caminho_wav):
             return None, []
         nome_arq = os.path.basename(caminho_wav)
@@ -369,7 +390,8 @@ class HistoricoSilencioManager:
 
         pasta_hist = cls._pasta_hist(caminho_wav)
         nome_base = os.path.splitext(nome_arq)[0]
-        wav_ver = os.path.join(pasta_hist, f"{nome_base}_v{nova_id}_{preset}.wav")
+        sufixo_vezes = f"_{vezes}x" if (vezes and int(vezes) > 1) else ""
+        wav_ver = os.path.join(pasta_hist, f"{nome_base}_v{nova_id}_{preset}{sufixo_vezes}.wav")
         try:
             shutil.copy2(caminho_wav, wav_ver)
         except Exception as e:
@@ -378,7 +400,7 @@ class HistoricoSilencioManager:
         srt_ver = ""
         caminho_srt_cand = caminho_srt if (caminho_srt and os.path.isfile(caminho_srt)) else (os.path.splitext(caminho_wav)[0] + '.srt')
         if os.path.isfile(caminho_srt_cand):
-            srt_ver = os.path.join(pasta_hist, f"{nome_base}_v{nova_id}_{preset}.srt")
+            srt_ver = os.path.join(pasta_hist, f"{nome_base}_v{nova_id}_{preset}{sufixo_vezes}.srt")
             try:
                 shutil.copy2(caminho_srt_cand, srt_ver)
             except Exception:
@@ -419,10 +441,14 @@ class HistoricoSilencioManager:
         else:
             label_preset = preset
 
+        if vezes and int(vezes) > 1:
+            label_preset = f"{label_preset} ({vezes}x)"
+
         nova_v = {
             'id': nova_id,
             'label': label_preset,
             'preset': preset,
+            'vezes': int(vezes or 1),
             'timestamp': int(time.time()),
             'dataFmt': datetime.now().strftime('%d/%m %H:%M'),
             'duracaoSeg': meta_novo['duracao_seg'],
@@ -442,6 +468,23 @@ class HistoricoSilencioManager:
 
         hist_lista = [dict(v, isAtual=(v['id'] == nova_id)) for v in entry['versoes']]
         return nova_v, hist_lista
+
+    @classmethod
+    def obter_total_passos_anteriores(cls, caminho_wav):
+        """Calcula o total acumulado de passadas de corte aplicadas nas versões anteriores até a versão atual."""
+        nome_arq = os.path.basename(caminho_wav)
+        meta_dados = cls._carregar_meta(caminho_wav)
+        entry = meta_dados.get(nome_arq)
+        if not entry or not entry.get('versoes'):
+            return 0
+        v_atual = entry.get('versaoAtual', len(entry['versoes']) - 1)
+        if v_atual <= 0:
+            return 0
+        total = 0
+        for v in entry.get('versoes', []):
+            if 0 < v.get('id', 0) <= v_atual:
+                total += int(v.get('vezes', 1) or 1)
+        return total
 
     @classmethod
     def obter_historico(cls, caminho_wav):
@@ -571,7 +614,9 @@ def _executar_pipeline_job_inner(itens_processar, roteiro_completo, juntar, nome
         )
 
         if not res_audacity.get('success'):
-            set_progresso("Falha no Audacity.")
+            err_aud = res_audacity.get('error') or 'Falha desconhecida no Audacity'
+            set_progresso(f"Falha no Audacity: {err_aud}")
+            sys.stderr.write(f"[Audacity Pipeline] Falha no lote: {err_aud}\n")
             return res_audacity
 
         arquivos_audacity = res_audacity.get('arquivos', [])
@@ -981,6 +1026,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
     def _do_GET_inner(self):
         registrar_atividade()
+        pr = get_pipe_runner()
         parsed = urllib.parse.urlparse(self.path)
         caminho = parsed.path
 
@@ -1000,17 +1046,19 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 return self.responder_arquivo(caminho_html, 'text/html; charset=utf-8')
 
         if caminho == '/api/status':
-            macros = pipe_runner.list_available_macros()
-            audacity_exe = pipe_runner.find_audacity_exe()
+            macros = pr.list_available_macros()
+            audacity_exe = pr.find_audacity_exe()
             self.responder_json({
                 'ok': True,
                 'ambiente': 'DEV' if 'DEV' in BASE_DIR else 'PROD',
                 'pasta': BASE_DIR,
+                'inicio_server': INICIO_SERVER,
                 'audacityInstalado': audacity_exe is not None,
                 'audacityCaminho': audacity_exe or '',
-                'audacityRunning': pipe_runner.is_audacity_running(),
+                'audacityRunning': pr.is_audacity_running(),
                 'macros': macros,
                 'whisperPronto': True,
+                'em_processamento': EM_PROCESSAMENTO,
                 'progresso': PROGRESSO_ATUAL
             })
 
@@ -1134,6 +1182,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
     def _do_POST_inner(self):
         global EM_PROCESSAMENTO
         registrar_atividade()
+        get_pipe_runner()
         parsed = urllib.parse.urlparse(self.path)
         caminho = parsed.path
 
@@ -1222,6 +1271,10 @@ class BridgeHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 self.responder_json({'success': False, 'error': str(e)}, status=500)
 
+        elif caminho == '/api/progresso/reset':
+            set_progresso("Iniciando...", pct=0)
+            self.responder_json({'success': True, 'pct': 0, 'progresso': 'Iniciando...'})
+
         elif caminho == '/api/whisper/gerar-srt':
             EM_PROCESSAMENTO = True
             try:
@@ -1231,6 +1284,8 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 caminho_wav = dados.get('caminhoWav', '')
                 texto_ref = dados.get('textoReferencia', '')
                 forcar = bool(dados.get('forcar', False))
+
+                set_progresso(f"Iniciando transcrição Whisper: {os.path.basename(caminho_wav)}...", pct=5)
 
                 if not os.path.isfile(caminho_wav):
                     return self.responder_json({'success': False, 'error': f'Arquivo WAV não encontrado: {caminho_wav}'}, status=404)
@@ -1429,6 +1484,8 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 caminho_wav = dados.get('caminhoWav', '')
                 texto_ref = dados.get('textoReferencia', '')
                 gerar_srt = bool(dados.get('gerarSrt', True))
+                vezes = max(1, min(10, int(dados.get('vezes', 1) or 1)))
+                vezes_label = f" ({vezes}x)" if vezes > 1 else ""
 
                 # Suporte a presets e configurações dinâmicas
                 preset = str(dados.get('preset', '0.8_70'))
@@ -1460,18 +1517,21 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 duracao_antiga = meta_antes['duracao_seg']
                 HistoricoSilencioManager.registrar_original_se_necessario(caminho_wav, caminho_srt_existente)
 
-                set_progresso(f"Aplicando corte de silêncio ({duracao}s / {compressao}%) no Audacity: {os.path.basename(caminho_wav)}...", pct=10)
+                offset_cortes = HistoricoSilencioManager.obter_total_passos_anteriores(caminho_wav)
+                set_progresso(f"Aplicando corte de silêncio nativo ({duracao}s / {compressao}%{vezes_label}): {os.path.basename(caminho_wav)}...", pct=10)
                 res_audacity = pipe_runner.executar_travar_silencio(
                     caminho_wav,
                     duracao=duracao,
                     compressao=compressao,
                     limiar=limiar,
                     descartar=descartar,
+                    vezes=vezes,
+                    offset_cortes=offset_cortes,
                     progress_callback=set_progresso
                 )
 
                 if not res_audacity.get('success'):
-                    set_progresso("Falha ao travar silêncio no Audacity.", pct=0)
+                    set_progresso("Falha no corte de silêncio.", pct=0)
                     return self.responder_json(res_audacity, status=500)
 
                 # Recalcula metadados de áudio após redução de silêncio
@@ -1489,7 +1549,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 aviso_srt = ""
 
                 nova_v, hist_lista = HistoricoSilencioManager.registrar_novo_corte(
-                    caminho_wav, preset, duracao_antiga, caminho_srt=caminho_srt
+                    caminho_wav, preset, duracao_antiga, caminho_srt=caminho_srt, vezes=vezes
                 )
 
                 set_progresso("Silêncio travado e áudio atualizado com sucesso!", pct=100)
@@ -1529,6 +1589,9 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 if not itens:
                     return self.responder_json({'success': False, 'error': 'Nenhum áudio informado.'}, status=400)
 
+                vezes = max(1, min(10, int(dados.get('vezes', 1) or 1)))
+                vezes_label = f" ({vezes}x)" if vezes > 1 else ""
+
                 preset = str(dados.get('preset', '0.8_70'))
                 if '_' in preset:
                     try:
@@ -1550,7 +1613,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 limiar = str(dados.get('limiar', '-35'))
                 descartar = str(dados.get('descartar', '0,5'))
 
-                # Registra originais e armazena durações pré-corte
+                # Registra originais e armazena durações pré-corte e offset de passos
                 duracoes_antigas = {}
                 for it in itens:
                     cw = it.get('caminhoWav') or it.get('caminho') or ''
@@ -1559,19 +1622,23 @@ class BridgeHandler(BaseHTTPRequestHandler):
                         duracoes_antigas[cw] = meta_it['duracao_seg']
                         caminho_srt_cand = os.path.splitext(cw)[0] + '.srt'
                         HistoricoSilencioManager.registrar_original_se_necessario(cw, caminho_srt_cand)
+                        it['offset_cortes'] = HistoricoSilencioManager.obter_total_passos_anteriores(cw)
+                    else:
+                        it['offset_cortes'] = 0
 
-                set_progresso(f"Iniciando corte de silêncio em lote no Audacity ({len(itens)} áudio(s))...", pct=5)
+                set_progresso(f"Iniciando corte de silêncio nativo em lote ({len(itens)} áudio(s){vezes_label})...", pct=5)
                 res_lote = pipe_runner.executar_travar_silencio_lote(
                     itens,
                     duracao=duracao,
                     compressao=compressao,
                     limiar=limiar,
                     descartar=descartar,
+                    vezes=vezes,
                     progress_callback=set_progresso
                 )
 
                 if not res_lote.get('success'):
-                    set_progresso("Falha no corte de silêncio em lote no Audacity.", pct=0)
+                    set_progresso("Falha no corte de silêncio em lote.", pct=0)
                     return self.responder_json(res_lote, status=500)
 
                 itens_processados = res_lote.get('itens', [])
@@ -1598,7 +1665,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     similaridade_srt = 100
 
                     nova_v, hist_lista = HistoricoSilencioManager.registrar_novo_corte(
-                        caminho_wav, preset, duracoes_antigas.get(caminho_wav, meta['duracao_seg']), caminho_srt=caminho_srt
+                        caminho_wav, preset, duracoes_antigas.get(caminho_wav, meta['duracao_seg']), caminho_srt=caminho_srt, vezes=vezes
                     )
 
                     ts_cache = int(time.time())
@@ -1897,6 +1964,33 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 set_progresso(f"Erro ao restaurar lote: {e}")
                 self.responder_json({'success': False, 'error': str(e)}, status=500)
 
+        elif caminho == '/api/audacity/abrir-lote':
+            try:
+                tamanho = int(self.headers.get('Content-Length', 0))
+                corpo_bruto = self.rfile.read(tamanho) if tamanho > 0 else b'{}'
+                dados = json.loads(corpo_bruto.decode('utf-8')) if corpo_bruto else {}
+
+                caminhos = dados.get('caminhos', [])
+                if not caminhos and isinstance(dados.get('itens'), list):
+                    caminhos = [it.get('caminhoWav') or it.get('caminho') for it in dados['itens'] if it]
+
+                # Se nenhum caminho explícito foi enviado, procura áudios do job mais recente
+                if not caminhos:
+                    dir_proc = os.path.join(BASE_DIR, '..', 'Processados')
+                    jobs = sorted(glob.glob(os.path.join(dir_proc, 'job_*')), key=os.path.getmtime, reverse=True)
+                    if jobs:
+                        caminhos = sorted(glob.glob(os.path.join(jobs[0], 'saida', '*.wav')))
+                        if not caminhos:
+                            caminhos = sorted(glob.glob(os.path.join(jobs[0], 'temp', '*.wav')))
+
+                caminhos = [c for c in caminhos if c and os.path.isfile(c)]
+                if not caminhos:
+                    return self.responder_json({'success': False, 'error': 'Nenhum áudio encontrado para abrir no Audacity.'}, status=400)
+
+                res = pipe_runner.abrir_audacity_com_arquivos(caminhos)
+                self.responder_json(res)
+            except Exception as e:
+                self.responder_json({'success': False, 'error': str(e)}, status=500)
 
         elif caminho == '/api/whisper/validar-final':
             try:

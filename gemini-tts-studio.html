@@ -352,9 +352,13 @@
       background: var(--surface2);
       display: flex;
       flex-direction: column;
-      padding: 10px 12px;
-      gap: 8px;
-      overflow-y: auto;
+      padding: 8px 10px;
+      gap: 6px;
+      overflow: hidden !important;
+    }
+    .sidebar-bottom::-webkit-scrollbar {
+      display: none !important;
+      width: 0 !important;
     }
     .sidebar-action-box {
       background: var(--surface);
@@ -440,75 +444,39 @@
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 8px 10px;
+      padding: 6px 8px;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 4px;
       font-size: 11px;
     }
-    .resumo-audios-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 4px;
-    }
-    .resumo-audios-title {
-      font-size: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--text-muted);
-    }
-    .resumo-audios-status {
-      font-size: 9.5px;
-      font-weight: 700;
-      padding: 1px 6px;
-      border-radius: 4px;
-      background: rgba(245, 158, 11, 0.15);
-      color: #f59e0b;
-      border: 1px solid rgba(245, 158, 11, 0.35);
-    }
-    .resumo-audios-status.concluido {
-      background: rgba(16, 185, 129, 0.15);
-      color: #10b981;
-      border-color: rgba(16, 185, 129, 0.35);
-    }
-    .resumo-audios-grid {
+    .resumo-audios-grid-sucinto {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 4px;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px 10px;
       background: var(--surface2);
       border-radius: 6px;
-      padding: 5px 6px;
+      padding: 5px 8px;
       border: 1px solid rgba(255, 255, 255, 0.04);
     }
     .resumo-mini-stat {
       display: flex;
       flex-direction: column;
-      align-items: center;
-      text-align: center;
+      align-items: flex-start;
       gap: 1px;
     }
     .resumo-mini-stat .stat-lbl {
-      font-size: 9px;
+      font-size: 9.5px;
       font-weight: 600;
       color: var(--text-muted);
       white-space: nowrap;
     }
     .resumo-mini-stat .stat-val {
-      font-size: 10.5px;
+      font-size: 11px;
       font-weight: 700;
       color: var(--text);
       font-family: 'Consolas', 'Courier New', monospace;
       white-space: nowrap;
-    }
-    .resumo-audios-footer {
-      font-size: 9.5px;
-      font-weight: 500;
-      color: var(--text-muted);
-      text-align: center;
-      line-height: 1.2;
     }
     .terminal-main-line {
       display: flex;
@@ -549,8 +517,8 @@
       line-height: 9px;
     }
     .terminal-log {
-      max-height: 58px;
-      overflow-y: auto;
+      max-height: 40px;
+      overflow: hidden;
       font-size: 9.5px;
       color: #64748b;
       display: flex;
@@ -561,11 +529,8 @@
       border-top: 1px dashed rgba(255, 255, 255, 0.06);
     }
     .terminal-log::-webkit-scrollbar {
-      width: 4px;
-    }
-    .terminal-log::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.12);
-      border-radius: 2px;
+      display: none !important;
+      width: 0 !important;
     }
     .terminal-log-entry {
       line-height: 1.3;
@@ -1483,6 +1448,23 @@
   <h1>Gemini TTS Studio</h1>
   <span id="envBadge" class="env-badge"></span>
   <span id="headerProfile">Selecione um perfil</span>
+
+  <!-- NAVEGAÇÃO DE ABAS DO WORKSPACE (ACOPLADAS NO TOPO DA INTERFACE) -->
+  <div class="workspace-tabs header-tabs" id="workspaceTabsHeader" style="margin:0 0 0 14px; border:none; padding:0; display:flex; gap:6px; align-items:center;">
+    <button class="ws-tab active" id="tabEstudioBtn" onclick="trocarAbaWorkspace('estudio')" style="padding:4px 12px; font-size:12px; height:28px;">
+      <span style="font-size:13px;">🎙️</span> 1. Gerador de Áudio
+    </button>
+    <button class="ws-tab" id="tabAudacityBtn" onclick="trocarAbaWorkspace('audacity')" style="padding:4px 12px; font-size:12px; height:28px;">
+      <span style="font-size:13px;">🎚️</span> 2. Estúdio Audacity
+      <span class="ws-tab-badge" id="badgeAudacity">0</span>
+      <span class="ws-tab-badge" id="badgeMasterizados" style="display:none;">0</span>
+    </button>
+    <button class="ws-tab" id="tabLegendasBtn" onclick="trocarAbaWorkspace('legendas')" style="padding:4px 12px; font-size:12px; height:28px;">
+      <span style="font-size:13px;">📝</span> 3. Legendas SRT
+      <span class="ws-tab-badge" id="badgeLegendas">0</span>
+    </button>
+  </div>
+
   <div style="margin-left:auto; display:flex; align-items:center; gap:8px;">
     <button class="btn-icon" id="btnAplicarHtmlOg" onclick="aplicarMudancasNoHtmlOg()" style="display:none; background:var(--accent); color:white; border-color:var(--accent); font-weight:600; padding:6px 12px; cursor:pointer;" title="Aplica todas as melhorias testadas aqui no HTML original (Gemini TTS.html e Produção) com backup automático">🚀 Aplicar no HTML Original (PROD)</button>
     <a class="btn-icon" id="verGithubBtn" href="https://github.com/JAEMult/gemini-tts-studio" target="_blank" rel="noopener noreferrer" style="text-decoration:none; display:inline-flex; align-items:center; gap:5px;" title="Abrir o repositório oficial no GitHub em uma nova aba">Ver no GitHub <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg></a>
@@ -1753,28 +1735,25 @@
         </div>
       </div>
 
-      <!-- PAINEL PERMANENTE DE STATUS E RESUMO DOS ÁUDIOS -->
+      <!-- PAINEL PERMANENTE SUCINTO DE STATUS DOS ÁUDIOS -->
       <div class="sidebar-resumo-audios" id="painelResumoAudiosSidebar">
-        <div class="resumo-audios-header">
-          <span class="resumo-audios-title">📊 Áudios do Projeto</span>
-          <span class="resumo-audios-status" id="resumoAudiosStatusBadge">0 prontos</span>
-        </div>
-        <div class="resumo-audios-grid">
+        <div class="resumo-audios-grid-sucinto">
           <div class="resumo-mini-stat" title="Áudios gerados no Estúdio (Aba 1)">
             <span class="stat-lbl">🎙️ Gerados:</span>
             <span class="stat-val" id="statAudiosGerados">0 / 0</span>
+          </div>
+          <div class="resumo-mini-stat" title="Áudios aceitos e aprovados no Estúdio (Aba 1)">
+            <span class="stat-lbl">✓ Aprovados:</span>
+            <span class="stat-val" id="statAudiosAprovados">0 / 0</span>
           </div>
           <div class="resumo-mini-stat" title="Áudios masterizados no Audacity (Aba 2)">
             <span class="stat-lbl">🎚️ Master:</span>
             <span class="stat-val" id="statAudiosMaster">0 / 0</span>
           </div>
           <div class="resumo-mini-stat" title="Legendas SRT sincronizadas no Whisper (Aba 3)">
-            <span class="stat-lbl">📝 Legendas:</span>
+            <span class="stat-lbl">📝 Legenda:</span>
             <span class="stat-val" id="statAudiosSrt">0 / 0</span>
           </div>
-        </div>
-        <div class="resumo-audios-footer" id="resumoAudiosFooter">
-          <span>⏳ Nenhum áudio gerado ainda</span>
         </div>
       </div>
     </div> <!-- /.sidebar-bottom -->
@@ -1783,22 +1762,6 @@
 
   <!-- WORKSPACE -->
   <main class="workspace">
-    <!-- NAVEGAÇÃO DE ABAS DO WORKSPACE -->
-    <div class="workspace-tabs">
-      <button class="ws-tab active" id="tabEstudioBtn" onclick="trocarAbaWorkspace('estudio')">
-        <span style="font-size:15px;">🎙️</span> 1. Gerador de Áudio
-      </button>
-      <button class="ws-tab" id="tabAudacityBtn" onclick="trocarAbaWorkspace('audacity')">
-        <span style="font-size:15px;">🎚️</span> 2. Estúdio Audacity
-        <span class="ws-tab-badge" id="badgeAudacity">0</span>
-        <span class="ws-tab-badge" id="badgeMasterizados" style="display:none;">0</span>
-      </button>
-      <button class="ws-tab" id="tabLegendasBtn" onclick="trocarAbaWorkspace('legendas')">
-        <span style="font-size:15px;">📝</span> 3. Legendas SRT
-        <span class="ws-tab-badge" id="badgeLegendas">0</span>
-      </button>
-    </div>
-
     <!-- VIEW 1: ESTÚDIO DE GRAVAÇÃO -->
     <div id="viewEstudio">
       <!-- 1 · ROTEIRO COMPLETO -->
@@ -1955,6 +1918,12 @@
             <option value="0.5_80" style="background:#1a1a24; color:#e2e8f0;">0,5s / 80% (Ritmo Dinâmico)</option>
             <option value="0.35_85" style="background:#1a1a24; color:#e2e8f0;">0,35s / 85% (Ultra Rápido / Shorts)</option>
           </select>
+          <select id="selVezesLote" onchange="atualizarTextoBtnTravarTodos(this.value)" style="width:32px; min-width:32px; max-width:32px; background:transparent; border:none; border-right:1px solid rgba(245,158,11,0.25); color:#f59e0b; padding:6px 0; font-size:11.5px; font-weight:700; cursor:pointer; outline:none; font-family:inherit; text-align:center; text-align-last:center; -webkit-appearance:none; appearance:none;" title="Quantas vezes aplicar consecutivamente em todos os áudios (1x, 2x, 3x, 4x)">
+            <option value="1" selected style="background:#1a1a24; color:#e2e8f0;">1x</option>
+            <option value="2" style="background:#1a1a24; color:#e2e8f0;">2x</option>
+            <option value="3" style="background:#1a1a24; color:#e2e8f0;">3x</option>
+            <option value="4" style="background:#1a1a24; color:#e2e8f0;">4x</option>
+          </select>
           <button class="btn-download" id="btnTravarSilencioTodos" onclick="travarSilencioTodosMasterizados()" style="border:none; border-radius:0; padding:6px 13px; background:rgba(245,158,11,0.14); color:#f59e0b; font-weight:600; font-size:11.5px; cursor:pointer;" title="Aplica a configuração selecionada em todos os áudios">
             ✂️ Travar em Todos
           </button>
@@ -2079,9 +2048,9 @@
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <!-- MÓDULOS JAVASCRIPT BLINDADOS E DESACOPLADOS -->
-<script src="js/shared_core.js"></script>
-<script src="js/modulo1_gerador.js"></script>
-<script src="js/modulo2_audacity.js"></script>
-<script src="js/modulo3_legendas.js"></script>
+<script src="js/shared_core.js?v=20260930_1100"></script>
+<script src="js/modulo1_gerador.js?v=20260930_1100"></script>
+<script src="js/modulo2_audacity.js?v=20260930_1100"></script>
+<script src="js/modulo3_legendas.js?v=20260930_1100"></script>
 </body>
 </html>

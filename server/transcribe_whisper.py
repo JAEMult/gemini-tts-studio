@@ -121,6 +121,36 @@ def remover_colchetes(texto):
     """Remove indicações de cena e audio tags como [whispering], [gasp], [pause]."""
     return limpar_todas_tags(texto)
 
+# Padrões conhecidos de alucinações e metadados de raspagem do Whisper (ex: créditos comunitários do YouTube no silêncio)
+PADRAO_ALUCINACOES_WHISPER = re.compile(
+    r'(?i)\b('
+    r'legendas?\s+pela\s+comunidade\s+(?:de\s+)?amara\.org|'
+    r'subt[ií]tulos\s+por\s+la\s+comunidad\s+(?:de\s+)?amara\.org|'
+    r'subtitles\s+by\s+the\s+amara\.org\s+community|'
+    r'sous-titres\s+par\s+la\s+communaut[ée]\s+d[\'’]amara\.org|'
+    r'amara\.org|'
+    r'opensubtitles(?:\.org)?|'
+    r'visualiza[çc][ãa]o:\s*amara|'
+    r'legendas?\s+da\s+comunidade\b|'
+    r'transcri[çc][ãa]o\s+pela\s+comunidade\b|'
+    r'legendado\s+pela\s+comunidade\b'
+    r')\b'
+)
+
+def eh_alucinacao_whisper(texto, texto_referencia=""):
+    """
+    Detecta se um bloco de texto é uma alucinação clássica do Whisper ou crédito fantasma de raspagem.
+    Se o usuário explicitamente colocou a palavra no texto de referência, não descarta.
+    """
+    if not texto or not str(texto).strip():
+        return False
+    t_limpo = str(texto).strip().lower()
+    if PADRAO_ALUCINACOES_WHISPER.search(t_limpo):
+        ref_limpo = (texto_referencia or "").lower()
+        if "amara" not in ref_limpo and "opensubtitles" not in ref_limpo:
+            return True
+    return False
+
 def _normalizar_palavra_alinhamento(p):
     """Normaliza para comparação fonética/textual flexível."""
     p_sem_acento = remover_acentos(p.lower())
@@ -329,12 +359,15 @@ def _gerar_blocos_srt(audio_path, texto_usuario="", max_caracteres=42, progress_
     duracao_total = getattr(info, 'duration', 0.0) or 1.0
     palavras_audio = []
     for seg in segments:
+        seg_txt = getattr(seg, 'text', '') or ''
+        if eh_alucinacao_whisper(seg_txt, texto_usuario):
+            continue
         if progress_callback:
             pct = int(min(92, max(15, (seg.end / duracao_total) * 100)))
             progress_callback(f"Transcrevendo com Whisper ({seg.end:.1f}s / {duracao_total:.1f}s)...", pct=pct)
         for w in (seg.words or []):
             w_limpo = limpar_todas_tags(w.word.strip())
-            if w_limpo:
+            if w_limpo and not eh_alucinacao_whisper(w_limpo, texto_usuario):
                 palavras_audio.append((w_limpo, w.start, w.end))
 
     n_audio = len(palavras_audio)
@@ -454,7 +487,11 @@ def _formatar_srt(blocos):
     linhas_srt = []
     idx_real = 1
     for (t0, t1, texto_bloco) in blocos:
+        if eh_alucinacao_whisper(texto_bloco):
+            continue
         texto_limpo = limpar_todas_tags(texto_bloco)
+        if eh_alucinacao_whisper(texto_limpo):
+            continue
         # Normalização gramatical final
         texto_limpo = re.sub(r'\bInscreva\s*-\s*se\b', 'Inscreva-se', texto_limpo, flags=re.IGNORECASE)
         texto_limpo = re.sub(r'\bInscreva\s+se\b', 'Inscreva-se', texto_limpo, flags=re.IGNORECASE)
@@ -541,6 +578,7 @@ def auditar_srt(srt_conteudo, duracao_audio_seg=None):
     micro_duras = []
     mega_duras = []
     retrocessos = []
+    alucinacoes = []
     total_chars = 0
     total_tempo_fala = 0.0
     cps_max = 0.0
@@ -552,6 +590,9 @@ def auditar_srt(srt_conteudo, duracao_audio_seg=None):
         chars = len(txt)
         total_chars += chars
         total_tempo_fala += max(0.1, dur)
+
+        if eh_alucinacao_whisper(txt):
+            alucinacoes.append({'idx': b['idx'], 'txt': txt[:40]})
 
         cps = chars / max(0.1, dur)
         if cps > cps_max:
@@ -600,6 +641,10 @@ def auditar_srt(srt_conteudo, duracao_audio_seg=None):
     score = 100
     problemas = []
 
+    if alucinacoes:
+        score -= min(50, len(alucinacoes) * 25)
+        problemas.append(f"{len(alucinacoes)} alucinação(ões) ou créditos fantasmas do Whisper detectados (ex: Amara.org).")
+
     if amontoadas:
         qtd = len(amontoadas)
         perda = min(60, qtd * 10)
@@ -631,7 +676,7 @@ def auditar_srt(srt_conteudo, duracao_audio_seg=None):
         score = 0
 
     score = max(0, min(100, score))
-    aprovado = (score >= 90 and len(amontoadas) == 0 and len(retrocessos) == 0 and len(micro_duras) <= 2)
+    aprovado = (score >= 90 and len(amontoadas) == 0 and len(retrocessos) == 0 and len(micro_duras) <= 2 and len(alucinacoes) == 0)
 
     if aprovado:
         resumo = f"100% Íntegro ({total_cues} falas • 0 amontoadas • CPS: {cps_medio})"
@@ -668,7 +713,7 @@ def reparar_srt(srt_conteudo, duracao_audio_seg=None):
     limpos = []
     for b in blocos:
         txt = normalizar_gramatica_srt(limpar_todas_tags(b.get('texto', '')))
-        if not txt:
+        if not txt or eh_alucinacao_whisper(txt):
             continue
         b['texto'] = txt
         if limpos:
